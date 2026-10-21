@@ -1,0 +1,84 @@
+name: PlanetPort
+options:
+  bundleIdPrefix: com.zivyuan
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    CODE_SIGN_STYLE: Automatic
+    SWIFT_VERSION: "5.9"
+targets:
+  PlanetPort:
+    type: application
+    platform: iOS
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: cn.imgozi.planetport
+        # 无 AppIcon 资源（与建仓时一致）；仅有背景图 imageset。
+        ASSETCATALOG_COMPILER_APPICON_NAME: ""
+    sources:
+      - path: PlanetPort
+      - path: Shared
+    dependencies:
+      - target: PlanetPortTunnel
+        embed: true
+        codeSign: true
+    entitlements:
+      path: PlanetPort/PlanetPort.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.cn.imgozi.planetport
+        com.apple.developer.networking.networkextension:
+          - packet-tunnel-provider
+    info:
+      path: PlanetPort/Info.plist
+      properties:
+        CFBundleDisplayName: PlanetPort
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+  PlanetPortTunnel:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: PlanetPortTunnel
+      - path: ZTBridge
+      - path: Shared
+      - path: Core
+        excludes:
+          - "**/*.md"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: cn.imgozi.planetport.tunnel
+        CLANG_CXX_LANGUAGE_STANDARD: c++17
+        CLANG_CXX_LIBRARY: libc++
+        GCC_PREPROCESSOR_DEFINITIONS:
+          - ZT_NO_PEER_METRICS=1
+        HEADER_SEARCH_PATHS:
+          - $(SRCROOT)/Core/include
+          - $(SRCROOT)/Core/ext
+          - $(SRCROOT)/Core/ext/prometheus-cpp-lite-1.0/core
+          - $(SRCROOT)/Core/ext/prometheus-cpp-lite-1.0/simpleapi
+        SWIFT_OBJC_BRIDGING_HEADER: ZTBridge/PlanetPortTunnel-Bridging-Header.h
+        GCC_PRECOMPILE_PREFIX_HEADER: NO
+    entitlements:
+      path: PlanetPortTunnel/PlanetPortTunnel.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.cn.imgozi.planetport
+        com.apple.developer.networking.networkextension:
+          - packet-tunnel-provider
+    info:
+      path: PlanetPortTunnel/Info.plist
+      properties:
+        CFBundleDisplayName: PlanetPortTunnel
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.networkextension.packet-tunnel
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).PacketTunnelProvider
+schemes:
+  PlanetPort:
+    build:
+      targets:
+        PlanetPort: all
