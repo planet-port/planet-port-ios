@@ -1,7 +1,7 @@
 import Foundation
 
 enum AppConfigStore {
-    static let configChangedNotification = "cn.imgozi.planetport.configChanged"
+    static let configChangedNotification = "cn.imgozi.PlanetPortI.configChanged"
 
     private static let networksFile = AppGroup.configDir.appendingPathComponent("networks.json")
     private static let moonsFile = AppGroup.configDir.appendingPathComponent("moons.json")

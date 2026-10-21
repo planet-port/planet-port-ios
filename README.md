@@ -49,7 +49,7 @@ open PlanetPort.xcodeproj
 # 真机连接后 Cmd+R 运行主 target（extension 随主 App 嵌入安装）
 ```
 
-依赖的 entitlements 已在 project.yml 声明：App Groups (`group.cn.imgozi.planetport`)、Packet Tunnel Provider（个人账号可用）。
+依赖的 entitlements 已在 project.yml 声明：App Groups (`group.cn.imgozi.PlanetPortI`)、Packet Tunnel Provider（个人账号可用）。
 
 ## 真机验证清单
 

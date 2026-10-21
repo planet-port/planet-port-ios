@@ -14,7 +14,7 @@ targets:
     platform: iOS
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: cn.imgozi.planetport
+        PRODUCT_BUNDLE_IDENTIFIER: cn.imgozi.PlanetPortI
         # 无 AppIcon 资源（与建仓时一致）；仅有背景图 imageset。
         ASSETCATALOG_COMPILER_APPICON_NAME: ""
     sources:
@@ -28,7 +28,7 @@ targets:
       path: PlanetPort/PlanetPort.entitlements
       properties:
         com.apple.security.application-groups:
-          - group.cn.imgozi.planetport
+          - group.cn.imgozi.PlanetPortI
         com.apple.developer.networking.networkextension:
           - packet-tunnel-provider
     info:
@@ -51,7 +51,7 @@ targets:
           - "**/*.md"
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: cn.imgozi.planetport.tunnel
+        PRODUCT_BUNDLE_IDENTIFIER: cn.imgozi.PlanetPortI.tunnel
         CLANG_CXX_LANGUAGE_STANDARD: c++17
         CLANG_CXX_LIBRARY: libc++
         GCC_PREPROCESSOR_DEFINITIONS:
@@ -67,7 +67,7 @@ targets:
       path: PlanetPortTunnel/PlanetPortTunnel.entitlements
       properties:
         com.apple.security.application-groups:
-          - group.cn.imgozi.planetport
+          - group.cn.imgozi.PlanetPortI
         com.apple.developer.networking.networkextension:
           - packet-tunnel-provider
     info:

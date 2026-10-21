@@ -120,7 +120,7 @@ final class VPNManager {
             }
             let m = NETunnelProviderManager()
             let proto = NETunnelProviderProtocol()
-            proto.providerBundleIdentifier = "cn.imgozi.planetport.tunnel"
+            proto.providerBundleIdentifier = "cn.imgozi.PlanetPortI.tunnel"
             proto.providerConfiguration = [:]
             proto.serverAddress = "ZeroTier"
             m.protocolConfiguration = proto
@@ -133,7 +133,7 @@ final class VPNManager {
 
     private func isOurs(_ m: NETunnelProviderManager) -> Bool {
         guard let proto = m.protocolConfiguration as? NETunnelProviderProtocol else { return false }
-        return proto.providerBundleIdentifier == "cn.imgozi.planetport.tunnel"
+        return proto.providerBundleIdentifier == "cn.imgozi.PlanetPortI.tunnel"
     }
 
     /// Connect On Demand（iOS 侧补全 Android 半成品开机自启）
