@@ -36,11 +36,6 @@ struct HomeView: View {
 
     fileprivate static let addTag = "__add__"
 
-    /// 页面内容顶部固定间距 = 标题区高度 64 + 24 空隙（原 12，整体再下移 12）。
-    /// 标题区高度为常量：6 顶距 + 36 标题行（设置按钮撑高）+ 4 行距 + 6 圆点行 + 12 底距。
-    /// 标题区任何子视图（行星提示、圆点数量）变化都不改变该高度。
-    private static let pageTopPadding: CGFloat = 88
-
     /// 窗口底部安全区高度（Home 指示条），随机型 34/20/0pt，动态补偿列表视口用。
     /// 不过滤场景激活状态：冷启动首帧场景还未 active，过滤会导致头几秒读到 0。
     private static func readBottomSafeInset() -> CGFloat {
@@ -333,41 +328,15 @@ struct HomeView: View {
             .padding(.bottom, -bottomInset)
             .scrollDismissesKeyboard(.immediately)
         }
-        .padding(.top, Self.pageTopPadding)
+        .padding(.top, HomeMetrics.pageTopPadding)
         // 全屏：页面整体忽略底安全区，滚动视口才真正铺到物理屏幕底
         // （仅靠外层 TabView 忽略无法传递到页内，列表会停在 Home 指示条上沿）。
         .ignoresSafeArea(edges: .bottom)
     }
 
-    /// 末位"添加"页：虚线预览身份区（占位语义）+ 大标题 + 内嵌表单，
-    /// 与行星页的布局语言刻意区分，一眼可辨"这是创建流程"。
+    /// 末位"添加"页（组件见 AddPlanetPage）。
     private var addPage: some View {
-        ScrollView {
-            VStack(spacing: 14) {
-                addPreviewCard
-                    .padding(.horizontal, 20)
-                    .padding(.top, 4)
-                addHeader
-                    .padding(.horizontal, 20)
-                AddPlanetForm(name: $addPreviewName) { profile in
-                    app.reloadConfig()
-                    app.selectPlanet(profile)
-                    // 添加成功后换一个新的随机名，避免与刚添加的行星重名。
-                    addPreviewName = PlanetNameSuggest.random(excluding: Set(app.planets.map(\.name)))
-                }
-                .padding(.horizontal, 20)
-            }
-            .padding(.top, Self.pageTopPadding)
-            .padding(.bottom, 96)
-        }
-        .scrollDismissesKeyboard(.immediately)
-        // 与行星分页一致：忽略底安全区，页面铺到物理屏幕底。
-        .ignoresSafeArea(edges: .bottom)
-        .onAppear {
-            if addPreviewName.isEmpty {
-                addPreviewName = PlanetNameSuggest.random(excluding: Set(app.planets.map(\.name)))
-            }
-        }
+        AddPlanetPage(previewName: $addPreviewName)
     }
 
     private func planetCard(_ planet: PlanetProfile) -> some View {
@@ -381,16 +350,6 @@ struct HomeView: View {
                 app.selectPlanet(planet)
                 path.append(.planetSettings(planet.id))
             }
-    }
-
-    /// 添加页的预览身份区：虚线边框占位形态，信息随表单实时同步。
-    private var addPreviewCard: some View {
-        let displayName = addPreviewName.trimmingCharacters(in: .whitespacesAndNewlines)
-        let profile = PlanetProfile(id: "preview-\(displayName.isEmpty ? "planet" : displayName)",
-                                    name: displayName.isEmpty ? "新行星" : displayName,
-                                    kind: .custom, fileName: nil)
-        return PlanetCardView(planet: profile, activePlanetName: "", isActive: false,
-                              app: app, isPreview: true)
     }
 
     // MARK: - 网络
@@ -407,19 +366,6 @@ struct HomeView: View {
             .font(.footnote.weight(.semibold))
             .foregroundStyle(.secondary)
             .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    /// 新增页标题：headline 主标题 + footnote 副指引，与行星页的低调计数行拉开层级。
-    private var addHeader: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("添加行星")
-                .font(.headline)
-                .foregroundStyle(.primary)
-            Text("导入 planet 文件，或输入下载地址")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var emptyState: some View {
@@ -443,88 +389,15 @@ struct HomeView: View {
     }
 
     private func networkCard(_ entry: NetworkEntry) -> some View {
-        let cardStatus = NetworkCardStatus(entry: entry, app: app)
-        return HStack(spacing: 12) {
-            // 用 onTapGesture 而非 NavigationLink：位移超过阈值即失败，
-            // 横滑翻页不会误开详情页。
-            VStack(alignment: .leading, spacing: 5) {
-                Text(entry.networkName.isEmpty ? entry.networkId : entry.networkName)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-                Text(entry.networkId)
-                    .font(.system(.caption, design: .monospaced))
-                    .foregroundStyle(.tertiary)
-                    .lineLimit(1)
-                // 状态行：IP 紧跟状态文本之后，复制按钮在 IP 后面。
-                HStack(spacing: 8) {
-                    Circle()
-                        .fill(cardStatus.color)
-                        .frame(width: 6, height: 6)
-                    Text(cardStatus.text)
-                        .font(.caption)
-                        .foregroundStyle(cardStatus.color)
-
-                    if app.selectedPlanetId == app.activePlanetId,
-                       let addresses = app.networkConfigs[entry.networkId]?.assignedAddrs,
-                       !addresses.isEmpty {
-                        Text(addresses.prefix(2).joined(separator: "  "))
-                            .font(.system(.caption2, design: .monospaced))
-                            .foregroundStyle(.tertiary)
-                            .lineLimit(1)
-                        // 复制按钮：点击复制首个分配 IP（高度为 IP 文字的 2/3）。
-                        Button {
-                            UIPasteboard.general.string = addresses.first ?? ""
-                        } label: {
-                            Image(systemName: "doc.on.doc")
-                                .font(.system(size: 7))
-                                .foregroundStyle(.tint)
-                                .padding(1)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("复制 IP")
-                    } else {
-                        // 无地址数据（未连接/非活跃行星）用 "-" 占位。
-                        Text("-")
-                            .font(.system(.caption2, design: .monospaced))
-                            .foregroundStyle(.tertiary)
-                    }
-                }
-                .padding(.top, 2)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
-            .onTapGesture {
-                path.append(.network(entry.networkId))
-            }
-            .contextMenu {
-                Button {
-                    UIPasteboard.general.string = entry.networkId
-                } label: {
-                    Label("复制 ID", systemImage: "doc.on.doc")
-                }
-            }
-
-            if pendingNetworks.contains(entry.networkId) {
-                ProgressView()
-                    .frame(width: 44)
-            } else {
-                Toggle("", isOn: Binding(
-                    get: { networkAppearsActive(entry) },
-                    set: { setNetworkActive(entry, active: $0) }))
-                    .labelsHidden()
-                    .accessibilityLabel("启用网络 \(entry.networkName.isEmpty ? entry.networkId : entry.networkName)")
-            }
-
-            // "更多"箭头固定在最右。
-            Image(systemName: "chevron.right")
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(.tertiary)
-        }
-        .padding(14)
-        .background(Color(uiColor: .secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        NetworkCardView(
+            entry: entry,
+            cardStatus: NetworkCardStatus(entry: entry, app: app),
+            isPending: pendingNetworks.contains(entry.networkId),
+            appearsActive: networkAppearsActive(entry),
+            addresses: app.selectedPlanetId == app.activePlanetId
+                ? app.networkConfigs[entry.networkId]?.assignedAddrs : nil,
+            onToggle: { setNetworkActive(entry, active: $0) },
+            onTap: { path.append(.network(entry.networkId)) })
     }
 
     /// 非当前隧道 Planet 的网络统一显示为关闭，用户可直接打开以完成切换。
@@ -639,123 +512,5 @@ private struct FlyFromPlanetCardModifier: ViewModifier {
         content
             .opacity(active ? 0 : 1)
             .offset(y: active ? 10 : 0)
-    }
-}
-
-// MARK: - FAB（可拖动 + 左右吸附 + 位置记忆）
-
-/// 独立视图承载拖动状态：拖动每帧只重绘按钮自身，不触发首页（TabView 分页）重算，保证跟手。
-private struct FabButton: View {
-    let action: () -> Void
-
-    /// 当前中心点：nil = 默认右下；拖动吸附后持久化，启动恢复。
-    @State private var center: CGPoint?
-    @State private var dragStart: CGPoint?
-    @State private var dragging = false
-
-    /// FAB 半径 28；左右吸附与屏幕边框保持 22 安全距离；垂直活动范围：标题区以下 到 底距 54。
-    private static let radius: CGFloat = 28
-    private static let sideMargin: CGFloat = 22
-    private static let bottomMargin: CGFloat = 54
-    private static let topLimit: CGFloat = 88
-    private static let xKey = "HomeView.fab.x"
-    private static let yKey = "HomeView.fab.y"
-
-    var body: some View {
-        GeometryReader { geo in
-            label
-                .position(position(in: geo.size))
-                .gesture(dragGesture(size: geo.size))
-                // 首次布局 GeometryReader 尺寸是 0×0，此时恢复会把坐标 clamp 成负值
-                // （表现为每次打开都在左上角）；必须等真实尺寸就绪再恢复。
-                .onAppear { restoreIfNeeded(in: geo.size) }
-                .onChange(of: geo.size) { size in
-                    restoreIfNeeded(in: size)
-                }
-        }
-    }
-
-    private var label: some View {
-        Image(systemName: "plus")
-            .font(.title2.weight(.semibold))
-            .foregroundStyle(.white)
-            .frame(width: 56, height: 56)
-            .background(.tint, in: Circle())
-            .shadow(color: .black.opacity(dragging ? 0.3 : 0.25),
-                    radius: dragging ? 14 : 10, y: 5)
-            // 拖动时轻微缩小，松手弹回——拿起/放下的手感。
-            .scaleEffect(dragging ? 0.95 : 1)
-            .contentShape(Circle())
-            .onTapGesture(perform: action)
-            .accessibilityLabel("添加网络")
-            .accessibilityAddTraits(.isButton)
-    }
-
-    // MARK: 位置
-
-    /// 默认右下角（与原固定位置一致：trailing 22 + bottom 54）。
-    private func defaultPosition(_ size: CGSize) -> CGPoint {
-        CGPoint(x: size.width - Self.sideMargin - Self.radius,
-                y: size.height - Self.bottomMargin - Self.radius)
-    }
-
-    /// 位置约束：水平不越过左右安全边距，垂直在标题区以下、底部安全距以上。
-    /// 尺寸未就绪（0×0）时原样返回，避免 clamp 出负值。
-    private func clamp(_ p: CGPoint, in size: CGSize) -> CGPoint {
-        guard size.width > 0, size.height > 0 else { return p }
-        return CGPoint(x: min(max(p.x, Self.sideMargin + Self.radius),
-                              size.width - Self.sideMargin - Self.radius),
-                       y: min(max(p.y, Self.topLimit + Self.radius),
-                              size.height - Self.bottomMargin - Self.radius))
-    }
-
-    private func position(in size: CGSize) -> CGPoint {
-        clamp(center ?? defaultPosition(size), in: size)
-    }
-
-    private func dragGesture(size: CGSize) -> some Gesture {
-        DragGesture(minimumDistance: 2)
-            .onChanged { value in
-                if dragStart == nil {
-                    dragStart = position(in: size)
-                }
-                let start = dragStart ?? .zero
-                // 跟手弹簧：与吸附动画同款曲线（阻尼 0.7），时间稍长（0.5 vs 0.35），
-                // 手感统一且更绵柔。
-                withAnimation(.spring(response: 0.5, dampingFraction: 0.7, blendDuration: 0)) {
-                    dragging = true
-                    center = clamp(CGPoint(x: start.x + value.translation.width,
-                                           y: start.y + value.translation.height), in: size)
-                }
-            }
-            .onEnded { _ in
-                dragStart = nil
-                var p = position(in: size)
-                // 松手水平吸附到较近的一侧；苹果经典 spring 曲线（轻微回弹的阻尼弹簧）。
-                p.x = p.x < size.width / 2
-                    ? Self.sideMargin + Self.radius
-                    : size.width - Self.sideMargin - Self.radius
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.7, blendDuration: 0)) {
-                    dragging = false
-                    center = p
-                }
-                save(p)
-            }
-    }
-
-    // MARK: 持久化
-
-    private func save(_ p: CGPoint) {
-        UserDefaults.standard.set(Double(p.x), forKey: Self.xKey)
-        UserDefaults.standard.set(Double(p.y), forKey: Self.yKey)
-    }
-
-    /// 仅在无状态且尺寸就绪时恢复一次；首次安装无记录则保持 nil → 默认右下。
-    private func restoreIfNeeded(in size: CGSize) {
-        guard center == nil, size.width > 0, size.height > 0 else { return }
-        let x = UserDefaults.standard.double(forKey: Self.xKey)
-        let y = UserDefaults.standard.double(forKey: Self.yKey)
-        guard x > 0, y > 0 else { return }
-        center = clamp(CGPoint(x: x, y: y), in: size)
     }
 }
