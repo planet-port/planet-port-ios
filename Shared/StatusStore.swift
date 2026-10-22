@@ -8,6 +8,7 @@ enum StatusStore {
     private static let kCoreVersion = "status_coreVersion"
     private static let kTunnelStatus = "status_tunnelStatus"
     private static let kNetworkStatuses = "status_networkStatuses"
+    private static let kNetworkConflicts = "status_networkConflicts"
 
     static var nodeId: String {
         get { AppGroup.defaults.string(forKey: kNodeId) ?? "" }
@@ -37,6 +38,13 @@ enum StatusStore {
     /// 类型化读取（无法识别的原始值统一落 .unknown，与详情页路径兜底一致）。
     static var networkStatusesTyped: [String: ZTNetworkStatus] {
         networkStatuses.mapValues { ZTNetworkStatus(rawValue: $0) ?? .unknown }
+    }
+
+    /// 网络冲突（nwid → 原因原始码 "address"/"subnet"）。存原始码而非文案：
+    /// 跨进程契约不依赖展示语言，UI 层按码生成中文文案。
+    static var networkConflicts: [String: String] {
+        get { AppGroup.defaults.dictionary(forKey: kNetworkConflicts) as? [String: String] ?? [:] }
+        set { AppGroup.defaults.set(newValue, forKey: kNetworkConflicts) }
     }
 
     static func postChange() {

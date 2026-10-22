@@ -33,6 +33,8 @@ enum AppGroup {
     static let prefActivePlanetFile = "planet_active_file"
     static let prefAllowCellular = "network_use_cellular_data"
     static let prefDisableIPv6 = "network_disable_ipv6"
+    /// 同时连接网络数软上限（超出弹耗电确认，可强制开启）。
+    static let prefMultiConnectLimit = "network_multi_connect_limit"
     static let prefConnectOnDemand = "general_connect_on_demand"
     /// 首页左右屏幕边缘滑动切换 Planet。
     static let prefEdgeSwipePlanet = "interaction_edge_swipe_planet"

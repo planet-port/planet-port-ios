@@ -26,6 +26,8 @@ final class AppState: ObservableObject {
     @Published var coreVersion: String = ""
     @Published var tunnelStatus: String = ""
     @Published var networkStatuses: [String: ZTNetworkStatus] = [:]
+    /// 网络冲突（nwid → 原因原始码 "address"/"subnet"，文案在 UI 层生成）。
+    @Published var networkConflicts: [String: String] = [:]
     @Published var networkConfigs: [String: NetworkConfigSnapshot] = [:]
     @Published var vpnRunning: Bool = false
 
@@ -141,6 +143,7 @@ final class AppState: ObservableObject {
         coreVersion = StatusStore.coreVersion
         tunnelStatus = StatusStore.tunnelStatus
         networkStatuses = StatusStore.networkStatusesTyped
+        networkConflicts = StatusStore.networkConflicts
         if !nodeId.isEmpty { cacheNodeId(nodeId) }
     }
 
