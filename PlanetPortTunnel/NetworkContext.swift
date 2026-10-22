@@ -68,6 +68,11 @@ final class NetworkContext {
     /// 等 ARP/NA 应答的包（追加侧有每下一跳上限，见 FrameConverter.maxPendingPerTarget）
     var pendingV4: [UInt32: [Data]] = [:]
     var pendingV6: [Data: [Data]] = [:]
+    /// 数据面诊断计数（锁内递增，仅诊断展示，不做精确同步语义）
+    var statFwdV4 = 0      // 出站已发往核心
+    var statArpReq = 0     // ARP 请求已发
+    var statArpReply = 0   // 收到 ARP 应答
+    var statInV4 = 0       // 收到核心 IPv4 包
 
     init(nwid: UInt64, mac: UInt64, ipv4Strings: [String], ipv6Strings: [String], routes: [String]) {
         self.nwid = nwid

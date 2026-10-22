@@ -12,6 +12,8 @@ final class FrameConverter {
     private var order: [UInt64] = []
     private var aggregateV4: [AggregateV4Entry] = []
     private var aggregateV6: [AggregateV6Entry] = []
+    /// 诊断计数：出站无路由命中丢弃（若远大于 0 说明系统路由未进 tun 或选路缺口）
+    private var statNoRoute = 0
     private let lock = NSLock()
 
     /// 每下一跳 pending 包上限（Network Extension 内存限制，超出丢包）
@@ -82,11 +84,11 @@ final class FrameConverter {
     /// 诊断快照（App 诊断页透出）：上下文与聚合表当前状态
     func debugSummary() -> String {
         lock.lock(); defer { lock.unlock() }
-        var lines = ["contexts=\(contexts.count) aggV4=\(aggregateV4.count) aggV6=\(aggregateV6.count)"]
+        var lines = ["contexts=\(contexts.count) aggV4=\(aggregateV4.count) aggV6=\(aggregateV6.count) 无路由丢弃=\(statNoRoute)"]
         for nwid in order {
             guard let c = contexts[nwid] else { continue }
             let v4 = c.ipv4Addresses.map(Self.dotted).joined(separator: ",")
-            lines.append("ctx \(String(format: "%016llx", nwid)) mac=\(String(format: "%012llx", c.mac)) v4=[\(v4)] routes=\(c.routesV4.count)/\(c.routesV6.count)")
+            lines.append("ctx \(String(format: "%016llx", nwid)) mac=\(String(format: "%012llx", c.mac)) v4=[\(v4)] routes=\(c.routesV4.count)/\(c.routesV6.count) 出站=\(c.statFwdV4) 入站=\(c.statInV4) ARP问=\(c.statArpReq) ARP答=\(c.statArpReply)")
         }
         return lines.joined(separator: "\n")
     }
@@ -117,17 +119,22 @@ final class FrameConverter {
                 }
                 // 聚合表最长前缀匹配（前缀降序、同前缀先激活者胜）；无命中丢弃
                 guard let match = aggregateV4.first(where: { $0.route.matches(dst) }),
-                      let ctx = contexts[match.nwid], ctx.mac != 0 else { continue }
+                      let ctx = contexts[match.nwid], ctx.mac != 0 else {
+                    statNoRoute += 1
+                    continue
+                }
                 let nextHop = match.route.gateway ?? dst
                 guard let mac = ctx.arp.lookup(nextHop) else {
                     if (ctx.pendingV4[nextHop]?.count ?? 0) < Self.maxPendingPerTarget {
                         ctx.pendingV4[nextHop, default: []].append(pkt)
                     }
+                    ctx.statArpReq += 1
                     sendARPRequest(ctx, target: nextHop)
                     continue
                 }
                 bridge.processVirtualNetworkFrame(ctx.nwid, srcMac: ctx.mac, dstMac: mac,
                                                   etherType: Ethernet.typeIPv4, vlanId: 0, frame: pkt)
+                ctx.statFwdV4 += 1
             } else if version == 6, pkt.count >= 40 {
                 let dst = pkt.subdata(in: 24..<40)
                 if Self.isIPv6Multicast(dst) {
@@ -171,6 +178,7 @@ final class FrameConverter {
             }
             return [(frame, AF_INET6)]
         case Ethernet.typeIPv4:
+            ctx.statInV4 += 1
             return [(frame, AF_INET)]
         default:
             return []
@@ -190,6 +198,7 @@ final class FrameConverter {
                                                   etherType: Ethernet.typeARP, vlanId: 0, frame: reply)
             }
         case 2: // 应答：更新本网络表 + 冲刷本网络待决包
+            ctx.statArpReply += 1
             ctx.arp.update(p.senderIP, mac: p.senderMAC)
             if let waiting = ctx.pendingV4.removeValue(forKey: p.senderIP) {
                 for pkt in waiting {
