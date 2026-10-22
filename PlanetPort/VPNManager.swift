@@ -8,9 +8,35 @@ final class VPNManager {
     private var manager: NETunnelProviderManager?
     /// configurationInvalid 恢复中标记，防止恢复路径自身无限重试。
     private var recoveringInvalidConfig = false
+    /// 启动流程在途合并：iOS 单隧道，快速连点（如 VPN 未连接时先后开两个网络）
+    /// 产生的并发 load/save/start 只会制造重复系统配置与偏好竞争。
+    private let startQueue = DispatchQueue(label: "vpn.start")
+    private var startInFlight = false
+    private var startWaiters: [(Bool, String?) -> Void] = []
 
-    /// 加载（或首次创建）VPN 配置并启动隧道
+    /// 加载（或首次创建）VPN 配置并启动隧道（在途时合并，结果统一回调）
     func prepareAndStart(completion: @escaping (Bool, String?) -> Void) {
+        startQueue.async { [weak self] in
+            guard let self else { return }
+            if self.startInFlight {
+                self.startWaiters.append(completion)
+                return
+            }
+            self.startInFlight = true
+            self.performStart { [weak self] ok, err in
+                guard let self else { return }
+                self.startQueue.async {
+                    self.startInFlight = false
+                    let waiters = self.startWaiters
+                    self.startWaiters.removeAll()
+                    completion(ok, err)
+                    for w in waiters { w(ok, err) }
+                }
+            }
+        }
+    }
+
+    private func performStart(completion: @escaping (Bool, String?) -> Void) {
         loadManager { [weak self] manager, created in
             guard let self else { return }
             if created {
