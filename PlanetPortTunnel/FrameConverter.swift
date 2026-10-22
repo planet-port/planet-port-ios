@@ -1,144 +1,191 @@
 import Foundation
 
 /// IP 包 ↔ 虚拟网帧 转换层（Android TunTapAdapter 的镜像反转）。
-/// - 下行（tun→核心）：NEPacketTunnelFlow 的 L3 IP 包 → 查表补 MAC → processVirtualNetworkFrame
-/// - 上行（核心→tun）：核心的帧回调（MAC/ethertype 独立传参，不含以太网头）→ 返回 IP 包写回 packetFlow
+/// - 下行（tun→核心）：L3 IP 包 → 聚合路由表最长前缀匹配选网络 → 查该网络 ARP/NDP → processVirtualNetworkFrame
+/// - 上行（核心→tun）：帧回调按 nwid 分流到对应 NetworkContext（MAC/ethertype 独立传参，不含以太网头）
+/// 多网络隔离：MAC/地址/ARP/NDP/pending/路由全部按网络存放在 NetworkContext，互不串网。
 /// ARP/NDP 为纯软件实现（iOS 无 /proc 组播可查，采用 Android API≥29 路径）。
 final class FrameConverter {
     private let bridge: ZTBridge
-    private var arp = ARPTable()
-    private var ndp = NDPTable()
-    private var pendingV4: [UInt32: [Data]] = [:]   // 等 ARP 应答的包
-    private var pendingV6: [Data: [Data]] = [:]     // 等 NA 应答的包（key 为 16 字节目的地址）
-    private var myMAC: UInt64 = 0
-    private var myIPv4: [UInt32] = []
-    private var myIPv6: [Data] = []
-    private var routesV4: [IPv4Route] = []
-    private var routesV6: [IPv6Route] = []
+    private var contexts: [UInt64: NetworkContext] = [:]
+    /// 激活顺序（首次 upsert 追加；聚合表同前缀先到者胜的裁决依据）
+    private var order: [UInt64] = []
+    private var aggregateV4: [AggregateV4Entry] = []
+    private var aggregateV6: [AggregateV6Entry] = []
     private let lock = NSLock()
 
-    /// 当前活动网络 ID（PacketTunnelProvider 注入；单网络连接模型，对齐 Android 主场景）
-    var currentNwid: UInt64 = 0
+    /// 每下一跳 pending 包上限（Network Extension 内存限制，超出丢包）
+    static let maxPendingPerTarget = 16
 
     init(bridge: ZTBridge) {
         self.bridge = bridge
     }
 
-    /// 网络配置回调时更新本机信息（ARP/NDP 应答要用）
-    func updateNetworkInfo(mac: UInt64, ipv4: [String], ipv6: [String], routes: [String]) {
+    // MARK: - 上下文管理（配置回调路径）
+
+    /// 网络配置回调：upsert 上下文并重建聚合表。
+    /// enabled=false（冲突网络）不建上下文——不承载任何流量，仅保留 Core join 状态。
+    func updateNetworkInfo(nwid: UInt64, enabled: Bool, mac: UInt64,
+                           ipv4: [String], ipv6: [String], routes: [String]) {
         lock.lock(); defer { lock.unlock() }
-        self.myMAC = mac
-        self.myIPv4 = ipv4.compactMap { Self.parseIPv4(Self.ipOnly($0)) }
-        self.myIPv6 = ipv6.compactMap { Self.parseIPv6Data(Self.ipOnly($0)) }
-        self.routesV4 = (ipv4.map { Self.networkCIDR($0) } + routes).compactMap(Self.parseIPv4Route)
-            .sorted { $0.prefix > $1.prefix }
-        self.routesV6 = (ipv6.map { Self.networkCIDR($0) } + routes).compactMap(Self.parseIPv6Route)
-            .sorted { $0.prefix > $1.prefix }
+        guard enabled else {
+            removeNetworkLocked(nwid)
+            return
+        }
+        if contexts[nwid] == nil { order.append(nwid) }
+        contexts[nwid] = NetworkContext(nwid: nwid, mac: mac, ipv4Strings: ipv4,
+                                        ipv6Strings: ipv6, routes: routes)
+        rebuildAggregatesLocked()
+    }
+
+    /// 网络停用：删上下文（含 ARP/NDP/pending/路由）并重建聚合表
+    func removeNetwork(nwid: UInt64) {
+        lock.lock(); defer { lock.unlock() }
+        removeNetworkLocked(nwid)
+    }
+
+    private func removeNetworkLocked(_ nwid: UInt64) {
+        guard contexts.removeValue(forKey: nwid) != nil else { return }
+        order.removeAll { $0 == nwid }
+        rebuildAggregatesLocked()
+    }
+
+    private func rebuildAggregatesLocked() {
+        let ordered = orderedContextsLocked()
+        aggregateV4 = NetworkContextMath.buildAggregateV4(ordered)
+        aggregateV6 = NetworkContextMath.buildAggregateV6(ordered)
+    }
+
+    private func orderedContextsLocked() -> [NetworkContext] {
+        order.compactMap { contexts[$0] }
     }
 
     // MARK: - tun -> core
 
     func handlePacketsFromTun(_ packets: [Data]) {
         lock.lock(); defer { lock.unlock() }
-        guard myMAC != 0 else { return }
+        guard !contexts.isEmpty else { return }
         for pkt in packets {
-            guard pkt.count >= 20, currentNwid != 0 else { continue }
+            guard pkt.count >= 20 else { continue }
             let version = pkt[0] >> 4
             if version == 4 {
                 let dst = Self.bigEndianIP32(pkt, 16)
-                // 广播/组播直送（对齐 Android：组播包直接发对应组播 MAC）
+                // 广播/组播直送所有有 IPv4 地址的网络（对齐 Android：组播包直接发对应组播 MAC）
                 if dst == 0xffffffff || Self.isIPv4Multicast(dst) {
                     let dstMac: UInt64 = (dst == 0xffffffff) ? Ethernet.broadcastMAC : Self.ipv4MulticastMAC(dst)
-                    send(pkt, to: dstMac, ethertype: Ethernet.typeIPv4)
+                    for ctx in orderedContextsLocked() where !ctx.ipv4Addresses.isEmpty {
+                        bridge.processVirtualNetworkFrame(ctx.nwid, srcMac: ctx.mac, dstMac: dstMac,
+                                                          etherType: Ethernet.typeIPv4, vlanId: 0, frame: pkt)
+                    }
                     continue
                 }
-                let nextHop = nextHopV4(for: dst)
-                guard let mac = arp.lookup(nextHop) else {
-                    pendingV4[nextHop, default: []].append(pkt)
-                    sendARPRequest(target: nextHop)
+                // 聚合表最长前缀匹配（前缀降序、同前缀先激活者胜）；无命中丢弃
+                guard let match = aggregateV4.first(where: { $0.route.matches(dst) }),
+                      let ctx = contexts[match.nwid], ctx.mac != 0 else { continue }
+                let nextHop = match.route.gateway ?? dst
+                guard let mac = ctx.arp.lookup(nextHop) else {
+                    if (ctx.pendingV4[nextHop]?.count ?? 0) < Self.maxPendingPerTarget {
+                        ctx.pendingV4[nextHop, default: []].append(pkt)
+                    }
+                    sendARPRequest(ctx, target: nextHop)
                     continue
                 }
-                send(pkt, to: mac, ethertype: Ethernet.typeIPv4)
+                bridge.processVirtualNetworkFrame(ctx.nwid, srcMac: ctx.mac, dstMac: mac,
+                                                  etherType: Ethernet.typeIPv4, vlanId: 0, frame: pkt)
             } else if version == 6, pkt.count >= 40 {
                 let dst = pkt.subdata(in: 24..<40)
                 if Self.isIPv6Multicast(dst) {
-                    send(pkt, to: NDPTable.multicastMAC(for: dst), ethertype: Ethernet.typeIPv6)
+                    let mac = NDPTable.multicastMAC(for: dst)
+                    for ctx in orderedContextsLocked() where !ctx.ipv6Addresses.isEmpty {
+                        bridge.processVirtualNetworkFrame(ctx.nwid, srcMac: ctx.mac, dstMac: mac,
+                                                          etherType: Ethernet.typeIPv6, vlanId: 0, frame: pkt)
+                    }
                     continue
                 }
-                let nextHop = nextHopV6(for: dst)
-                guard let mac = ndp.lookup(nextHop) else {
-                    pendingV6[nextHop, default: []].append(pkt)
-                    sendNeighborSolicitation(target: nextHop)
+                guard let match = aggregateV6.first(where: { $0.route.matches(dst) }),
+                      let ctx = contexts[match.nwid], ctx.mac != 0 else { continue }
+                let nextHop = match.route.gateway ?? dst
+                guard let mac = ctx.ndp.lookup(nextHop) else {
+                    if (ctx.pendingV6[nextHop]?.count ?? 0) < Self.maxPendingPerTarget {
+                        ctx.pendingV6[nextHop, default: []].append(pkt)
+                    }
+                    sendNeighborSolicitation(ctx, target: nextHop)
                     continue
                 }
-                send(pkt, to: mac, ethertype: Ethernet.typeIPv6)
+                bridge.processVirtualNetworkFrame(ctx.nwid, srcMac: ctx.mac, dstMac: mac,
+                                                  etherType: Ethernet.typeIPv6, vlanId: 0, frame: pkt)
             }
         }
     }
 
-    // MARK: - core -> tun；返回应写入 packetFlow 的 IP 包
+    // MARK: - core -> tun；返回 (IP 包, protocolFamily)，v6 用 AF_INET6
 
-    func handleFrameFromCore(srcMac: UInt64, dstMac: UInt64, etherType: UInt32, frame: Data) -> [Data] {
+    func handleFrameFromCore(nwid: UInt64, srcMac: UInt64, dstMac: UInt64,
+                             etherType: UInt32, frame: Data) -> [(Data, Int32)] {
+        lock.lock(); defer { lock.unlock() }
+        guard let ctx = contexts[nwid] else { return [] }
         switch etherType {
         case Ethernet.typeARP:
-            handleARP(payload: frame, senderMac: srcMac)
+            handleARP(ctx, payload: frame, senderMac: srcMac)
             return []
         case Ethernet.typeIPv6:
             if NDPTable.isNDP(ipv6Packet: frame) {
-                handleNDP(packet: frame, senderMac: srcMac)
+                handleNDP(ctx, packet: frame, senderMac: srcMac)
                 return []
             }
-            return [frame]
+            return [(frame, AF_INET6)]
         case Ethernet.typeIPv4:
-            return [frame]
+            return [(frame, AF_INET)]
         default:
             return []
         }
     }
 
-    // MARK: - ARP 处理
+    // MARK: - ARP 处理（仅更新本网络缓存）
 
-    private func handleARP(payload: Data, senderMac: UInt64) {
-        lock.lock(); defer { lock.unlock() }
+    private func handleARP(_ ctx: NetworkContext, payload: Data, senderMac: UInt64) {
         guard let p = ARPTable.parse(payload) else { return }
         switch p.op {
-        case 1: // 请求：问 targetIP 的 MAC；若是我们持有的地址则应答（对齐 Android ARPTable.processArpPacket）
-            if myIPv4.contains(p.targetIP) {
-                let reply = ARPTable.reply(senderIP: p.targetIP, senderMAC: myMAC,
+        case 1: // 请求：问 targetIP 的 MAC；若是本网络持有的地址则应答（对齐 Android ARPTable）
+            if ctx.ipv4Addresses.contains(p.targetIP) {
+                let reply = ARPTable.reply(senderIP: p.targetIP, senderMAC: ctx.mac,
                                            targetIP: p.senderIP, targetMAC: p.senderMAC)
-                sendControl(reply, to: senderMac, ethertype: Ethernet.typeARP)
+                bridge.processVirtualNetworkFrame(ctx.nwid, srcMac: ctx.mac, dstMac: senderMac,
+                                                  etherType: Ethernet.typeARP, vlanId: 0, frame: reply)
             }
-        case 2: // 应答：更新表 + 冲刷待决包
-            arp.update(p.senderIP, mac: p.senderMAC)
-            if let waiting = pendingV4.removeValue(forKey: p.senderIP) {
+        case 2: // 应答：更新本网络表 + 冲刷本网络待决包
+            ctx.arp.update(p.senderIP, mac: p.senderMAC)
+            if let waiting = ctx.pendingV4.removeValue(forKey: p.senderIP) {
                 for pkt in waiting {
-                    send(pkt, to: p.senderMAC, ethertype: Ethernet.typeIPv4)
+                    bridge.processVirtualNetworkFrame(ctx.nwid, srcMac: ctx.mac, dstMac: p.senderMAC,
+                                                      etherType: Ethernet.typeIPv4, vlanId: 0, frame: pkt)
                 }
             }
         default: break
         }
     }
 
-    // MARK: - NDP 处理
+    // MARK: - NDP 处理（仅更新本网络缓存）
 
-    private func handleNDP(packet: Data, senderMac: UInt64) {
-        lock.lock(); defer { lock.unlock() }
+    private func handleNDP(_ ctx: NetworkContext, packet: Data, senderMac: UInt64) {
         let icmp6 = packet.dropFirst(40)   // 跳过 IPv6 头
         let srcIPv6 = packet.subdata(in: 8..<24)
         guard let p = NDPTable.parse(icmp6) else { return }
         switch p.type {
-        case 135: // NS：问 target 的 MAC；若是我们持有的地址则回 NA
-            if myIPv6.contains(p.target) {
-                let na = NDPTable.neighborAdvertisement(target: p.target, senderMAC: myMAC, senderIPv6: nil)
-                sendControl(Self.ipv6Packet(payload: na, dst: srcIPv6),
-                            to: senderMac, ethertype: Ethernet.typeIPv6)
+        case 135: // NS：问 target 的 MAC；若是本网络持有的地址则回 NA
+            if ctx.ipv6Addresses.contains(p.target) {
+                let na = NDPTable.neighborAdvertisement(target: p.target, senderMAC: ctx.mac, senderIPv6: nil)
+                bridge.processVirtualNetworkFrame(ctx.nwid, srcMac: ctx.mac, dstMac: senderMac,
+                                                  etherType: Ethernet.typeIPv6, vlanId: 0,
+                                                  frame: Self.ipv6Packet(payload: na, dst: srcIPv6))
             }
-        case 136: // NA：更新表 + 冲刷待决包
+        case 136: // NA：更新本网络表 + 冲刷本网络待决包
             if let mac = p.senderMAC {
-                ndp.update(p.target, mac: mac)
-                if let waiting = pendingV6.removeValue(forKey: p.target) {
+                ctx.ndp.update(p.target, mac: mac)
+                if let waiting = ctx.pendingV6.removeValue(forKey: p.target) {
                     for pkt in waiting {
-                        send(pkt, to: mac, ethertype: Ethernet.typeIPv6)
+                        bridge.processVirtualNetworkFrame(ctx.nwid, srcMac: ctx.mac, dstMac: mac,
+                                                          etherType: Ethernet.typeIPv6, vlanId: 0, frame: pkt)
                     }
                 }
             }
@@ -146,39 +193,21 @@ final class FrameConverter {
         }
     }
 
-    // MARK: - 私有发送
+    // MARK: - 控制帧（在指定网络内发送）
 
-    private func send(_ pkt: Data, to mac: UInt64, ethertype: UInt32) {
-        bridge.processVirtualNetworkFrame(currentNwid, srcMac: myMAC, dstMac: mac,
-                                          etherType: ethertype, vlanId: 0, frame: pkt)
-    }
-
-    /// 控制帧（ARP/NDP 回复）
-    private func sendControl(_ payload: Data, to mac: UInt64, ethertype: UInt32) {
-        bridge.processVirtualNetworkFrame(currentNwid, srcMac: myMAC, dstMac: mac,
-                                          etherType: ethertype, vlanId: 0, frame: payload)
-    }
-
-    private func sendARPRequest(target: UInt32) {
-        let req = ARPTable.request(senderIP: myIPv4.first ?? 0, senderMAC: myMAC, targetIP: target)
-        bridge.processVirtualNetworkFrame(currentNwid, srcMac: myMAC, dstMac: Ethernet.broadcastMAC,
+    private func sendARPRequest(_ ctx: NetworkContext, target: UInt32) {
+        let req = ARPTable.request(senderIP: ctx.ipv4Addresses.first ?? 0,
+                                   senderMAC: ctx.mac, targetIP: target)
+        bridge.processVirtualNetworkFrame(ctx.nwid, srcMac: ctx.mac, dstMac: Ethernet.broadcastMAC,
                                           etherType: Ethernet.typeARP, vlanId: 0, frame: req)
     }
 
-    private func sendNeighborSolicitation(target: Data) {
-        let ns = NDPTable.neighborSolicitation(target: target, senderMAC: myMAC, senderIPv6: nil)
-        bridge.processVirtualNetworkFrame(currentNwid, srcMac: myMAC,
+    private func sendNeighborSolicitation(_ ctx: NetworkContext, target: Data) {
+        let ns = NDPTable.neighborSolicitation(target: target, senderMAC: ctx.mac, senderIPv6: nil)
+        bridge.processVirtualNetworkFrame(ctx.nwid, srcMac: ctx.mac,
                                           dstMac: NDPTable.multicastMAC(for: NDPTable.solicitedNodeMulticast(target: target)),
                                           etherType: Ethernet.typeIPv6, vlanId: 0,
                                           frame: Self.ipv6Packet(payload: ns, dst: target))
-    }
-
-    private func nextHopV4(for destination: UInt32) -> UInt32 {
-        routesV4.first { $0.matches(destination) }?.gateway ?? destination
-    }
-
-    private func nextHopV6(for destination: Data) -> Data {
-        routesV6.first { $0.matches(destination) }?.gateway ?? destination
     }
 
     /// 把 ICMPv6 载荷包成最小 IPv6 包（next header 58，hop limit 255）
@@ -209,47 +238,10 @@ final class FrameConverter {
         return Data(bytes: &addr, count: MemoryLayout<in6_addr>.size)
     }
 
-    private static func ipOnly(_ cidr: String) -> String {
-        String(cidr.split(separator: "/", maxSplits: 1).first ?? "")
-    }
-
-    private static func networkCIDR(_ cidr: String) -> String {
-        let parts = cidr.split(separator: "/", maxSplits: 1)
-        guard parts.count == 2, let prefix = Int(parts[1]) else { return cidr }
-        if cidr.contains("."), let ip = parseIPv4(String(parts[0])), prefix >= 0, prefix <= 32 {
-            let mask = prefix == 0 ? UInt32(0) : UInt32.max << UInt32(32 - prefix)
-            let network = ip & mask
-            return "\((network >> 24) & 0xff).\((network >> 16) & 0xff).\((network >> 8) & 0xff).\(network & 0xff)/\(prefix)"
-        }
-        return cidr
-    }
-
-    private static func parseIPv4Route(_ value: String) -> IPv4Route? {
-        let fields = value.split(separator: " ").map(String.init)
-        guard let target = fields.first else { return nil }
-        let parts = target.split(separator: "/", maxSplits: 1)
-        guard parts.count == 2, let address = parseIPv4(String(parts[0])),
-              let prefix = Int(parts[1]), prefix >= 0, prefix <= 32 else { return nil }
-        let gatewayIndex = fields.firstIndex(of: "via").map { $0 + 1 }
-        let gateway = gatewayIndex.flatMap { $0 < fields.count ? parseIPv4(ipOnly(fields[$0])) : nil }
-        return IPv4Route(network: address, prefix: prefix, gateway: gateway)
-    }
-
-    private static func parseIPv6Route(_ value: String) -> IPv6Route? {
-        let fields = value.split(separator: " ").map(String.init)
-        guard let target = fields.first else { return nil }
-        let parts = target.split(separator: "/", maxSplits: 1)
-        guard parts.count == 2, let address = parseIPv6Data(String(parts[0])),
-              let prefix = Int(parts[1]), prefix >= 0, prefix <= 128 else { return nil }
-        let gatewayIndex = fields.firstIndex(of: "via").map { $0 + 1 }
-        let gateway = gatewayIndex.flatMap { $0 < fields.count ? parseIPv6Data(ipOnly(fields[$0])) : nil }
-        return IPv6Route(network: address, prefix: prefix, gateway: gateway)
-    }
-
     /// 从 IPv4 包 offset 处取大端 IP → host order
     static func bigEndianIP32(_ pkt: Data, _ offset: Int) -> UInt32 {
         (UInt32(pkt[offset]) << 24) | (UInt32(pkt[offset + 1]) << 16)
-            | (UInt32(pkt[offset + 2]) << 8) | UInt32(pkt[offset + 3])
+        | (UInt32(pkt[offset + 2]) << 8) | UInt32(pkt[offset + 3])
     }
 
     static func isIPv4Multicast(_ ip: UInt32) -> Bool {
@@ -263,32 +255,5 @@ final class FrameConverter {
     /// IPv4 组播地址 → 组播 MAC（01:00:5e + 低 23 位）
     static func ipv4MulticastMAC(_ ip: UInt32) -> UInt64 {
         0x01005e000000 | (UInt64(ip & 0x7FFFFF))
-    }
-}
-
-private struct IPv4Route {
-    let network: UInt32
-    let prefix: Int
-    let gateway: UInt32?
-
-    func matches(_ address: UInt32) -> Bool {
-        let mask = prefix == 0 ? UInt32(0) : UInt32.max << UInt32(32 - prefix)
-        return address & mask == network & mask
-    }
-}
-
-private struct IPv6Route {
-    let network: Data
-    let prefix: Int
-    let gateway: Data?
-
-    func matches(_ address: Data) -> Bool {
-        guard network.count == 16, address.count == 16 else { return false }
-        let fullBytes = prefix / 8
-        guard network.prefix(fullBytes) == address.prefix(fullBytes) else { return false }
-        let remaining = prefix % 8
-        guard remaining > 0 else { return true }
-        let mask = UInt8.max << UInt8(8 - remaining)
-        return network[fullBytes] & mask == address[fullBytes] & mask
     }
 }
