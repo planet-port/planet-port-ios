@@ -20,6 +20,9 @@ struct HomeView: View {
     @State private var errorAlert: String?
     @State private var errorTitle = "提示"
     @State private var pendingNetworks: Set<String> = []
+    /// 切换确认弹窗（单网络接入：打开新网络时已有其它网络在用）。
+    @State private var switchConfirmCurrent: NetworkEntry?
+    @State private var switchConfirmTarget: NetworkEntry?
     /// 无线数据权限被拒提示（2 小时限流）。
     @State private var permissionDenied = false
     @State private var permissionChecker: CellularPermissionChecker?
@@ -107,6 +110,15 @@ struct HomeView: View {
                     Button("好", role: .cancel) {}
                 } message: {
                     Text(errorAlert ?? "")
+                }
+            // 切换网络确认（单网络接入）
+            .alert("切换网络", isPresented: Binding(
+                get: { switchConfirmTarget != nil },
+                set: { if !$0 { switchConfirmTarget = nil; switchConfirmCurrent = nil } })) {
+                    Button("切换", role: .destructive) { confirmSwitchNetwork() }
+                    Button("取消", role: .cancel) {}
+                } message: {
+                    Text("当前已连接「\(displayName(switchConfirmCurrent))」，切换到「\(displayName(switchConfirmTarget))」？")
                 }
             // 无线数据权限被拒提示
             .alert("无法使用网络", isPresented: $permissionDenied) {
@@ -534,13 +546,12 @@ struct HomeView: View {
     }
 
     private func setNetworkActive(_ entry: NetworkEntry, active: Bool) {
-        var networks = app.networks
-        guard let index = networks.firstIndex(where: { $0.networkId == entry.networkId }) else { return }
-        networks[index].lastActivated = active
-        AppConfigStore.writeNetworks(networks)
-        app.reloadConfig()
-
-        if !active {
+        guard active else {
+            var networks = app.networks
+            guard let index = networks.firstIndex(where: { $0.networkId == entry.networkId }) else { return }
+            networks[index].lastActivated = false
+            AppConfigStore.writeNetworks(networks)
+            app.reloadConfig()
             // 关闭后若该行星下已无启用中的网络，同时停掉 VPN。
             if app.selectedPlanetId == app.activePlanetId,
                !networks.contains(where: { $0.lastActivated }) {
@@ -548,6 +559,59 @@ struct HomeView: View {
             }
             return
         }
+        // 单网络接入：已有其它网络启用时先确认切换，确认后关旧网接新网。
+        if let current = app.networks.first(where: { $0.networkId != entry.networkId && $0.lastActivated }) {
+            switchConfirmCurrent = current
+            switchConfirmTarget = entry
+            return
+        }
+        performNetworkActivate(entry)
+    }
+
+    private func displayName(_ entry: NetworkEntry?) -> String {
+        guard let entry else { return "" }
+        return entry.networkName.isEmpty ? entry.networkId : entry.networkName
+    }
+
+    /// 启动时检测"无线数据"权限：被拒则提示（2 小时内不重复提醒）。
+    private func startPermissionCheck() {
+        permissionChecker = CellularPermissionChecker {
+            guard CellularPermissionChecker.shouldPrompt() else { return }
+            CellularPermissionChecker.markPrompted()
+            permissionDenied = true
+        }
+        permissionChecker?.start()
+    }
+
+    /// 确认切换：关闭当前网络，接入新网络（单网络接入，同一时刻只保留一个）。
+    private func confirmSwitchNetwork() {
+        guard let target = switchConfirmTarget else { return }
+        performNetworkActivate(target)
+    }
+
+    private func performNetworkActivate(_ entry: NetworkEntry) {
+        var networks = app.networks
+        // 单网络接入：其它网络一律置为未启用。
+        for index in networks.indices where networks[index].networkId != entry.networkId {
+            networks[index].lastActivated = false
+        }
+        guard let index = networks.firstIndex(where: { $0.networkId == entry.networkId }) else { return }
+        networks[index].lastActivated = true
+        AppConfigStore.writeNetworks(networks)
+        app.reloadConfig()
+
+        // 快速路径：同行星且隧道在跑——writeNetworks 已发配置变更通知，
+        // extension 自动增量 join/leave（不重启核心/VPN），无需再走 VPN 启动流程。
+        if app.selectedPlanetId == app.activePlanetId && app.vpnRunning {
+            pendingNetworks.insert(entry.networkId)
+            Task { @MainActor in
+                // 给 extension 一个响应窗口，避免开关上的加载圈一闪而过
+                try? await Task.sleep(nanoseconds: 600_000_000)
+                pendingNetworks.remove(entry.networkId)
+            }
+            return
+        }
+
         if !AppGroup.defaults.bool(forKey: AppGroup.prefAllowCellular), isCellular() {
             errorTitle = "移动数据未开启"
             errorAlert = "当前使用移动数据，未在设置中允许移动数据"
@@ -564,16 +628,6 @@ struct HomeView: View {
                 }
             }
         }
-    }
-
-    /// 启动时检测"无线数据"权限：被拒则提示（2 小时内不重复提醒）。
-    private func startPermissionCheck() {
-        permissionChecker = CellularPermissionChecker {
-            guard CellularPermissionChecker.shouldPrompt() else { return }
-            CellularPermissionChecker.markPrompted()
-            permissionDenied = true
-        }
-        permissionChecker?.start()
     }
 
     private func isCellular() -> Bool {
