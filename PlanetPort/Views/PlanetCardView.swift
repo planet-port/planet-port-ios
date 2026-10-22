@@ -11,6 +11,8 @@ struct PlanetCardView: View {
     /// 添加页的实时预览:状态固定为"待添加",无角标、无按压反馈。
     var isPreview = false
     @State private var pressed = false
+    /// ID 行复制反馈:图标短暂变对勾。
+    @State private var copied = false
 
     var body: some View {
         VStack(spacing: 8) {
@@ -55,7 +57,7 @@ struct PlanetCardView: View {
             .frame(width: 72, height: 72)
             .background(tint, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
             .overlay(alignment: .topTrailing) {
-                if isActive { statusBadge }
+                if isActive && app.hasActivatedPlanet { statusBadge }
             }
     }
 
@@ -63,13 +65,19 @@ struct PlanetCardView: View {
         app.moonCounts[planet.id] ?? 0
     }
 
-    /// ID 等宽 tertiary;moon>0 时以间隔号「·」(U+00B7,垂直居中)跟随「卫星 x n」。
+    /// ID 等宽 tertiary(16pt,较原 footnote 加大约 20%);moon>0 时以间隔号「·」
+    /// (U+00B7,垂直居中)跟随「卫星 x n」。点击复制节点 ID,复制小图标与文字同高。
     private var idLine: some View {
-        HStack(spacing: 4) {
-            Text(app.planetNodeIds[planet.id] ?? "-")
-                .font(.system(.footnote, design: .monospaced))
+        let nodeId = app.planetNodeIds[planet.id] ?? "-"
+        return HStack(spacing: 4) {
+            Text(nodeId)
+                .font(.system(size: 16, design: .monospaced))
                 .foregroundStyle(.tertiary)
                 .lineLimit(1)
+            // 复制图标:高度为 ID 文字的 2/3(用户调整),复制成功短暂变对勾反馈。
+            Image(systemName: copied ? "checkmark" : "doc.on.doc")
+                .font(.system(size: 11, weight: copied ? .semibold : .regular))
+                .foregroundStyle(copied ? AnyShapeStyle(Color.green) : AnyShapeStyle(HierarchicalShapeStyle.tertiary))
             if moonCount > 0 {
                 Text("·")
                     .font(.footnote)
@@ -77,6 +85,15 @@ struct PlanetCardView: View {
                 Text("卫星 x \(moonCount)")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            guard nodeId != "-", !isPreview else { return }
+            UIPasteboard.general.string = nodeId
+            withAnimation(.easeOut(duration: 0.15)) { copied = true }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                withAnimation(.easeIn(duration: 0.15)) { copied = false }
             }
         }
     }

@@ -36,6 +36,12 @@ enum AppConfigStore {
         return profiles.contains(where: { $0.id == stored }) ? stored! : PlanetProfile.officialId
     }
 
+    /// 是否激活过任何 Planet（首次安装前从未开过隧道）。activePlanetId 在
+    /// 未激活时也回退 officialId 用于显示，角标等"用过"语义须以此区分。
+    static var hasActivatedPlanet: Bool {
+        AppGroup.defaults.string(forKey: AppGroup.prefActivePlanetId) != nil
+    }
+
     /// 只改变首页浏览上下文，不通知、更不重启隧道。
     static func selectPlanet(_ id: String) {
         guard readPlanets().contains(where: { $0.id == id }) else { return }
