@@ -172,12 +172,11 @@ struct AddPlanetForm: View {
     private func add() {
         guard let data = pendingData else { return }
         // 相同 World ID 视为同一个 Planet，禁止重复创建。
-        // 暂时去掉重复性检测，后续按需恢复。
-        // if let worldId = PlanetImporter.worldId(of: data),
-        //    PlanetImporter.existingWorldIds().contains(worldId) {
-        //     alert = "已存在相同的 Planet（World ID \(String(format: "%016llx", worldId))），不能重复添加。"
-        //     return
-        // }
+        if let worldId = PlanetImporter.worldId(of: data),
+           PlanetImporter.existingWorldIds().contains(worldId) {
+            alert = "已存在相同的 Planet（World ID \(String(format: "%016llx", worldId))），不能重复添加。"
+            return
+        }
         do {
             let profile = try PlanetImporter.importPlanetData(data, name: trimmedName)
             pendingData = nil
