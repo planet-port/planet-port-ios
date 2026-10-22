@@ -145,6 +145,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
 
         StatusStore.coreVersion = ZTBridge.coreVersion()
         StatusStore.nodeId = String(format: "%010llx", b.nodeAddress())
+        StatusStore.networkConflicts = [:]   // 上次运行若被系统强杀，stopTunnel 不会执行，此处兜底清残留
         StatusStore.tunnelStatus = "运行中"
         StatusStore.postChange()
 
@@ -337,6 +338,9 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
                                          mac: item.cfg.mac, ipv4: item.v4, ipv6: item.v6,
                                          routes: (item.cfg.routes as [String]))
         }
+        // 收敛：清理本次快照之外的网络上下文——读文件与 leave 并发时，
+        // 在途应用可能把已离开网络的上下文加回（幽灵路由），以本次快照收敛。
+        converter?.retainOnly(Set(items.map { $0.nwid }))
         let valid = items.filter { conflicts[$0.nwid] == nil }
         guard !valid.isEmpty else { return }
 
@@ -448,11 +452,15 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         applyingSettings = true
         setTunnelNetworkSettings(settings) { [weak self] error in
             guard let self else { return }
-            self.applyingSettings = false
-            completion(error)
-            if self.settingsDirty, error == nil {
-                self.settingsDirty = false
-                self.scheduleSettingsApply()
+            // completion 在 NE 内部队列直接回调；标志位读写与 dirty 重跑统一
+            // hop 回 configQueue（与聚合应用同队列），消除跨队列无同步竞争。
+            self.configQueue.async {
+                self.applyingSettings = false
+                completion(error)
+                if self.settingsDirty {
+                    self.settingsDirty = false
+                    self.scheduleSettingsApply()   // 含失败分支：dirty 里是更新的配置，值得重试
+                }
             }
         }
     }

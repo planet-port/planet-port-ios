@@ -32,9 +32,14 @@ final class FrameConverter {
             removeNetworkLocked(nwid)
             return
         }
-        if contexts[nwid] == nil { order.append(nwid) }
-        contexts[nwid] = NetworkContext(nwid: nwid, mac: mac, ipv4Strings: ipv4,
-                                        ipv6Strings: ipv6, routes: routes)
+        if let ctx = contexts[nwid] {
+            // 已有上下文仅更新（保留 ARP/NDP/pending），不整建重建
+            ctx.update(mac: mac, ipv4Strings: ipv4, ipv6Strings: ipv6, routes: routes)
+        } else {
+            order.append(nwid)
+            contexts[nwid] = NetworkContext(nwid: nwid, mac: mac, ipv4Strings: ipv4,
+                                            ipv6Strings: ipv6, routes: routes)
+        }
         rebuildAggregatesLocked()
     }
 
@@ -42,6 +47,20 @@ final class FrameConverter {
     func removeNetwork(nwid: UInt64) {
         lock.lock(); defer { lock.unlock() }
         removeNetworkLocked(nwid)
+    }
+
+    /// reconcile：仅保留给定网络集合。配置应用在 configQueue 读文件与 leave
+    /// 并发时，在途应用可能把已离开网络的上下文加回（幽灵路由）；每次应用末尾
+    /// 以本次快照收敛，保证最终一致。
+    func retainOnly(_ nwids: Set<UInt64>) {
+        lock.lock(); defer { lock.unlock() }
+        let removed = contexts.keys.filter { !nwids.contains($0) }
+        guard !removed.isEmpty else { return }
+        for nwid in removed {
+            contexts.removeValue(forKey: nwid)
+            order.removeAll { $0 == nwid }
+        }
+        rebuildAggregatesLocked()
     }
 
     private func removeNetworkLocked(_ nwid: UInt64) {
@@ -73,7 +92,7 @@ final class FrameConverter {
                 // 广播/组播直送所有有 IPv4 地址的网络（对齐 Android：组播包直接发对应组播 MAC）
                 if dst == 0xffffffff || Self.isIPv4Multicast(dst) {
                     let dstMac: UInt64 = (dst == 0xffffffff) ? Ethernet.broadcastMAC : Self.ipv4MulticastMAC(dst)
-                    for ctx in orderedContextsLocked() where !ctx.ipv4Addresses.isEmpty {
+                    for ctx in orderedContextsLocked() where !ctx.ipv4Addresses.isEmpty && ctx.mac != 0 {
                         bridge.processVirtualNetworkFrame(ctx.nwid, srcMac: ctx.mac, dstMac: dstMac,
                                                           etherType: Ethernet.typeIPv4, vlanId: 0, frame: pkt)
                     }
@@ -96,7 +115,7 @@ final class FrameConverter {
                 let dst = pkt.subdata(in: 24..<40)
                 if Self.isIPv6Multicast(dst) {
                     let mac = NDPTable.multicastMAC(for: dst)
-                    for ctx in orderedContextsLocked() where !ctx.ipv6Addresses.isEmpty {
+                    for ctx in orderedContextsLocked() where !ctx.ipv6Addresses.isEmpty && ctx.mac != 0 {
                         bridge.processVirtualNetworkFrame(ctx.nwid, srcMac: ctx.mac, dstMac: mac,
                                                           etherType: Ethernet.typeIPv6, vlanId: 0, frame: pkt)
                     }

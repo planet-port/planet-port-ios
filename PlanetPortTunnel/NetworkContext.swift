@@ -71,6 +71,13 @@ final class NetworkContext {
 
     init(nwid: UInt64, mac: UInt64, ipv4Strings: [String], ipv6Strings: [String], routes: [String]) {
         self.nwid = nwid
+        update(mac: mac, ipv4Strings: ipv4Strings, ipv6Strings: ipv6Strings, routes: routes)
+    }
+
+    /// 配置回调更新：仅刷新 MAC/地址/路由。ARP/NDP/pending 跨回调保留——
+    /// ZT 配置回调并不稀少（成员/路径变化即触发），整建重建会清缓存
+    /// 导致 ARP 风暴重放、等 ARP/NA 的在途包被静默丢弃。
+    func update(mac: UInt64, ipv4Strings: [String], ipv6Strings: [String], routes: [String]) {
         self.mac = mac
         ipv4Addresses = ipv4Strings.compactMap { FrameConverter.parseIPv4(NetworkContextMath.ipOnly($0)) }
         ipv6Addresses = ipv6Strings.compactMap { FrameConverter.parseIPv6Data(NetworkContextMath.ipOnly($0)) }
