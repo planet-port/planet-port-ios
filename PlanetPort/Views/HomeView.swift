@@ -20,9 +20,8 @@ struct HomeView: View {
     @State private var errorAlert: String?
     @State private var errorTitle = "提示"
     @State private var pendingNetworks: Set<String> = []
-    /// 切换确认弹窗（单网络接入：打开新网络时已有其它网络在用）。
-    @State private var switchConfirmCurrent: NetworkEntry?
-    @State private var switchConfirmTarget: NetworkEntry?
+    /// 超出并发上限的确认弹窗（软上限：多开增加耗电，可强制开启）。
+    @State private var limitConfirmTarget: NetworkEntry?
     /// 无线数据权限被拒提示（2 小时限流）。
     @State private var permissionDenied = false
     @State private var permissionChecker: CellularPermissionChecker?
@@ -104,14 +103,14 @@ struct HomeView: View {
                 } message: {
                     Text(errorAlert ?? "")
                 }
-            // 切换网络确认（单网络接入）
-            .alert("切换网络", isPresented: Binding(
-                get: { switchConfirmTarget != nil },
-                set: { if !$0 { switchConfirmTarget = nil; switchConfirmCurrent = nil } })) {
-                    Button("切换", role: .destructive) { confirmSwitchNetwork() }
+            // 并发上限确认（软上限：可强制开启）
+            .alert("开启更多网络", isPresented: Binding(
+                get: { limitConfirmTarget != nil },
+                set: { if !$0 { limitConfirmTarget = nil } })) {
+                    Button("仍要开启", role: .destructive) { confirmOpenBeyondLimit() }
                     Button("取消", role: .cancel) {}
                 } message: {
-                    Text("当前已连接「\(displayName(switchConfirmCurrent))」，切换到「\(displayName(switchConfirmTarget))」？")
+                    Text("同时连接多个网络会增加耗电，仍要开启「\(displayName(limitConfirmTarget))」？")
                 }
             // 无线数据权限被拒提示
             .alert("无法使用网络", isPresented: $permissionDenied) {
@@ -360,9 +359,16 @@ struct HomeView: View {
         FabButton(action: { showJoin = true })
     }
 
-    /// 计数行：网络区头部，紧贴细分隔线下方。
+    /// 计数行：网络区头部，紧贴细分隔线下方。多网络连接中追加已连接数。
     private func networkHeader(count: Int) -> some View {
-        Text("网络 · \(count)")
+        var text = "网络 · \(count)"
+        if app.selectedPlanetId == app.activePlanetId && app.vpnRunning {
+            let connected = app.networks.filter {
+                $0.lastActivated && app.networkConflicts[$0.networkId] == nil
+            }.count
+            if connected > 1 { text += " · 已连接 \(connected)" }
+        }
+        return Text(text)
             .font(.footnote.weight(.semibold))
             .foregroundStyle(.secondary)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -419,13 +425,20 @@ struct HomeView: View {
             }
             return
         }
-        // 单网络接入：已有其它网络启用时先确认切换，确认后关旧网接新网。
-        if let current = app.networks.first(where: { $0.networkId != entry.networkId && $0.lastActivated }) {
-            switchConfirmCurrent = current
-            switchConfirmTarget = entry
+        // 软上限：新开网络会超出上限时先确认耗电（可强制开启）。
+        let activeCount = app.networks.filter { $0.lastActivated && $0.networkId != entry.networkId }.count
+        let limit = max(2, AppGroup.defaults.integer(forKey: AppGroup.prefMultiConnectLimit))
+        if activeCount >= limit {
+            limitConfirmTarget = entry
             return
         }
         performNetworkActivate(entry)
+    }
+
+    /// 确认超出软上限开启（耗电提示后仍要开启）。
+    private func confirmOpenBeyondLimit() {
+        guard let target = limitConfirmTarget else { return }
+        performNetworkActivate(target)
     }
 
     private func displayName(_ entry: NetworkEntry?) -> String {
@@ -443,22 +456,24 @@ struct HomeView: View {
         permissionChecker?.start()
     }
 
-    /// 确认切换：关闭当前网络，接入新网络（单网络接入，同一时刻只保留一个）。
-    private func confirmSwitchNetwork() {
-        guard let target = switchConfirmTarget else { return }
-        performNetworkActivate(target)
-    }
-
     private func performNetworkActivate(_ entry: NetworkEntry) {
         var networks = app.networks
-        // 单网络接入：其它网络一律置为未启用。
-        for index in networks.indices where networks[index].networkId != entry.networkId {
-            networks[index].lastActivated = false
-        }
         guard let index = networks.firstIndex(where: { $0.networkId == entry.networkId }) else { return }
         networks[index].lastActivated = true
+        // 多网络联动：启用数 > 1 时默认路由不可用，全部自动关闭并一次性提示
+        var routeViaTurnedOff = false
+        if networks.filter { $0.lastActivated }.count > 1 {
+            for i in networks.indices where networks[i].routeViaZeroTier {
+                networks[i].routeViaZeroTier = false
+                routeViaTurnedOff = true
+            }
+        }
         AppConfigStore.writeNetworks(networks)
         app.reloadConfig()
+        if routeViaTurnedOff {
+            errorTitle = "多网络连接"
+            errorAlert = "已自动关闭「经 ZeroTier 路由（默认路由）」：多网络同时连接时不可用"
+        }
 
         // 快速路径：同行星且隧道在跑——writeNetworks 已发配置变更通知，
         // extension 自动增量 join/leave（不重启核心/VPN），无需再走 VPN 启动流程。
