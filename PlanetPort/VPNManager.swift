@@ -83,13 +83,19 @@ final class VPNManager {
                 return
             }
             let data = (try? JSONEncoder().encode(req)) ?? Data()
-            try? session.sendProviderMessage(data) { replyData in
-                guard let replyData,
-                      let reply = try? JSONDecoder().decode(ProviderReply.self, from: replyData) else {
-                    completion(nil)
-                    return
+            do {
+                try session.sendProviderMessage(data) { replyData in
+                    guard let replyData,
+                          let reply = try? JSONDecoder().decode(ProviderReply.self, from: replyData) else {
+                        completion(nil)
+                        return
+                    }
+                    completion(reply)
                 }
-                completion(reply)
+            } catch {
+                // extension 未响应等场景 sendProviderMessage 会抛错；
+                // 不回调 completion 会把依赖它的串行链路（轮询/诊断）挂死。
+                completion(nil)
             }
         }
     }
@@ -124,7 +130,7 @@ final class VPNManager {
             proto.providerConfiguration = [:]
             proto.serverAddress = "ZeroTier"
             m.protocolConfiguration = proto
-            m.localizedDescription = "PlanetPort"
+            m.localizedDescription = "Planet Port"
             m.isEnabled = true
             self.manager = m
             handler(m, true)
