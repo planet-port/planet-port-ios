@@ -216,7 +216,7 @@ struct HomeView: View {
                     path.append(.settings)
                 } label: {
                     Image(systemName: "gearshape")
-                        .font(.body.weight(.medium))
+                        .font(.system(size: 20, weight: .medium))
                         .foregroundStyle(.tint)
                         .frame(width: 36, height: 36)
                         .contentShape(Rectangle())
