@@ -80,6 +80,9 @@ struct NetworkEntry: Codable, Identifiable, Equatable {
     var customDns: [String]
     /// nil 仅用于兼容升级前的数据，首次读取时会迁移到当时选中的 Planet。
     var planetId: String? = nil
+    /// 最近一次冲突原因原始码（"address"/"subnet"）：冲突自动断开时记录，
+    /// 卡片显示「地址/网段冲突,断开」；再次手动开启时清除。nil = 无冲突记录。
+    var lastConflict: String? = nil
 }
 
 struct MoonEntry: Codable, Identifiable, Equatable {

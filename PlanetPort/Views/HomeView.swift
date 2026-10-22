@@ -460,6 +460,8 @@ struct HomeView: View {
         var networks = app.networks
         guard let index = networks.firstIndex(where: { $0.networkId == entry.networkId }) else { return }
         networks[index].lastActivated = true
+        // 重新手动开启视为用户已知冲突，清除上次的冲突断开记录
+        networks[index].lastConflict = nil
         // 多网络联动：启用数 > 1 时默认路由不可用，全部自动关闭并一次性提示
         var routeViaTurnedOff = false
         if networks.filter { $0.lastActivated }.count > 1 {

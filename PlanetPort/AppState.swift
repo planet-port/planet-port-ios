@@ -144,7 +144,28 @@ final class AppState: ObservableObject {
         tunnelStatus = StatusStore.tunnelStatus
         networkStatuses = StatusStore.networkStatusesTyped
         networkConflicts = StatusStore.networkConflicts
+        autoDisconnectConflictedNetworks()
         if !nodeId.isEmpty { cacheNodeId(nodeId) }
+    }
+
+    /// 冲突自动断开：Extension 检出地址/网段冲突（原始码经 StatusStore 透出）后，
+    /// App 侧立即停用后开启的网络并记录原因（lastConflict），Extension 随配置通知 leave。
+    /// 数据面在 Extension 侧已隔离，此处收敛配置态；App 未运行时由下次启动补做。
+    private func autoDisconnectConflictedNetworks() {
+        guard !networkConflicts.isEmpty else { return }
+        var changed = false
+        for (planetId, entries) in AppConfigStore.readNetworksByPlanet() {
+            guard entries.contains(where: { $0.lastActivated && networkConflicts[$0.networkId] != nil }) else { continue }
+            var updated = entries
+            for index in updated.indices
+            where updated[index].lastActivated && networkConflicts[updated[index].networkId] != nil {
+                updated[index].lastConflict = networkConflicts[updated[index].networkId]
+                updated[index].lastActivated = false
+                changed = true
+            }
+            AppConfigStore.writeNetworks(updated, planetId: planetId)
+        }
+        if changed { reloadConfig() }
     }
 
     /// 行星节点 ID 缓存：隧道在跑时读到即持久化到对应行星，离线后仍可显示。

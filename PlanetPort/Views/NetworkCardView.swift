@@ -15,11 +15,17 @@ struct NetworkCardStatus {
         if !app.vpnRunning {
             self.init(text: entry.lastActivated ? "建立隧道" : "未连接",
                       color: entry.lastActivated ? .orange : .secondary)
-        } else if !entry.lastActivated {
-            self.init(text: "未连接", color: .secondary)
-        } else if let conflict = app.networkConflicts[entry.networkId] {
+        } else if let conflict = app.networkConflicts[entry.networkId], entry.lastActivated {
             // 冲突原始码（跨进程契约）：address=地址冲突 / subnet=网段冲突，文案在此生成
-            self.init(text: conflict == "address" ? "地址冲突" : "网段冲突", color: .red)
+            // （App 自动断开前的瞬时窗口）
+            self.init(text: Self.conflictText(conflict), color: .red)
+        } else if !entry.lastActivated {
+            if let last = entry.lastConflict {
+                // 冲突已自动断开：显示原因 + 断开态，再次手动开启时清除记录
+                self.init(text: "\(Self.conflictText(last)),断开", color: .red)
+            } else {
+                self.init(text: "未连接", color: .secondary)
+            }
         } else if let status = app.networkStatuses[entry.networkId] {
             // 首次加入需控制器授权：统一显示"待授权"。
             if status.isPendingAuthorization {
@@ -35,6 +41,11 @@ struct NetworkCardStatus {
     private init(text: String, color: Color) {
         self.text = text
         self.color = color
+    }
+
+    /// 冲突原始码 → 展示文案（仅 UI 层使用）
+    private static func conflictText(_ code: String) -> String {
+        code == "address" ? "地址冲突" : "网段冲突"
     }
 }
 
