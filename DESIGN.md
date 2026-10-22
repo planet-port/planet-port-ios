@@ -1,4 +1,4 @@
-# DESIGN.md — PlanetPort 设计锚
+# DESIGN.md — Planet Port 设计锚
 
 > 2026-10-21 经四方向预览用户选定
 > **方向 A · iOS 原生精修**，拨盘：视觉冒险度 5 / 动效强度 6 / 信息密度 5。
@@ -9,7 +9,8 @@
 - 受众：自建私有 ZeroTier 网络的开发者/进阶用户；工具型 App，信任优先。
 - 3 秒必得：当前 Planet 连接状态、每个网络的状态、隧道正在使用哪个 Planet。
 - 必须能完成：切换/浏览 Planet、开关网络（开关即应用隧道）、加入网络、添加 Planet、看 Peers、管理 Moon。
-- 心智模型：**浏览的 Planet ≠ 隧道应用的 Planet**。左对齐大标题 `PlanetPort`；
+- 心智模型：**浏览的 Planet ≠ 隧道应用的 Planet**。左对齐大标题 `Planet Port`，
+  名称前置 App logo（26pt，连续圆角 6，与名称间距半个字宽 ≈11pt）；
   浏览页不是隧道 Planet 时，标题右侧出现 `🔗名称` 活跃行星提示
   （字号约为标题 70%、secondary 色，点击跳回隧道 Planet 分页）；
   浏览的就是隧道 Planet 时不显示。不用横幅、不用逐行重复提示。
@@ -23,7 +24,7 @@
 | 主文字 | `.primary` / 次要 `.secondary` / 三级 `.tertiary` |
 | 交互 accent | `.tint`（系统蓝，唯一交互色，用于按钮/开关/FAB/选中态） |
 | 状态·好 | `.green`（已连接/在线） |
-| 状态·注意 | `.orange`（等待 VPN/未应用/中转 relay） |
+| 状态·注意 | `.orange`（等待 VPN/待授权/中转 relay） |
 | 状态·中性 | `.secondary`（未连接） |
 | 危险 | `.red`（删除/校验错误） |
 
@@ -56,10 +57,11 @@ Planet 图标 tint 沿用 PlanetIcon 确定性哈希分配。
 ## 组件规则
 
 - **Planet 身份区（纵向居中）**：无卡身，直接在页面背景上——图标 72pt 实色 tint 底
-  + 白符号（圆角 20），右上角骑缝状态角标（仅隧道绑定行星显示：VPN 运行「使用中」
+  + 白符号（圆角 20），右上角骑缝状态角标（仅激活过的隧道绑定行星显示，从未用过不显示：VPN 运行「使用中」
   tint 实底白字 / 未运行「上次使用」灰底 secondary 字 + 发丝描边）；
-  名称 20pt semibold；ID 等宽 tertiary 行（moon>0 时以间隔号「·」跟随「卫星 x n」，
-  =0 整段隐藏）。无 chevron，按压缩放 ≈0.97（spring）为唯一可点暗示。
+  名称 20pt semibold；ID 等宽 tertiary 16pt 行，点击复制（复制小图标与文字同高，
+  成功短暂变对勾；moon>0 时以间隔号「·」跟随「卫星 x n」，=0 整段隐藏）。
+  无 chevron，按压缩放 ≈0.97（spring）为唯一可点暗示。
   **虚线 = 占位语义**：添加页预览身份区用 1.5pt 虚线圆角框（dash [6,4]）+ 淡底，
   同纵向布局、无角标。
 - **网络行**：名称 + ID 等宽 + 分配地址 + 状态点行，右侧系统 Toggle；开关旁 pending 时 ProgressView。
