@@ -52,9 +52,12 @@ struct PrefsView: View {
                             .foregroundStyle(.tertiary)
                     }
                 }
+                // plain 样式：Form 按钮默认把整个标签染成主色，脱离后文字用默认色
+                .buttonStyle(.plain)
                 Toggle("视差动画", isOn: $parallaxEnabled)
                     .disabled(app.backgroundImage == nil)
-            } header: {
+                    // 禁用时标签同步置灰，避免被误读为可用状态
+                    .foregroundStyle(app.backgroundImage == nil ? Color.secondary : Color.primary)            } header: {
                 Text("外观")
             } footer: {
                 Text("背景图可从相册选择或通过 URL 下载；视差动画仅在设置了背景图时生效。")
