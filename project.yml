@@ -39,6 +39,7 @@ targets:
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true
+        NSCameraUsageDescription: 用于扫描二维码以识别并填入网络 ID
   PlanetPortTunnel:
     type: app-extension
     platform: iOS

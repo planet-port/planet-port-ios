@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 
 /// 全局设置。Planet 的管理在首页卡片与其设置页中完成。
 struct PrefsView: View {
@@ -7,7 +8,9 @@ struct PrefsView: View {
     @AppStorage(AppGroup.prefDisableIPv6, store: AppGroup.defaults) private var disableIPv6 = false
     @AppStorage(AppGroup.prefMultiConnectLimit, store: AppGroup.defaults) private var multiConnectLimit = 2
     @AppStorage(AppGroup.prefConnectOnDemand, store: AppGroup.defaults) private var connectOnDemand = false
+    @AppStorage(AppGroup.prefParallaxEnabled, store: AppGroup.defaults) private var parallaxEnabled = true
     @State private var showDonate = false
+    @State private var showBackgroundPicker = false
 
     var body: some View {
         Form {
@@ -24,6 +27,37 @@ struct PrefsView: View {
                 Text("网络")
             } footer: {
                 Text("同时连接多个网络会增加耗电；超出上限时会提示确认，仍可强制开启。")
+            }
+
+            Section {
+                Button {
+                    showBackgroundPicker = true
+                } label: {
+                    HStack {
+                        Text("背景图")
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        if let image = app.backgroundImage {
+                            Image(uiImage: image)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 44, height: 44)
+                                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        } else {
+                            Text("未设置")
+                                .foregroundStyle(.secondary)
+                        }
+                        Image(systemName: "chevron.right")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+                Toggle("视差动画", isOn: $parallaxEnabled)
+                    .disabled(app.backgroundImage == nil)
+            } header: {
+                Text("外观")
+            } footer: {
+                Text("背景图可从相册选择或通过 URL 下载；视差动画仅在设置了背景图时生效。")
             }
 
             Section {
@@ -64,6 +98,9 @@ struct PrefsView: View {
                     .navigationTitle("捐赠")
                     .navigationBarTitleDisplayMode(.inline)
             }
+        }
+        .sheet(isPresented: $showBackgroundPicker) {
+            BackgroundImagePickerSheet()
         }
     }
 

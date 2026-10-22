@@ -65,6 +65,8 @@ struct NetworkCardView: View {
     let addresses: [String]?
     let onToggle: (Bool) -> Void
     let onTap: () -> Void
+    /// 复制反馈：图标短暂变对勾。
+    @State private var copied = false
 
     var body: some View {
         HStack(spacing: 12) {
@@ -87,22 +89,11 @@ struct NetworkCardView: View {
                         .foregroundStyle(cardStatus.color)
 
                     if let addresses, !addresses.isEmpty {
-                        Text(addresses.prefix(2).joined(separator: "  "))
-                            .font(.system(.caption2, design: .monospaced))
-                            .foregroundStyle(.tertiary)
-                            .lineLimit(1)
-                        // 复制按钮：点击复制首个分配 IP（高度为 IP 文字的 2/3）。
-                        Button {
-                            UIPasteboard.general.string = addresses.first ?? ""
-                        } label: {
-                            Image(systemName: "doc.on.doc")
-                                .font(.system(size: 7))
-                                .foregroundStyle(.tint)
-                                .padding(1)
-                                .contentShape(Rectangle())
+                        // IP 与复制图标单独成组：组内间距 4（原 8 的一半），点击均可复制。
+                        HStack(spacing: 4) {
+                            ipTextWithHitArea(addresses)
+                            copyIcon(addresses)
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("复制 IP")
                     } else {
                         // 无地址数据（未连接/非活跃行星）用 "-" 占位。
                         Text("-")
@@ -142,5 +133,40 @@ struct NetworkCardView: View {
         .padding(14)
         .background(Color(uiColor: .secondarySystemGroupedBackground))
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    /// IP 文字 + 代理热区：热区图层覆盖文字（外扩 5pt）承接点击，文字本身
+    /// 不用手势，避免小字号命中区不足。调试期热区半透明可见，稳定后改 Color.clear。
+    private func ipTextWithHitArea(_ addresses: [String]) -> some View {
+        Text(addresses.prefix(2).joined(separator: "  "))
+            .font(.system(.caption2, design: .monospaced))
+            .foregroundStyle(.tertiary)
+            .lineLimit(1)
+            .overlay(
+                Rectangle()
+                    .fill(Color.blue.opacity(0.18))   // 调试期可见热区，后续改 .clear
+                    .padding(-5)
+                    .contentShape(Rectangle())
+                    .onTapGesture { copyFirstIP(addresses) }
+            )
+    }
+
+    /// 复制图标：与 IP 文字同色（tertiary），原尺寸放大 25%（7 → 9）。
+    private func copyIcon(_ addresses: [String]) -> some View {
+        Image(systemName: copied ? "checkmark" : "doc.on.doc")
+            .font(.system(size: 9, weight: copied ? .semibold : .regular))
+            .foregroundStyle(copied ? AnyShapeStyle(Color.green) : AnyShapeStyle(HierarchicalShapeStyle.tertiary))
+            .padding(1)
+            .contentShape(Rectangle())
+            .onTapGesture { copyFirstIP(addresses) }
+            .accessibilityLabel("复制 IP")
+    }
+
+    private func copyFirstIP(_ addresses: [String]) {
+        UIPasteboard.general.string = addresses.first ?? ""
+        withAnimation(.easeOut(duration: 0.15)) { copied = true }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+            withAnimation(.easeIn(duration: 0.15)) { copied = false }
+        }
     }
 }

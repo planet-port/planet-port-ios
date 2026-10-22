@@ -1,6 +1,7 @@
 import Foundation
 import NetworkExtension
 import Combine
+import UIKit
 
 /// 全局 UI 状态：网络/Moon 列表 + 节点状态 + 隧道状态
 /// 数据源：App Group 共享文件/UserDefaults + StatusStore Darwin 通知 + 定时查询
@@ -30,6 +31,20 @@ final class AppState: ObservableObject {
     @Published var networkConflicts: [String: String] = [:]
     @Published var networkConfigs: [String: NetworkConfigSnapshot] = [:]
     @Published var vpnRunning: Bool = false
+    /// 首页自定义背景图（nil = 未设置，页面用纯底色）
+    @Published var backgroundImage: UIImage? = BackgroundImageStore.load()
+
+    /// 保存并应用新背景图（相册/URL 下载得到的数据统一走这里）
+    func applyBackgroundImage(_ data: Data) throws {
+        try BackgroundImageStore.save(data)
+        backgroundImage = BackgroundImageStore.load()
+    }
+
+    /// 清除背景图
+    func clearBackgroundImage() {
+        BackgroundImageStore.clear()
+        backgroundImage = nil
+    }
 
     private var statusObserver: DarwinNotifyObserver?
     private var timer: AnyCancellable?

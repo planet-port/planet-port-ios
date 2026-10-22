@@ -32,6 +32,8 @@ struct HomeView: View {
     /// 底部安全区高度：启动初期窗口未就绪取不到，兜底 34（主流全面屏），
     /// 场景激活后重读刷新，避免列表"2~3 秒后才撑满"。
     @State private var bottomInset: CGFloat = 34
+    /// 背景视差开关（默认开启，仅设置了背景图时生效）
+    @AppStorage(AppGroup.prefParallaxEnabled) private var parallaxEnabled = true
 
     fileprivate static let addTag = "__add__"
 
@@ -72,8 +74,9 @@ struct HomeView: View {
             .overlay(alignment: .top) {
                 headerZone
             }
-            // 背景：插画 + 薄纱 + 重力视差（仅背景动，前景 UI 不动）。
-            .background { HomeParallaxBackground() }
+            // 背景：自定义背景图 + 薄纱 + 重力视差（无图时纯页面底色）。
+            .background { HomeParallaxBackground(image: app.backgroundImage,
+                                                 parallaxEnabled: parallaxEnabled) }
             .toolbar(.hidden, for: .navigationBar)
             .overlay {
                 // 新增 Planet 页不显示添加网络按钮。
@@ -180,6 +183,7 @@ struct HomeView: View {
                 // 有活跃连接且当前浏览的不是活跃 Planet 时才显示，位于设置按钮一侧。
                 if showActivePlanetChip {
                     // emoji 比同字号文字显大：单独缩小到 2/3，并与名称间留一空格位。
+                    // 胶囊样式：与毛玻璃标题栏隔离，一眼可辨"当前生效行星"。
                     HStack(spacing: 3) {
                         Text("🔗")
                             .font(.system(size: 22 * 0.65 * 2 / 3))
@@ -189,6 +193,10 @@ struct HomeView: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .fixedSize()
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 4)
+                    .background(Capsule().fill(Color(uiColor: .secondarySystemGroupedBackground)))
+                    .overlay(Capsule().strokeBorder(.quaternary, lineWidth: 0.5))
                     .padding(.trailing, 8)
                     .contentShape(Rectangle())
                     // 点击快速切回当前活跃行星的分页。

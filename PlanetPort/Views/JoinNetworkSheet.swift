@@ -8,6 +8,7 @@ struct JoinNetworkSheet: View {
     @State private var networkId = ""
     @State private var routeViaZeroTier = false
     @State private var dns = DNSConfig()
+    @State private var showScanner = false
 
     private var idValid: Bool {
         networkId.count == 16 && networkId.allSatisfy { $0.isHexDigit }
@@ -17,10 +18,21 @@ struct JoinNetworkSheet: View {
         NavigationStack {
             Form {
                 Section("网络 ID") {
-                    TextField("16 位十六进制", text: $networkId)
-                        .font(.system(.body, design: .monospaced))
-                        .autocorrectionDisabled()
-                        .textInputAutocapitalization(.characters)
+                    HStack {
+                        TextField("16 位十六进制", text: $networkId)
+                            .font(.system(.body, design: .monospaced))
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.characters)
+                        // 输入框尾部扫码按钮：识别二维码中的网络 ID 填入。
+                        Button {
+                            showScanner = true
+                        } label: {
+                            Image(systemName: "qrcode")
+                                .foregroundStyle(.tint)
+                        }
+                        .buttonStyle(.borderless)
+                        .accessibilityLabel("扫码识别网络 ID")
+                    }
                     if !networkId.isEmpty && !idValid {
                         Text("网络 ID 必须为 16 位十六进制字符")
                             .font(.caption)
@@ -45,6 +57,12 @@ struct JoinNetworkSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("加入") { join() }
                         .disabled(!idValid || !dns.isValid)
+                }
+            }
+            .sheet(isPresented: $showScanner) {
+                QRScannerView { id in
+                    networkId = id
+                    dismiss()
                 }
             }
         }

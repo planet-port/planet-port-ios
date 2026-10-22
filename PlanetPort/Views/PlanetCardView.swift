@@ -48,7 +48,7 @@ struct PlanetCardView: View {
 
     // MARK: - 子视图
 
-    /// 72pt 实色图标 + 右上角骑缝状态角标。
+    /// 72pt 实色图标 + 右上角骑缝状态角标 + 右下角灰色齿轮（暗示整卡可点进设置）。
     private var iconWithBadge: some View {
         let tint = PlanetIcon.tint(for: planet)
         return Image(systemName: PlanetIcon.symbol(for: planet))
@@ -58,6 +58,15 @@ struct PlanetCardView: View {
             .background(tint, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
             .overlay(alignment: .topTrailing) {
                 if isActive && app.hasActivatedPlanet { statusBadge }
+            }
+            // 右下角灰色齿轮：骑缝一半在外，表示图标可点击进入行星设置。
+            .overlay(alignment: .bottomTrailing) {
+                if !isPreview {
+                    Image(systemName: "gearshape.fill")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(Color(uiColor: .systemGray))
+                        .offset(x: 5, y: 5)
+                }
             }
     }
 

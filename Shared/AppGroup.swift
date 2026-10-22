@@ -38,4 +38,6 @@ enum AppGroup {
     static let prefConnectOnDemand = "general_connect_on_demand"
     /// 首页左右屏幕边缘滑动切换 Planet。
     static let prefEdgeSwipePlanet = "interaction_edge_swipe_planet"
+    /// 首页背景视差动画（默认开启；仅在设置了自定义背景图时生效）
+    static let prefParallaxEnabled = "interaction_parallax_enabled"
 }
