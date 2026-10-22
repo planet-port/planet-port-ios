@@ -136,7 +136,7 @@ struct NetworkCardView: View {
     }
 
     /// IP 文字 + 代理热区：热区图层覆盖文字（外扩 5pt）承接点击，文字本身
-    /// 不用手势，避免小字号命中区不足。调试期热区半透明可见，稳定后改 Color.clear。
+    /// 不用手势，避免小字号命中区不足。热区透明不可见，仅扩大命中范围。
     private func ipTextWithHitArea(_ addresses: [String]) -> some View {
         Text(addresses.prefix(2).joined(separator: "  "))
             .font(.system(.caption2, design: .monospaced))
@@ -144,7 +144,7 @@ struct NetworkCardView: View {
             .lineLimit(1)
             .overlay(
                 Rectangle()
-                    .fill(Color.blue.opacity(0.18))   // 调试期可见热区，后续改 .clear
+                    .fill(Color.clear)
                     .padding(-5)
                     .contentShape(Rectangle())
                     .onTapGesture { copyFirstIP(addresses) }
