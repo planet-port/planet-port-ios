@@ -86,7 +86,7 @@ struct PlanetCardView: View {
             // 复制图标:高度为 ID 文字的 2/3(用户调整),复制成功短暂变对勾反馈。
             Image(systemName: copied ? "checkmark" : "doc.on.doc")
                 .font(.system(size: 11, weight: copied ? .semibold : .regular))
-                .foregroundStyle(copied ? AnyShapeStyle(Color.green) : AnyShapeStyle(HierarchicalShapeStyle.tertiary))
+                .foregroundStyle(copied ? AnyShapeStyle(ThemeManager.shared.success) : AnyShapeStyle(HierarchicalShapeStyle.tertiary))
             if moonCount > 0 {
                 Text("·")
                     .font(.footnote)
@@ -136,7 +136,7 @@ struct PlanetCardView: View {
     private var statusColor: Color {
         if isPreview { return .secondary }
         if isActive && app.vpnRunning {
-            return app.online ? .green : .orange
+            return app.online ? ThemeManager.shared.success : .orange
         }
         return .secondary
     }

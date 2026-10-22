@@ -9,6 +9,10 @@ struct PlanetPortApp: App {
     }
 
     var body: some Scene {
-        WindowGroup { ContentView() }
+        WindowGroup {
+            ContentView()
+                // 全局主色由 ThemeManager 运行时派生（浅色原色/深色提亮）。
+                .tint(ThemeManager.shared.accent)
+        }
     }
 }

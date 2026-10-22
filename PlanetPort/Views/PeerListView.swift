@@ -136,7 +136,7 @@ struct PeerListView: View {
 
     /// 延迟语义色：<30ms 好 / <100ms 一般 / ≥100ms 差。
     private func latencyColor(_ ms: Int) -> Color {
-        if ms < 30 { return .green }
+        if ms < 30 { return ThemeManager.shared.success }
         if ms < 100 { return .orange }
         return .red
     }

@@ -84,7 +84,7 @@ struct AddPlanetForm: View {
                     if let data = pendingData {
                         Text("已就绪 · \(ByteCountFormatter.string(fromByteCount: Int64(data.count), countStyle: .file))")
                             .font(.caption)
-                            .foregroundStyle(.green)
+                            .foregroundStyle(ThemeManager.shared.success)
                     } else {
                         Image(systemName: "chevron.right")
                             .font(.caption.weight(.semibold))

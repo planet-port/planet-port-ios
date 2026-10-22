@@ -2,7 +2,7 @@ name: PlanetPort
 options:
   bundleIdPrefix: com.zivyuan
   deploymentTarget:
-    iOS: "16.0"
+    iOS: "17.0"
   createIntermediateGroups: true
 settings:
   base:
@@ -17,6 +17,8 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: cn.imgozi.PlanetPortI
         # 无 AppIcon 资源（与建仓时一致）；仅有背景图 imageset。
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        # 全局主色：三角配色 500(#D44037)/深色 200(#ff695b)。
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
     sources:
       - path: PlanetPort
       - path: Shared

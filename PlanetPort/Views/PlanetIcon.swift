@@ -9,14 +9,14 @@ enum PlanetIcon {
         "antenna.radiowaves.left.and.right", "dot.circle.and.cursorarrow",
         "shareplay", "seal.fill",
     ]
-    static let tints: [Color] = [.blue, .purple, .indigo, .teal, .orange, .pink, .mint, .cyan]
-
+    /// 装饰盘随全局主色三角派生（ThemeManager），白色符号对比度按 500/200/深档选取。
     static func symbol(for planet: PlanetProfile) -> String {
         planet.icon ?? catalog[hashIndex(of: planet) % catalog.count]
     }
 
     static func tint(for planet: PlanetProfile) -> Color {
-        tints[hashIndex(of: planet) % tints.count]
+        let tints = ThemeManager.shared.planetTints
+        return tints[hashIndex(of: planet) % tints.count]
     }
 
     /// djb2 哈希，保证同一 Planet 永远生成同一图标。

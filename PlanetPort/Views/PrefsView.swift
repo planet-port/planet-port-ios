@@ -61,6 +61,44 @@ struct PrefsView: View {
             }
 
             Section {
+                // 预设色板：单行 8 圆点，当前主色描环标识。
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: 8),
+                          spacing: 4) {
+                    ForEach(Array(ThemeManager.presets.enumerated()), id: \.offset) { index, hex in
+                        Button {
+                            ThemeManager.shared.setMainColor(hex)
+                        } label: {
+                            Circle()
+                                .fill(ThemeManager.color(hex: hex))
+                                .frame(width: 32, height: 32)
+                                .overlay {
+                                    // 选中标记：白色描环。
+                                    if hex == ThemeManager.shared.mainHex {
+                                        Circle()
+                                            .strokeBorder(Color.white, lineWidth: 2)
+                                            .padding(2)
+                                    }
+                                }
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("主色 \(ThemeManager.presetNames[index])")
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 4)
+                ColorPicker("自定义主色", selection: Binding(
+                    get: { ThemeManager.color(hex: ThemeManager.shared.mainHex) },
+                    set: { ThemeManager.shared.setMainColor(ThemeManager.hex(of: $0)) }))
+                Toggle("状态色跟随主色派生", isOn: Binding(
+                    get: { ThemeManager.shared.deriveStatusColor },
+                    set: { ThemeManager.shared.setDeriveStatusColor($0) }))
+            } header: {
+                Text("主题色")
+            } footer: {
+                Text("主色决定按钮、指示器与行星装饰色，深浅模式自动适配；状态色默认保持绿/橙/红语义，打开开关后成功色随主色三角派生。")
+            }
+
+            Section {
                 Toggle("按需连接（Connect On Demand）", isOn: Binding(
                     get: { connectOnDemand },
                     set: { on in

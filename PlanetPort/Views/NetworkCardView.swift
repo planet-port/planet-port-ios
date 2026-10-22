@@ -31,7 +31,7 @@ struct NetworkCardStatus {
             if status.isPendingAuthorization {
                 self.init(text: "待授权", color: .orange)
             } else {
-                self.init(text: status.displayName, color: status == .ok ? .green : .orange)
+                self.init(text: status.displayName, color: status == .ok ? ThemeManager.shared.success : .orange)
             }
         } else {
             self.init(text: "等待节点响应", color: .secondary)
@@ -155,7 +155,7 @@ struct NetworkCardView: View {
     private func copyIcon(_ addresses: [String]) -> some View {
         Image(systemName: copied ? "checkmark" : "doc.on.doc")
             .font(.system(size: 9, weight: copied ? .semibold : .regular))
-            .foregroundStyle(copied ? AnyShapeStyle(Color.green) : AnyShapeStyle(HierarchicalShapeStyle.tertiary))
+            .foregroundStyle(copied ? AnyShapeStyle(ThemeManager.shared.success) : AnyShapeStyle(HierarchicalShapeStyle.tertiary))
             .padding(1)
             .contentShape(Rectangle())
             .onTapGesture { copyFirstIP(addresses) }

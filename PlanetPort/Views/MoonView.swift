@@ -149,10 +149,10 @@ struct MoonView: View {
             Text(cached ? "已缓存" : "未缓存")
                 .font(.caption2.weight(.semibold))
         }
-        .foregroundStyle(cached ? Color.green : Color.secondary)
+        .foregroundStyle(cached ? ThemeManager.shared.success : Color.secondary)
         .padding(.horizontal, 8)
         .padding(.vertical, 3)
-        .background((cached ? Color.green.opacity(0.12) : Color.secondary.opacity(0.12)),
+        .background((cached ? ThemeManager.shared.success.opacity(0.12) : Color.secondary.opacity(0.12)),
                     in: Capsule())
     }
 
