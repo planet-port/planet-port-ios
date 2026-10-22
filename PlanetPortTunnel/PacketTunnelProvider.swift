@@ -343,6 +343,13 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         // 在途应用可能把已离开网络的上下文加回（幽灵路由），以本次快照收敛。
         converter?.retainOnly(Set(items.map { $0.nwid }))
         let valid = items.filter { conflicts[$0.nwid] == nil }
+        if valid.isEmpty {
+            StatusStore.applyTrace = """
+            items=\(items.count) valid=0（无可用网络，未套设置）
+            快照 networkConfigs=\(networkConfigs.keys.map { String(format: "%016llx", $0) }.sorted())
+            \(converter?.debugSummary() ?? "")
+            """
+        }
         guard !valid.isEmpty else { return }
 
         // 多网络下默认路由一律不生效（控制面已联动关闭 routeVia，数据面兜底再拦一次）
@@ -391,6 +398,18 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
                 appendV6(RoutePlanner.expandV6(r, subtracting: v6Holes))
             }
         }
+
+        // 诊断追踪：本次聚合应用的完整决策快照（App 诊断页读取，排查"已连接但不通"）
+        var trace: [String] = ["items=\(items.count) valid=\(valid.count)"]
+        for i in items {
+            trace.append("item \(String(format: "%016llx", i.nwid)) v4=\(i.v4) v6=\(i.v6) conflict=\(conflicts[i.nwid]?.rawValue ?? "-")")
+        }
+        trace.append("快照 networkConfigs=\(networkConfigs.keys.map { String(format: "%016llx", $0) }.sorted())")
+        trace.append("includedV4=" + v4Routes.map { "\($0.destinationAddress)/\($0.destinationSubnetMask)" }.joined(separator: ", "))
+        trace.append("includedV6=" + v6Routes.map { "\($0.destinationAddress)/\($0.destinationNetworkPrefixLength)" }.joined(separator: ", "))
+        if let sum = converter?.debugSummary() { trace.append(sum) }
+        StatusStore.applyTrace = trace.joined(separator: "\n")
+        NSLog("[PlanetPort] applyTrace\n%@", StatusStore.applyTrace)
 
         let settings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: "127.0.0.1")
         // Packet Tunnel 只有一个 MTU：取各网络最小非零值（拆两行：链式闭包推断会退化成 Optional）

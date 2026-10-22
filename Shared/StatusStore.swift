@@ -9,6 +9,7 @@ enum StatusStore {
     private static let kTunnelStatus = "status_tunnelStatus"
     private static let kNetworkStatuses = "status_networkStatuses"
     private static let kNetworkConflicts = "status_networkConflicts"
+    private static let kApplyTrace = "status_applyTrace"
 
     static var nodeId: String {
         get { AppGroup.defaults.string(forKey: kNodeId) ?? "" }
@@ -45,6 +46,13 @@ enum StatusStore {
     static var networkConflicts: [String: String] {
         get { AppGroup.defaults.dictionary(forKey: kNetworkConflicts) as? [String: String] ?? [:] }
         set { AppGroup.defaults.set(newValue, forKey: kNetworkConflicts) }
+    }
+
+    /// 聚合应用诊断追踪（Extension 每次聚合应用写入的决策快照，
+    /// App 诊断页只读展示；排查"网络已连接但不通"类数据面问题）。
+    static var applyTrace: String {
+        get { AppGroup.defaults.string(forKey: kApplyTrace) ?? "" }
+        set { AppGroup.defaults.set(newValue, forKey: kApplyTrace) }
     }
 
     static func postChange() {

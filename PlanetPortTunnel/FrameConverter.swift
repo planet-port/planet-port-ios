@@ -79,6 +79,23 @@ final class FrameConverter {
         order.compactMap { contexts[$0] }
     }
 
+    /// 诊断快照（App 诊断页透出）：上下文与聚合表当前状态
+    func debugSummary() -> String {
+        lock.lock(); defer { lock.unlock() }
+        var lines = ["contexts=\(contexts.count) aggV4=\(aggregateV4.count) aggV6=\(aggregateV6.count)"]
+        for nwid in order {
+            guard let c = contexts[nwid] else { continue }
+            let v4 = c.ipv4Addresses.map(Self.dotted).joined(separator: ",")
+            lines.append("ctx \(String(format: "%016llx", nwid)) mac=\(String(format: "%012llx", c.mac)) v4=[\(v4)] routes=\(c.routesV4.count)/\(c.routesV6.count)")
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    /// host order UInt32 → 点分十进制（诊断输出用）
+    static func dotted(_ ip: UInt32) -> String {
+        String(format: "%d.%d.%d.%d", (ip >> 24) & 0xff, (ip >> 16) & 0xff, (ip >> 8) & 0xff, ip & 0xff)
+    }
+
     // MARK: - tun -> core
 
     func handlePacketsFromTun(_ packets: [Data]) {

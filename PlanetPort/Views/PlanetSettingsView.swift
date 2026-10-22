@@ -161,6 +161,11 @@ struct PlanetSettingsView: View {
             } label: {
                 Label("管理卫星节点", systemImage: "moon.stars")
             }
+            NavigationLink {
+                ApplyTraceView()
+            } label: {
+                Label("数据面诊断", systemImage: "waveform.path.ecg")
+            }
         } footer: {
             Text("Peers 来自隧道的实时连接，仅隧道正在使用的行星可查看。")
         }

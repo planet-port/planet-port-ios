@@ -401,7 +401,7 @@ struct HomeView: View {
             isPending: pendingNetworks.contains(entry.networkId),
             appearsActive: networkAppearsActive(entry),
             addresses: app.selectedPlanetId == app.activePlanetId
-                ? app.networkConfigs[entry.networkId]?.assignedAddrs : nil,
+                ? app.networkConfigs[entry.networkId]?.assignedAddrs.map { String($0.split(separator: "/").first ?? Substring($0)) } : nil,
             onToggle: { setNetworkActive(entry, active: $0) },
             onTap: { path.append(.network(entry.networkId)) })
     }
