@@ -288,8 +288,10 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         // CONFIG_UPDATE(2)。只认 op==2 会漏掉首次加入的网络——磁盘有缓存后控制器
         // 重推才变成 2，表现为"新网络永远不生效/卡初始化，重开一次就好"。
         // 鸡生蛋规避（早期 UP 无地址时套设置会掐断物理路由）由地址判空天然覆盖。
-        guard op != 3, !(cfg.assignedAddrs as [String]).isEmpty else {
-            diagLog("cfg \(nwidStr) 跳过（op=\(op) 无地址或 DOWN）")
+        // 只接受 UP(1)/CONFIG_UPDATE(2)；DOWN(3)/DESTROY(4) 的回调可能仍带旧地址，
+        // 误存会把已离开网络的残留配置塞回快照（日志实测 leave 时 op=4 status=1 addrs=1）。
+        guard op == 1 || op == 2, !(cfg.assignedAddrs as [String]).isEmpty else {
+            diagLog("cfg \(nwidStr) 跳过（op=\(op) 无地址或 DOWN/DESTROY）")
             return
         }
 

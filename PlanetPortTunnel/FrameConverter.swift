@@ -88,7 +88,7 @@ final class FrameConverter {
         for nwid in order {
             guard let c = contexts[nwid] else { continue }
             let v4 = c.ipv4Addresses.map(Self.dotted).joined(separator: ",")
-            lines.append("ctx \(String(format: "%016llx", nwid)) mac=\(String(format: "%012llx", c.mac)) v4=[\(v4)] routes=\(c.routesV4.count)/\(c.routesV6.count) 出站=\(c.statFwdV4) 入站=\(c.statInV4) ARP问=\(c.statArpReq) ARP答=\(c.statArpReply)")
+            lines.append("ctx \(String(format: "%016llx", nwid)) mac=\(String(format: "%012llx", c.mac)) v4=[\(v4)] routes=\(c.routesV4.count)/\(c.routesV6.count) 出站=\(c.statFwdV4) 入站=\(c.statInV4) ARP问=\(c.statArpReq) ARP答=\(c.statArpReply) ARP表=\(c.arp.count) 待决=\(c.pendingV4.values.reduce(0) { $0 + $1.count })")
         }
         return lines.joined(separator: "\n")
     }

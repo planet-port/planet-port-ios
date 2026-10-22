@@ -15,6 +15,12 @@ final class ARPTable {
         map[ip] = mac
     }
 
+    /// 表项数（诊断展示）
+    var count: Int {
+        lock.lock(); defer { lock.unlock() }
+        return map.count
+    }
+
     // MARK: - 报文构造/解析（RFC 826，字段大端；对齐 Android ARPReplyData 的字节布局）
 
     static func request(senderIP: UInt32, senderMAC: UInt64, targetIP: UInt32) -> Data {
