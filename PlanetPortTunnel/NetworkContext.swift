@@ -73,6 +73,7 @@ final class NetworkContext {
     var statArpReq = 0     // ARP 请求已发
     var statArpReply = 0   // 收到 ARP 应答
     var statInV4 = 0       // 收到核心 IPv4 包
+    var statKeepalive = 0  // 保活帧已发
 
     init(nwid: UInt64, mac: UInt64, ipv4Strings: [String], ipv6Strings: [String], routes: [String]) {
         self.nwid = nwid

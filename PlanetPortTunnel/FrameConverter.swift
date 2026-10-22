@@ -88,7 +88,7 @@ final class FrameConverter {
         for nwid in order {
             guard let c = contexts[nwid] else { continue }
             let v4 = c.ipv4Addresses.map(Self.dotted).joined(separator: ",")
-            lines.append("ctx \(String(format: "%016llx", nwid)) mac=\(String(format: "%012llx", c.mac)) v4=[\(v4)] routes=\(c.routesV4.count)/\(c.routesV6.count) 出站=\(c.statFwdV4) 入站=\(c.statInV4) ARP问=\(c.statArpReq) ARP答=\(c.statArpReply) ARP表=\(c.arp.count) 待决=\(c.pendingV4.values.reduce(0) { $0 + $1.count })")
+            lines.append("ctx \(String(format: "%016llx", nwid)) mac=\(String(format: "%012llx", c.mac)) v4=[\(v4)] routes=\(c.routesV4.count)/\(c.routesV6.count) 出站=\(c.statFwdV4) 入站=\(c.statInV4) ARP问=\(c.statArpReq) ARP答=\(c.statArpReply) 保活=\(c.statKeepalive) ARP表=\(c.arp.count) 待决=\(c.pendingV4.values.reduce(0) { $0 + $1.count })")
         }
         return lines.joined(separator: "\n")
     }
@@ -235,6 +235,18 @@ final class FrameConverter {
                 }
             }
         default: break
+        }
+    }
+
+    /// 闲置保活：向每个活跃网络广播一个 ARP 探测帧。移动端长闲置后直连 peer 的
+    /// NAT 映射会过期，且两端都在等对方先发包（无法自愈，仅 VPN 重连可救）；
+    /// 周期广播让 peer 路径与 NAT 保持温热。帧仅 28 字节，耗电可忽略。
+    func sendKeepalive() {
+        lock.lock(); defer { lock.unlock() }
+        for ctx in orderedContextsLocked() where ctx.mac != 0 {
+            guard let probeIP = ctx.ipv4Addresses.first else { continue }
+            ctx.statKeepalive += 1
+            sendARPRequest(ctx, target: probeIP)
         }
     }
 

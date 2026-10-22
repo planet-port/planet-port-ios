@@ -28,6 +28,8 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
     private var udpThread: Thread?
     private var running = false
     private var bgTimer: DispatchSourceTimer?
+    /// 闲置保活 timer（每 45s 每网络广播一帧，防 peer 路径/NAT 冷却死亡）
+    private var keepaliveTimer: DispatchSourceTimer?
     private var joinedNetworks: Set<UInt64> = []
     private var orbitedMoons: Set<UInt64> = []
     /// 已应用的用户侧网络配置（nwid → (routeViaZeroTier, dnsMode, customDns)），变更时热重配隧道
@@ -68,6 +70,13 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
                 self?.applyConfig(fullSync: false)
             }
 
+            // 3.5 闲置保活：周期广播防 peer 路径冷却（长闲置后直连 NAT 过期且无法自愈）
+            let ka = DispatchSource.makeTimerSource(queue: DispatchQueue(label: "zt-keepalive"))
+            ka.schedule(deadline: .now() + .seconds(45), repeating: .seconds(45))
+            ka.setEventHandler { [weak self] in self?.converter?.sendKeepalive() }
+            ka.resume()
+            keepaliveTimer = ka
+
             // 4. 网络路径监听：切换/恢复时重启核心
             startPathMonitor()
 
@@ -94,6 +103,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         pathMonitor?.cancel()
         pathMonitor = nil
         bgTimer?.cancel(); bgTimer = nil
+        keepaliveTimer?.cancel(); keepaliveTimer = nil
         configQueue.async { [weak self] in
             self?.settingsWork?.cancel()
             self?.settingsWork = nil
