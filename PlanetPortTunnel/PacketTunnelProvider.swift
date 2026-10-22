@@ -353,14 +353,14 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         var v4Routes: [NEIPv4Route] = []
         var seenV4 = Set<String>()
         func appendV4(_ routes: [NEIPv4Route]) {
-            for r in routes where seenV4.insert("\(r.destinationAddress)/\(r.subnetMask)").inserted {
+            for r in routes where seenV4.insert("\(r.destinationAddress)/\(r.destinationSubnetMask)").inserted {
                 v4Routes.append(r)
             }
         }
         var v6Routes: [NEIPv6Route] = []
         var seenV6 = Set<String>()
         func appendV6(_ routes: [NEIPv6Route]) {
-            for r in routes where seenV6.insert("\(r.destinationAddress)/\(r.networkPrefixLength)").inserted {
+            for r in routes where seenV6.insert("\(r.destinationAddress)/\(r.destinationNetworkPrefixLength)").inserted {
                 v6Routes.append(r)
             }
         }
@@ -388,8 +388,9 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         }
 
         let settings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: "127.0.0.1")
-        // Packet Tunnel 只有一个 MTU：取各网络最小非零值
-        let mtu = valid.compactMap { $0.cfg.mtu }.filter { $0 > 0 }.min() ?? 2800
+        // Packet Tunnel 只有一个 MTU：取各网络最小非零值（拆两行：链式闭包推断会退化成 Optional）
+        let mtus = valid.map { $0.cfg.mtu }.filter { $0 > 0 }
+        let mtu = mtus.min() ?? 2800
         settings.mtu = NSNumber(value: mtu)
 
         let v4Settings = NEIPv4Settings(addresses: allV4.map { RoutePlanner.ipOnly($0) },
@@ -474,7 +475,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         for nwid in joinedNetworks where !wanted.contains(nwid) {
             bridge.leave(nwid)
             joinedNetworks.remove(nwid)
-            converter?.removeNetwork(nwid)
+            converter?.removeNetwork(nwid: nwid)
             configQueue.async { [weak self] in
                 self?.networkConfigs.removeValue(forKey: nwid)
                 self?.scheduleSettingsApply()
