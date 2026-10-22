@@ -9,6 +9,8 @@ final class AppState: ObservableObject {
     @Published var planets: [PlanetProfile] = []
     @Published var selectedPlanetId: String = PlanetProfile.officialId
     @Published var activePlanetId: String = PlanetProfile.officialId
+    /// 是否激活过任何 Planet：未激活过不显示"上次使用"角标。
+    @Published var hasActivatedPlanet: Bool = false
     @Published var networks: [NetworkEntry] = []
     /// 各 Planet 各自的网络列表（首页分页并行渲染用，避免相邻页共享当前选中页数据）。
     @Published var planetNetworks: [String: [NetworkEntry]] = [:]
@@ -67,6 +69,7 @@ final class AppState: ObservableObject {
         planets = AppConfigStore.readPlanets()
         selectedPlanetId = AppConfigStore.selectedPlanetId
         activePlanetId = AppConfigStore.activePlanetId
+        hasActivatedPlanet = AppConfigStore.hasActivatedPlanet
         networks = AppConfigStore.readNetworks()
         planetNetworks = AppConfigStore.readNetworksByPlanet()
         planetNodeIds = Dictionary(uniqueKeysWithValues: planets.compactMap { profile in
