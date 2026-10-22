@@ -467,14 +467,14 @@ struct HomeView: View {
                             .font(.system(.caption2, design: .monospaced))
                             .foregroundStyle(.tertiary)
                             .lineLimit(1)
-                        // 复制按钮：点击复制首个分配 IP。
+                        // 复制按钮：点击复制首个分配 IP（高度为 IP 文字的 2/3）。
                         Button {
                             UIPasteboard.general.string = addresses.first ?? ""
                         } label: {
                             Image(systemName: "doc.on.doc")
-                                .font(.caption2)
+                                .font(.system(size: 7))
                                 .foregroundStyle(.tint)
-                                .padding(3)
+                                .padding(1)
                                 .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
@@ -528,8 +528,9 @@ struct HomeView: View {
     }
 
     private func statusText(_ entry: NetworkEntry) -> String {
-        if app.selectedPlanetId != app.activePlanetId { return "未应用" }
-        if !app.vpnRunning { return entry.lastActivated ? "等待 VPN 连接" : "未连接" }
+        // 状态只有：未连接 / 建立隧道 / 待授权 / 核心实时状态（正在初始化、在线等）。
+        // 非当前隧道行星的网络也显示"未连接"——开关为关，打开即切换行星，无需中间状态。
+        if !app.vpnRunning { return entry.lastActivated ? "建立隧道" : "未连接" }
         if !entry.lastActivated { return "未连接" }
         let status = app.networkStatuses[entry.networkId] ?? "等待节点响应"
         // 首次加入需控制器授权（核心报"需要认证"或"拒绝访问"）：统一显示"待授权"。
@@ -539,7 +540,7 @@ struct HomeView: View {
     private func colorFor(_ status: String) -> Color {
         switch status {
         case "在线": return .green
-        case "未应用", "等待 VPN 连接", "待授权": return .orange
+        case "建立隧道", "待授权": return .orange
         case "未连接", "未启用", "等待节点响应": return .secondary
         default: return .orange
         }
