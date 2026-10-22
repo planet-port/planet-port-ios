@@ -281,12 +281,13 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         StatusStore.networkStatuses = statuses
         StatusStore.postChange()
 
-        // 状态展示所有回调都更新；隧道设置仅在 CONFIG_UPDATE 应用。
-        // UP 阶段 status 仍是 REQUESTING_CONFIGURATION（无地址无路由），此时
-        // setTunnelNetworkSettings 会让系统把 extension 自身流量切到 utun，
-        // UDP sendto 变 EHOSTUNREACH、包发不出去 → 永远拿不到 netconf（鸡生蛋死锁）。
-        // 对齐 Android ZeroTierOneService：UP 不动配置，交给第一次 CONFIG_UPDATE。
-        guard op == 2 else { return }
+        // 状态展示所有回调都更新；隧道设置在"带地址的完整配置"时应用。
+        // 核心语义（Network.cpp:1252/1846）：端口首次初始化后的第一份完整 netconf
+        // （含磁盘缓存装载、首次加入的控制器下发）以 UP(1) 回调，仅后续更新才是
+        // CONFIG_UPDATE(2)。只认 op==2 会漏掉首次加入的网络——磁盘有缓存后控制器
+        // 重推才变成 2，表现为"新网络永远不生效/卡初始化，重开一次就好"。
+        // 鸡生蛋规避（早期 UP 无地址时套设置会掐断物理路由）由地址判空天然覆盖。
+        guard op != 3, !(cfg.assignedAddrs as [String]).isEmpty else { return }
 
         // 只登记快照；合并、冲突检测与单次应用统一走聚合路径（configQueue 串行）
         configQueue.async { [weak self] in
