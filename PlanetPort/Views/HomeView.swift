@@ -170,16 +170,20 @@ struct HomeView: View {
     /// 左对齐大标题 + 分页圆点，共享一层毛玻璃底（覆盖状态栏，底缘渐隐）。
     private var headerZone: some View {
         VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 0) {
-                // App logo 与名称同行：26pt 连续圆角缩略图，间距半个字宽（22pt 字号 ≈ 11pt）。
+            HStack(alignment: .top, spacing: 5.5) {
+                // Logo 独占左侧成块（约 40pt，覆盖右侧标题行 + 指示器两行高度），
+                // 连续圆角修饰。
                 Image("PlanetPortLogo")
                     .resizable()
-                    .frame(width: 26, height: 26)
-                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                Text("Planet Port")
-                    .font(.system(size: 22, weight: .bold))
-                    .padding(.leading, 11)
-                Spacer()
+                    .frame(width: 40, height: 40)
+                    .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+                // 右列：标题行在顶（顶部对齐 logo 顶再偏下 3pt），
+                // 指示器沉底（底部对齐 logo 底）。
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack(spacing: 0) {
+                        Text("Planet Port")
+                            .font(.system(size: 22, weight: .bold))
+                        Spacer()
                 // 有活跃连接且当前浏览的不是活跃 Planet 时才显示，位于设置按钮一侧。
                 if showActivePlanetChip {
                     // emoji 比同字号文字显大：单独缩小到 2/3，并与名称间留一空格位。
@@ -218,12 +222,22 @@ struct HomeView: View {
                         .contentShape(Rectangle())
                 }
                 .accessibilityLabel("设置")
-            }
-            // 出现/隐藏走弹簧动画，驱动 .flyFromPlanetCard 转场。
-            .animation(.spring(response: 0.45, dampingFraction: 0.85), value: showActivePlanetChip)
+                    }
+                    // 出现/隐藏走弹簧动画，驱动 .flyFromPlanetCard 转场。
+                    .animation(.spring(response: 0.45, dampingFraction: 0.85), value: showActivePlanetChip)
 
-            indicator
-                .frame(maxWidth: .infinity, alignment: .leading)
+                    Spacer(minLength: 0)
+
+                    indicator
+                        // offset 纯视觉位移（不参与布局）：此前用 padding 会被
+                        // 右列自然高度吸收（容器长高而非指示器上移），形同没调。
+                        .offset(y: -2)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                // 右列高度锁死与 logo 等高：内部 Spacer/位移才有确定的参照系。
+                .frame(height: 40)
+            }
+            .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.horizontal, 20)
         .padding(.top, 6)
