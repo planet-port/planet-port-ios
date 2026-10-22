@@ -32,6 +32,14 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
     private var orbitedMoons: Set<UInt64> = []
     /// 已应用的用户侧网络配置（nwid → (routeViaZeroTier, dnsMode, customDns)），变更时热重配隧道
     private var appliedEntries: [UInt64: (Bool, DNSMode, [String])] = [:]
+    /// op==2 的最近网络配置快照（nwid → cfg），聚合设置的输入
+    private var networkConfigs: [UInt64: ZTNetworkConfigData] = [:]
+    /// 聚合设置串行队列：快照读写、去抖、合并应用都在这里
+    private let configQueue = DispatchQueue(label: "zt-settings")
+    private var settingsWork: DispatchWorkItem?
+    /// setTunnelNetworkSettings 单飞：应用中收到新配置置 dirty，完成后重跑
+    private var applyingSettings = false
+    private var settingsDirty = false
     private var configObserver: DarwinNotifyObserver?
     /// 网络路径监听：接口切换（Wi-Fi↔蜂窝）或断网恢复时重启核心（对齐 Android 网络变化重启服务）
     private var pathMonitor: Network.NWPathMonitor?
@@ -86,10 +94,16 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         pathMonitor?.cancel()
         pathMonitor = nil
         bgTimer?.cancel(); bgTimer = nil
+        configQueue.async { [weak self] in
+            self?.settingsWork?.cancel()
+            self?.settingsWork = nil
+            self?.networkConfigs = [:]
+        }
         stopCore()
         StatusStore.tunnelStatus = "已停止"
         StatusStore.online = false
         StatusStore.networkStatuses = [:]
+        StatusStore.networkConflicts = [:]
         StatusStore.postChange()
         completionHandler()
     }
@@ -153,6 +167,8 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
                 }
             }
             appliedEntries = [:]
+            // 配置快照随旧核心失效，等待新核心的 CONFIG_UPDATE 重建
+            configQueue.async { self.networkConfigs = [:] }
         }
 
         // 5. join 已配置网络 + orbit moons（对齐 Android onStartCommand 查 lastActivated）
@@ -193,14 +209,14 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
     // MARK: - 核心回调
 
     private func wireCallbacks(bridge: ZTBridge) {
-        // 核心帧回调（callbackQueue 串行队列上）→ 剥头写 tun
+        // 核心帧回调（callbackQueue 串行队列上）→ 按 nwid 分流剥头写 tun
         bridge.onFrame = { [weak self] nwid, srcMac, dstMac, etherType, vlanId, frame in
             guard let self, let converter = self.converter else { return }
-            let packets = converter.handleFrameFromCore(srcMac: srcMac, dstMac: dstMac,
+            let packets = converter.handleFrameFromCore(nwid: nwid, srcMac: srcMac, dstMac: dstMac,
                                                         etherType: etherType, frame: frame)
             guard !packets.isEmpty else { return }
-            let protos = [NSNumber](repeating: NSNumber(value: AF_INET as Int32), count: packets.count)
-            self.packetFlow.writePackets(packets, withProtocols: protos)
+            self.packetFlow.writePackets(packets.map(\.0),
+                                         withProtocols: packets.map { NSNumber(value: $0.1) })
         }
 
         // 物理发包：sendto
@@ -255,7 +271,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         }
     }
 
-    // MARK: - 网络配置 → setTunnelNetworkSettings
+    // MARK: - 网络配置 → 聚合设置（合并单次应用）
 
     private func handleNetworkConfig(nwid: UInt64, op: Int32, cfg: ZTNetworkConfigData) {
         let nwidStr = String(format: "%016llx", nwid)
@@ -271,87 +287,171 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         // 对齐 Android ZeroTierOneService：UP 不动配置，交给第一次 CONFIG_UPDATE。
         guard op == 2 else { return }
 
-        // 查用户配置（默认路由/DNS 模式）
-        let entry = AppConfigStore.readActiveNetworks().first { $0.networkId == nwidStr }
+        // 只登记快照；合并、冲突检测与单次应用统一走聚合路径（configQueue 串行）
+        configQueue.async { [weak self] in
+            guard let self else { return }
+            self.networkConfigs[nwid] = cfg
+            self.scheduleSettingsApply()
+        }
+    }
+
+    /// 去抖：连续的配置回调合并为一次应用（300ms 窗口，多网络回调不互相覆盖）
+    private func scheduleSettingsApply() {
+        settingsWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.applyAggregatedSettings() }
+        settingsWork = work
+        configQueue.asyncAfter(deadline: .now() + 0.3, execute: work)
+    }
+
+    /// 聚合应用：冲突检测 → 转换器上下文 → 合并地址/路由/MTU/DNS → 单次 setTunnelNetworkSettings。
+    /// 激活顺序 = networks.json 中 lastActivated 记录的文件顺序；冲突后进入者让路。
+    private func applyAggregatedSettings() {
+        let entries = AppConfigStore.readActiveNetworks().filter { $0.lastActivated }
         let disableIPv6 = AppGroup.defaults.bool(forKey: AppGroup.prefDisableIPv6)
 
-        // 本机 MAC 与地址 → 帧转换层
-        let v4 = cfg.assignedAddrs.filter { $0.contains(".") }
-        let v6 = disableIPv6 ? [] : cfg.assignedAddrs.filter { $0.contains(":") }
-        // 没有可用地址的配置不应用（残缺设置同样会掐断物理路由）
-        guard !v4.isEmpty || !v6.isEmpty else { return }
-        converter?.currentNwid = nwid
-        converter?.updateNetworkInfo(mac: cfg.mac, ipv4: v4, ipv6: v6, routes: cfg.routes)
+        struct Item {
+            let nwid: UInt64
+            let entry: NetworkEntry
+            let cfg: ZTNetworkConfigData
+            let v4: [String]
+            let v6: [String]
+        }
+        // 没有可用地址的配置不进数据面（残缺设置同样会掐断物理路由）
+        let items: [Item] = entries.compactMap { entry in
+            guard let nwid = UInt64(entry.networkId, radix: 16), let cfg = networkConfigs[nwid] else { return nil }
+            let v4 = (cfg.assignedAddrs as [String]).filter { $0.contains(".") }
+            let v6 = disableIPv6 ? [] : (cfg.assignedAddrs as [String]).filter { $0.contains(":") }
+            guard !v4.isEmpty || !v6.isEmpty else { return nil }
+            return Item(nwid: nwid, entry: entry, cfg: cfg, v4: v4, v6: v6)
+        }
+
+        // 冲突检测（后进入者让路）→ 状态透出（原始码，App 层生成文案）
+        let conflicts = NetworkContextMath.detectConflicts(items.map { ($0.nwid, $0.v4, $0.v6) })
+        StatusStore.networkConflicts = conflicts.reduce(into: [String: String]()) { map, pair in
+            map[String(format: "%016llx", pair.key)] = pair.value.rawValue
+        }
+        StatusStore.postChange()
+        // 转换器上下文：冲突网络不建（保留 join 仅展示状态）
+        for item in items {
+            converter?.updateNetworkInfo(nwid: item.nwid, enabled: conflicts[item.nwid] == nil,
+                                         mac: item.cfg.mac, ipv4: item.v4, ipv6: item.v6,
+                                         routes: (item.cfg.routes as [String]))
+        }
+        let valid = items.filter { conflicts[$0.nwid] == nil }
+        guard !valid.isEmpty else { return }
+
+        // 多网络下默认路由一律不生效（控制面已联动关闭 routeVia，数据面兜底再拦一次）
+        let routeVia = valid.count == 1 && valid[0].entry.routeViaZeroTier
+        let allV4 = valid.flatMap { $0.v4 }
+        let allV6 = valid.flatMap { $0.v6 }
+        // 物理 on-link 子网从隧道路由中挖除：ZT managed routes 会覆盖本机物理局域网，
+        // 把本地网关/DNS 抓进隧道黑洞。前缀差集（挖洞）不用 excludedRoutes——
+        // 分流场景下后者属未定义行为，实测（iOS 26）会扰动物理路由殃及全局上网。
+        let v4Holes = RoutePlanner.physicalOnLinkPrefixes4(excludingNetworksOf: allV4)
+        let v6Holes = RoutePlanner.physicalOnLinkPrefixes6(excludingNetworksOf: allV6)
+
+        var v4Routes: [NEIPv4Route] = []
+        var seenV4 = Set<String>()
+        func appendV4(_ routes: [NEIPv4Route]) {
+            for r in routes where seenV4.insert("\(r.destinationAddress)/\(r.subnetMask)").inserted {
+                v4Routes.append(r)
+            }
+        }
+        var v6Routes: [NEIPv6Route] = []
+        var seenV6 = Set<String>()
+        func appendV6(_ routes: [NEIPv6Route]) {
+            for r in routes where seenV6.insert("\(r.destinationAddress)/\(r.networkPrefixLength)").inserted {
+                v6Routes.append(r)
+            }
+        }
+        if routeVia {
+            appendV4(RoutePlanner.expandV4("0.0.0.0/0", subtracting: v4Holes))
+            appendV6(RoutePlanner.expandV6("::/0", subtracting: v6Holes))
+        }
+        for item in valid {
+            // 与 Android builder.addRoute(addressToRoute(assignedAddress), prefix) 对齐：
+            // 分配地址本身不会自动保证其直连网段进入 Packet Tunnel。
+            for address in item.v4 {
+                appendV4([RoutePlanner.route(RoutePlanner.networkCIDR4(address))])
+            }
+            for address in item.v6 {
+                appendV6([RoutePlanner.route6(RoutePlanner.networkCIDR6(address))])
+            }
+            for r in (item.cfg.routes as [String]) where r.contains(".")
+                && (routeVia || !RoutePlanner.isDefaultRoute(r)) {
+                appendV4(RoutePlanner.expandV4(r, subtracting: v4Holes))
+            }
+            for r in (item.cfg.routes as [String]) where r.contains(":")
+                && (routeVia || !RoutePlanner.isDefaultRoute(r)) {
+                appendV6(RoutePlanner.expandV6(r, subtracting: v6Holes))
+            }
+        }
 
         let settings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: "127.0.0.1")
-        settings.mtu = NSNumber(value: cfg.mtu)
+        // Packet Tunnel 只有一个 MTU：取各网络最小非零值
+        let mtu = valid.compactMap { $0.cfg.mtu }.filter { $0 > 0 }.min() ?? 2800
+        settings.mtu = NSNumber(value: mtu)
 
-        // IPv4
-        let v4Settings = NEIPv4Settings(addresses: v4.map { RoutePlanner.ipOnly($0) },
-                                        subnetMasks: v4.map { RoutePlanner.subnetMask($0) })
-        // 物理 on-link 子网（WiFi/蜂窝本地网段）从隧道路由中挖除：ZT managed routes
-        // （如 192.168.0.0/16）会覆盖本机物理局域网，把本地网关/DNS 抓进隧道黑洞。
-        // 做法是对 includedRoutes 做前缀差集（挖掉物理子网后分解为更具体路由），
-        // 不使用 excludedRoutes——后者仅在 includedRoutes 含默认路由时才有定义，
-        // 分流场景下属于未定义行为，实测（iOS 26）会扰动物理路由殃及全局上网。
-        let v4Holes = RoutePlanner.physicalOnLinkPrefixes4(excludingNetworksOf: v4)
-        var v4Routes: [NEIPv4Route] = []
-        if entry?.routeViaZeroTier == true {
-            v4Routes.append(contentsOf: RoutePlanner.expandV4("0.0.0.0/0", subtracting: v4Holes))
-        }
-        // 与 Android builder.addRoute(addressToRoute(assignedAddress), prefix) 对齐：
-        // 分配地址本身不会自动保证其直连网段进入 Packet Tunnel。
-        for address in v4 {
-            v4Routes.append(RoutePlanner.route(RoutePlanner.networkCIDR4(address)))
-        }
-        for r in cfg.routes where r.contains(".") && (entry?.routeViaZeroTier == true || !RoutePlanner.isDefaultRoute(r)) {
-            v4Routes.append(contentsOf: RoutePlanner.expandV4(r, subtracting: v4Holes))
-        }
+        let v4Settings = NEIPv4Settings(addresses: allV4.map { RoutePlanner.ipOnly($0) },
+                                        subnetMasks: allV4.map { RoutePlanner.subnetMask($0) })
         v4Settings.includedRoutes = v4Routes
         settings.ipv4Settings = v4Settings
-
-        // IPv6
-        if !v6.isEmpty {
-            let v6Settings = NEIPv6Settings(addresses: v6.map { RoutePlanner.ipOnly($0) },
-                                            networkPrefixLengths: v6.map { RoutePlanner.prefixLen($0) as NSNumber })
-            let v6Holes = RoutePlanner.physicalOnLinkPrefixes6(excludingNetworksOf: v6)
-            var v6Routes: [NEIPv6Route] = []
-            if entry?.routeViaZeroTier == true {
-                v6Routes.append(contentsOf: RoutePlanner.expandV6("::/0", subtracting: v6Holes))
-            }
-            for address in v6 {
-                v6Routes.append(RoutePlanner.route6(RoutePlanner.networkCIDR6(address)))
-            }
-            for r in cfg.routes where r.contains(":") && (entry?.routeViaZeroTier == true || !RoutePlanner.isDefaultRoute(r)) {
-                v6Routes.append(contentsOf: RoutePlanner.expandV6(r, subtracting: v6Holes))
-            }
+        if !allV6.isEmpty {
+            let v6Settings = NEIPv6Settings(addresses: allV6.map { RoutePlanner.ipOnly($0) },
+                                            networkPrefixLengths: allV6.map { RoutePlanner.prefixLen($0) as NSNumber })
             v6Settings.includedRoutes = v6Routes
             settings.ipv6Settings = v6Settings
         }
 
-        // DNS（三模式，对齐 Android updateTunnelConfig）
-        switch entry?.dnsMode ?? .none {
-        case .network:
-            if !cfg.dns.isEmpty {
-                settings.dnsSettings = NEDNSSettings(servers: cfg.dns)
+        // DNS：多网络时不设置（默认路由已禁用，系统流量不走隧道，ZT DNS 无意义）；
+        // 单网络维持三模式（对齐 Android updateTunnelConfig）
+        if valid.count == 1 {
+            let item = valid[0]
+            switch item.entry.dnsMode {
+            case .network:
+                let servers = (item.cfg.dns as [String])
+                if !servers.isEmpty {
+                    settings.dnsSettings = NEDNSSettings(servers: servers)
+                }
+            case .custom:
+                if !item.entry.customDns.isEmpty {
+                    settings.dnsSettings = NEDNSSettings(servers: item.entry.customDns)
+                }
+            case .none:
+                break
             }
-        case .custom:
-            if let dns = entry?.customDns, !dns.isEmpty {
-                settings.dnsSettings = NEDNSSettings(servers: dns)
-            }
-        case .none:
-            break
         }
 
-        setTunnelNetworkSettings(settings) { [weak self] error in
+        applySettingsSerial(settings) { [weak self] error in
             if let error {
                 StatusStore.tunnelStatus = "隧道配置失败: \(error.localizedDescription)"
                 StatusStore.postChange()
                 return
             }
-            // 组播订阅（纯软件路径：broadcast + ADI=本机 IPv4，对齐 Android API≥29）
-            if let ipv4 = v4.first.flatMap({ FrameConverter.parseIPv4(RoutePlanner.ipOnly($0)) }) {
-                self?.bridge?.multicastSubscribe(nwid, group: 0xffffffffffff, adi: UInt64(ipv4))
+            // 组播订阅（纯软件路径：broadcast + ADI=各网络首个 IPv4，对齐 Android API≥29）
+            for item in valid {
+                if let ipv4 = item.v4.first.flatMap({ FrameConverter.parseIPv4(RoutePlanner.ipOnly($0)) }) {
+                    self?.bridge?.multicastSubscribe(item.nwid, group: 0xffffffffffff, adi: UInt64(ipv4))
+                }
+            }
+        }
+    }
+
+    /// setTunnelNetworkSettings 单飞：应用中收到新请求置 dirty，完成后重跑
+    private func applySettingsSerial(_ settings: NEPacketTunnelNetworkSettings,
+                                     completion: @escaping (Error?) -> Void) {
+        if applyingSettings {
+            settingsDirty = true
+            return
+        }
+        applyingSettings = true
+        setTunnelNetworkSettings(settings) { [weak self] error in
+            guard let self else { return }
+            self.applyingSettings = false
+            completion(error)
+            if self.settingsDirty, error == nil {
+                self.settingsDirty = false
+                self.scheduleSettingsApply()
             }
         }
     }
@@ -370,10 +470,15 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
             bridge.join(nwid)
             joinedNetworks.insert(nwid)
         }
-        // leave 移除
+        // leave 移除：立即删数据面上下文并重套聚合设置
         for nwid in joinedNetworks where !wanted.contains(nwid) {
             bridge.leave(nwid)
             joinedNetworks.remove(nwid)
+            converter?.removeNetwork(nwid)
+            configQueue.async { [weak self] in
+                self?.networkConfigs.removeValue(forKey: nwid)
+                self?.scheduleSettingsApply()
+            }
         }
         // orbit moons（对齐 Android：join 后自动 orbit 全部已配置 moon）
         for moon in moons where !orbitedMoons.contains(moon.worldId) {
