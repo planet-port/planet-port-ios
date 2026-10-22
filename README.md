@@ -1,4 +1,4 @@
-# PlanetPort
+# Planet Port
 
 ZeroTier 1.16.2 非官方 iOS 客户端，个人自用，Xcode 直装。
 
@@ -15,7 +15,7 @@ ZeroTier 1.16.2 非官方 iOS 客户端，个人自用，Xcode 直装。
 ## 架构
 
 ```
-┌─ App (PlanetPort) ──────────────┐      ┌─ Extension (PlanetPortTunnel) ────┐
+┌─ App (Planet Port) ──────────────┐      ┌─ Extension (PlanetPortTunnel) ────┐
 │ SwiftUI UI                         │      │ NEPacketTunnelProvider             │
 │  NetworkList / Detail / Peers      │      │  ├─ ZTBridge (OC++) ── ZT 1.16.2   │
 │  Moon / Prefs                      │      │  ├─ FrameConverter (L2↔L3)         │

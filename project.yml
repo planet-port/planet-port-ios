@@ -16,7 +16,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: cn.imgozi.PlanetPortI
         # 无 AppIcon 资源（与建仓时一致）；仅有背景图 imageset。
-        ASSETCATALOG_COMPILER_APPICON_NAME: ""
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     sources:
       - path: PlanetPort
       - path: Shared
@@ -34,7 +34,7 @@ targets:
     info:
       path: PlanetPort/Info.plist
       properties:
-        CFBundleDisplayName: PlanetPort
+        CFBundleDisplayName: Planet Port
         UILaunchScreen: {}
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         NSAppTransportSecurity:

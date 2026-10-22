@@ -176,8 +176,14 @@ struct HomeView: View {
     private var headerZone: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 0) {
-                Text("PlanetPort")
+                // App logo 与名称同行：26pt 连续圆角缩略图，间距半个字宽（22pt 字号 ≈ 11pt）。
+                Image("PlanetPortLogo")
+                    .resizable()
+                    .frame(width: 26, height: 26)
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                Text("Planet Port")
                     .font(.system(size: 22, weight: .bold))
+                    .padding(.leading, 11)
                 Spacer()
                 // 有活跃连接且当前浏览的不是活跃 Planet 时才显示，位于设置按钮一侧。
                 if showActivePlanetChip {

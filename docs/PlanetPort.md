@@ -1,6 +1,6 @@
-# PlanetPort 设计文档
+# Planet Port 设计文档
 
-PlanetPort 是一款支持自定义 ZeroTier 星球的工具软件。VPN 连接的建立都基于 ZeroTier One 核心，本工具只对星球与节点进行管理。
+Planet Port 是一款支持自定义 ZeroTier 星球的工具软件。VPN 连接的建立都基于 ZeroTier One 核心，本工具只对星球与节点进行管理。
 
 视觉与组件规格见根目录 DESIGN.md（设计锚），本文档只描述产品结构与页面职责。
 
@@ -25,7 +25,7 @@ PlanetProfile[]（官方 + 多个自定义）
 首页是核心入口，大部分日常操作都在此完成。自上而下：
 
 ```text
-PlanetPort          🔗名称    [设置]   ← 固定毛玻璃区
+Planet Port         🔗名称    [设置]   ← 固定毛玻璃区
 ○ ● ○ ○ ○                               ← 分页圆点（含添加页）
 
           [72pt 实色图标]                ← Planet 身份区（纵向居中）
