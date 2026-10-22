@@ -5,21 +5,33 @@ import SwiftUI
 struct ApplyTraceView: View {
     var body: some View {
         ScrollView {
-            Text(StatusStore.applyTrace.isEmpty ? "暂无数据（隧道尚未应用过配置）" : StatusStore.applyTrace)
-                .font(.system(.caption, design: .monospaced))
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding()
-                .textSelection(.enabled)
+            VStack(alignment: .leading, spacing: 16) {
+                section("最近一次聚合决策", StatusStore.applyTrace)
+                section("事件日志（最近 40 条）", StatusStore.eventLog)
+            }
+            .padding()
         }
         .navigationTitle("数据面诊断")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             Button {
-                UIPasteboard.general.string = StatusStore.applyTrace
+                UIPasteboard.general.string = StatusStore.applyTrace + "\n\n" + StatusStore.eventLog
             } label: {
                 Image(systemName: "doc.on.doc")
             }
             .accessibilityLabel("复制诊断信息")
+        }
+    }
+
+    private func section(_ title: String, _ content: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+            Text(content.isEmpty ? "暂无" : content)
+                .font(.system(.caption, design: .monospaced))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .textSelection(.enabled)
         }
     }
 }

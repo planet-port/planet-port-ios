@@ -276,6 +276,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
 
     private func handleNetworkConfig(nwid: UInt64, op: Int32, cfg: ZTNetworkConfigData) {
         let nwidStr = String(format: "%016llx", nwid)
+        diagLog("cfg \(nwidStr) op=\(op) status=\(cfg.status) addrs=\((cfg.assignedAddrs as [String]).count)")
         var statuses = StatusStore.networkStatuses
         statuses[nwidStr] = Int(cfg.status)
         StatusStore.networkStatuses = statuses
@@ -287,14 +288,28 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         // CONFIG_UPDATE(2)。只认 op==2 会漏掉首次加入的网络——磁盘有缓存后控制器
         // 重推才变成 2，表现为"新网络永远不生效/卡初始化，重开一次就好"。
         // 鸡生蛋规避（早期 UP 无地址时套设置会掐断物理路由）由地址判空天然覆盖。
-        guard op != 3, !(cfg.assignedAddrs as [String]).isEmpty else { return }
+        guard op != 3, !(cfg.assignedAddrs as [String]).isEmpty else {
+            diagLog("cfg \(nwidStr) 跳过（op=\(op) 无地址或 DOWN）")
+            return
+        }
 
         // 只登记快照；合并、冲突检测与单次应用统一走聚合路径（configQueue 串行）
+        diagLog("cfg \(nwidStr) 入快照")
         configQueue.async { [weak self] in
             guard let self else { return }
             self.networkConfigs[nwid] = cfg
             self.scheduleSettingsApply()
         }
+    }
+
+    /// 诊断事件日志（滚动 40 条，App 诊断页读取；低频事件，直写共享区可接受）
+    private func diagLog(_ line: String) {
+        let fmt = DateFormatter()
+        fmt.dateFormat = "HH:mm:ss.SSS"
+        var lines = StatusStore.eventLog.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
+        lines.append("\(fmt.string(from: Date())) \(line)")
+        if lines.count > 40 { lines.removeFirst(lines.count - 40) }
+        StatusStore.eventLog = lines.joined(separator: "\n")
     }
 
     /// 去抖：连续的配置回调合并为一次应用（300ms 窗口，多网络回调不互相覆盖）
@@ -309,6 +324,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
     /// 激活顺序 = networks.json 中 lastActivated 记录的文件顺序；冲突后进入者让路。
     private func applyAggregatedSettings() {
         let entries = AppConfigStore.readActiveNetworks().filter { $0.lastActivated }
+        diagLog("apply 文件激活=\(entries.map { String($0.networkId.suffix(4)) })")
         let disableIPv6 = AppGroup.defaults.bool(forKey: AppGroup.prefDisableIPv6)
 
         struct Item {
@@ -343,6 +359,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         // 在途应用可能把已离开网络的上下文加回（幽灵路由），以本次快照收敛。
         converter?.retainOnly(Set(items.map { $0.nwid }))
         let valid = items.filter { conflicts[$0.nwid] == nil }
+        diagLog("apply items=\(items.map { String(format: "%016llx", $0.nwid) }) conflicts=\(conflicts.count) valid=\(valid.count)")
         if valid.isEmpty {
             StatusStore.applyTrace = """
             items=\(items.count) valid=0（无可用网络，未套设置）
@@ -449,10 +466,12 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
 
         applySettingsSerial(settings) { [weak self] error in
             if let error {
+                self?.diagLog("设置应用失败: \(error.localizedDescription)")
                 StatusStore.tunnelStatus = "隧道配置失败: \(error.localizedDescription)"
                 StatusStore.postChange()
                 return
             }
+            self?.diagLog("设置应用成功")
             // 组播订阅（纯软件路径：broadcast + ADI=各网络首个 IPv4，对齐 Android API≥29）
             for item in valid {
                 if let ipv4 = item.v4.first.flatMap({ FrameConverter.parseIPv4(RoutePlanner.ipOnly($0)) }) {
@@ -500,7 +519,9 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
             joinedNetworks.insert(nwid)
         }
         // leave 移除：立即删数据面上下文并重套聚合设置
+        diagLog("applyConfig wanted=\(wanted.map { String(format: "%016llx", $0) }) joined=\(joinedNetworks.map { String(format: "%016llx", $0) })")
         for nwid in joinedNetworks where !wanted.contains(nwid) {
+            diagLog("leave \(String(format: "%016llx", nwid))")
             bridge.leave(nwid)
             joinedNetworks.remove(nwid)
             converter?.removeNetwork(nwid: nwid)

@@ -10,6 +10,7 @@ enum StatusStore {
     private static let kNetworkStatuses = "status_networkStatuses"
     private static let kNetworkConflicts = "status_networkConflicts"
     private static let kApplyTrace = "status_applyTrace"
+    private static let kEventLog = "status_eventLog"
 
     static var nodeId: String {
         get { AppGroup.defaults.string(forKey: kNodeId) ?? "" }
@@ -53,6 +54,13 @@ enum StatusStore {
     static var applyTrace: String {
         get { AppGroup.defaults.string(forKey: kApplyTrace) ?? "" }
         set { AppGroup.defaults.set(newValue, forKey: kApplyTrace) }
+    }
+
+    /// Extension 侧事件滚动日志（最近 40 条）：配置回调/applyConfig/聚合决策，
+    /// 排查"网络未进数据面"时定位断在哪一环。
+    static var eventLog: String {
+        get { AppGroup.defaults.string(forKey: kEventLog) ?? "" }
+        set { AppGroup.defaults.set(newValue, forKey: kEventLog) }
     }
 
     static func postChange() {
