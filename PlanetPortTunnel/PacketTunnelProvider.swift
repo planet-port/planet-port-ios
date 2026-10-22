@@ -40,10 +40,6 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
     private var lastPathInfo: (satisfied: Bool, ifType: Network.NWInterface.InterfaceType?)?
     /// UDP 收包线程代号：核心重启后旧线程自行退出，避免两个线程争抢新 socket
     private var udpGeneration = 0
-    private let udpStatsLock = NSLock()
-    private var udpSentPackets: UInt64 = 0
-    private var udpReceivedPackets: UInt64 = 0
-    private var udpSendErrors: UInt64 = 0
 
     // MARK: - 生命周期
 
@@ -109,7 +105,14 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         addr.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
         addr.sin_family = sa_family_t(AF_INET)
         addr.sin_port = UInt16(9994).bigEndian
-        addr.sin_addr = in_addr(s_addr: INADDR_ANY)
+        // 绑定出口源 IP（UDP connect 探测内核路由决策获得）：固定源地址不改变
+        // 路由查找，sendto 仍走 unscoped 默认路由；IP_BOUND_IF 的 scoped 查找
+        // 在 extension 环境不可用。网络切换由 restartCore 重新探测当前出口。
+        if let ip = Self.probeOutboundV4()?.ip {
+            addr.sin_addr = ip
+        } else {
+            addr.sin_addr = in_addr(s_addr: INADDR_ANY)
+        }
         guard bind(fd, sockaddrPtr(&addr), socklen_t(MemoryLayout<sockaddr_in>.size)) == 0 else {
             let code = errno
             close(fd)
@@ -218,7 +221,6 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
             case AF_INET6:
                 addrLen = socklen_t(MemoryLayout<sockaddr_in6>.size)
             default:
-                self.recordUDPSendError(errnoCode: EAFNOSUPPORT, family: Int32(ss.ss_family), bytes: data.count)
                 return EAFNOSUPPORT
             }
             data.withUnsafeBytes { (raw: UnsafeRawBufferPointer) in
@@ -226,13 +228,8 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
                 sent = sendto(self.udpSocket, base, data.count, 0,
                               sockaddrPtr(&ss), addrLen)
             }
-            if sent == data.count {
-                self.recordUDPSend(bytes: sent, family: Int32(ss.ss_family))
-                return 0
-            }
-            let code = sent < 0 ? errno : EMSGSIZE
-            self.recordUDPSendError(errnoCode: code, family: Int32(ss.ss_family), bytes: data.count)
-            return Int32(code)
+            if sent == data.count { return 0 }
+            return Int32(sent < 0 ? errno : EMSGSIZE)
         }
 
         // 网络配置变更（对齐 Android onNetworkConfigurationUpdated → updateTunnelConfig）
@@ -267,7 +264,12 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         StatusStore.networkStatuses = statuses
         StatusStore.postChange()
 
-        guard op == 1 || op == 2 else { return }  // UP / CONFIG_UPDATE
+        // 状态展示所有回调都更新；隧道设置仅在 CONFIG_UPDATE 应用。
+        // UP 阶段 status 仍是 REQUESTING_CONFIGURATION（无地址无路由），此时
+        // setTunnelNetworkSettings 会让系统把 extension 自身流量切到 utun，
+        // UDP sendto 变 EHOSTUNREACH、包发不出去 → 永远拿不到 netconf（鸡生蛋死锁）。
+        // 对齐 Android ZeroTierOneService：UP 不动配置，交给第一次 CONFIG_UPDATE。
+        guard op == 2 else { return }
 
         // 查用户配置（默认路由/DNS 模式）
         let entry = AppConfigStore.readActiveNetworks().first { $0.networkId == nwidStr }
@@ -276,6 +278,8 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         // 本机 MAC 与地址 → 帧转换层
         let v4 = cfg.assignedAddrs.filter { $0.contains(".") }
         let v6 = disableIPv6 ? [] : cfg.assignedAddrs.filter { $0.contains(":") }
+        // 没有可用地址的配置不应用（残缺设置同样会掐断物理路由）
+        guard !v4.isEmpty || !v6.isEmpty else { return }
         converter?.currentNwid = nwid
         converter?.updateNetworkInfo(mac: cfg.mac, ipv4: v4, ipv6: v6, routes: cfg.routes)
 
@@ -441,39 +445,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
             guard n > 0 else { continue }
             let ss = Data(bytes: &from, count: MemoryLayout<sockaddr_storage>.size)
             // 拷贝后投递，避免 buf 复用竞争
-            let pkt = Data(buf[0..<n])
-            let rc = bridge?.processWirePacket(pkt, remoteAddr: ss) ?? -1
-            recordUDPReceive(bytes: n, family: Int32(from.ss_family), result: rc)
-        }
-    }
-
-    private func recordUDPSend(bytes: Int, family: Int32) {
-        udpStatsLock.lock()
-        udpSentPackets += 1
-        let count = udpSentPackets
-        udpStatsLock.unlock()
-        if count <= 5 || count % 100 == 0 {
-            NSLog("[ZT UDP] sent #\(count), bytes=\(bytes), family=\(family)")
-        }
-    }
-
-    private func recordUDPSendError(errnoCode: Int32, family: Int32, bytes: Int) {
-        udpStatsLock.lock()
-        udpSendErrors += 1
-        let count = udpSendErrors
-        udpStatsLock.unlock()
-        if count <= 20 || count % 100 == 0 {
-            NSLog("[ZT UDP] send failed #\(count), errno=\(errnoCode) (\(String(cString: strerror(errnoCode)))), bytes=\(bytes), family=\(family)")
-        }
-    }
-
-    private func recordUDPReceive(bytes: Int, family: Int32, result: Int32) {
-        udpStatsLock.lock()
-        udpReceivedPackets += 1
-        let count = udpReceivedPackets
-        udpStatsLock.unlock()
-        if count <= 5 || count % 100 == 0 || result != 0 {
-            NSLog("[ZT UDP] received #\(count), bytes=\(bytes), family=\(family), processResult=\(result)")
+            _ = bridge?.processWirePacket(Data(buf[0..<n]), remoteAddr: ss)
         }
     }
 
@@ -548,6 +520,45 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
     }
 
     // MARK: - 工具
+
+    /// UDP connect 探测内核 v4 出口的源地址与接口：源 IP 用于 socket bind
+    /// （固定源地址不改变路由查找，仍走 unscoped 默认路由——IP_BOUND_IF 的
+    /// scoped 查找在 extension 环境会失败，已被对照实验否证）。
+    static func probeOutboundV4() -> (ifName: String, ip: in_addr)? {
+        let s = socket(AF_INET, SOCK_DGRAM, 0)
+        guard s >= 0 else { return nil }
+        defer { close(s) }
+        var addr = sockaddr_in()
+        addr.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+        addr.sin_family = sa_family_t(AF_INET)
+        addr.sin_port = UInt16(53).bigEndian
+        addr.sin_addr = in_addr(s_addr: inet_addr("8.8.8.8"))
+        let rc = withUnsafePointer(to: &addr) { ptr in
+            ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                connect(s, $0, socklen_t(MemoryLayout<sockaddr_in>.size))
+            }
+        }
+        guard rc == 0 else { return nil }
+        var local = sockaddr_in()
+        var len = socklen_t(MemoryLayout<sockaddr_in>.size)
+        guard withUnsafePointer(to: &local, { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+            getsockname(s, UnsafeMutablePointer(mutating: $0), &len) == 0
+        } }), local.sin_family == sa_family_t(AF_INET) else { return nil }
+        let sourceIP = local.sin_addr
+        var ifap: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&ifap) == 0 else { return nil }
+        defer { freeifaddrs(ifap) }
+        var cursor = ifap
+        while let p = cursor {
+            defer { cursor = p.pointee.ifa_next }
+            guard let ifa = p.pointee.ifa_addr, ifa.pointee.sa_family == sa_family_t(AF_INET) else { continue }
+            let sa = ifa.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { $0.pointee }
+            if sa.sin_addr.s_addr == sourceIP.s_addr {
+                return (String(cString: p.pointee.ifa_name), sourceIP)
+            }
+        }
+        return nil
+    }
 
     /// 是否物理业务接口（Wi-Fi/有线 en*、蜂窝 pdp_ip*；排除 lo/utun/awdl/bridge 等虚拟接口）
     private static func isPhysicalInterface(_ name: String) -> Bool {
