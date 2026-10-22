@@ -343,7 +343,8 @@ struct HomeView: View {
 
     /// 末位"添加"页（组件见 AddPlanetPage）。
     private var addPage: some View {
-        AddPlanetPage(previewName: $addPreviewName)
+        AddPlanetPage(previewName: $addPreviewName,
+                         isCurrentPage: pagerSelection == Self.addTag)
     }
 
     private func planetCard(_ planet: PlanetProfile) -> some View {

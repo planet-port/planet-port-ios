@@ -6,7 +6,11 @@ import SwiftUI
 struct AddPlanetPage: View {
     @EnvironmentObject private var app: AppState
     @Binding var previewName: String
-    /// 表单滑入动画：进入本页时表单从屏幕下方滑到当前位置，形成视觉差异。
+    /// 是否停在本页（HomeView 传入 pagerSelection == addTag，与 FAB 隐藏同源）。
+    /// 跟手滑入在快滑时事件粒度不足会闪烁，改为落位驱动的固定入场动画：
+    /// 到达本页时表单从下方弹簧滑入一次，离开时跟随页面整体滑走。
+    let isCurrentPage: Bool
+    /// 表单入场动画状态（false=下方 120pt 待入场）。
     @State private var formShown = false
 
     var body: some View {
@@ -24,7 +28,7 @@ struct AddPlanetPage: View {
                     previewName = PlanetNameSuggest.random(excluding: Set(app.planets.map(\.name)))
                 }
                 .padding(.horizontal, 20)
-                // 滑入：初始下移 120pt 且透明，onAppear 弹簧动画归位。
+                // 落位入场：到达本页时弹簧上滑，离开时随页面滑走（无独立退出动画）。
                 .offset(y: formShown ? 0 : 120)
                 .opacity(formShown ? 1 : 0)
             }
@@ -38,12 +42,23 @@ struct AddPlanetPage: View {
             if previewName.isEmpty {
                 previewName = PlanetNameSuggest.random(excluding: Set(app.planets.map(\.name)))
             }
-            withAnimation(.spring(response: 0.45, dampingFraction: 0.85).delay(0.05)) {
-                formShown = true
+        }
+        // 落位驱动：selection 在滑动过半时即翻转，若立刻播动画，快甩时页面
+        // 迅速就位而表单动画已跑了一半，观感即"从中间冒出"。延迟 0.15s 让
+        // 表单在页面落位后才开始；取消翻回时复位（延迟期内表单本就未显示）。
+        .onChange(of: isCurrentPage) { current in
+            if current {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.85).delay(0.15)) {
+                    formShown = true
+                }
+            } else {
+                formShown = false
             }
         }
     }
+}
 
+extension AddPlanetPage {
     /// 预览身份区：虚线边框占位形态，信息随表单实时同步。
     private var previewCard: some View {
         let displayName = previewName.trimmingCharacters(in: .whitespacesAndNewlines)
