@@ -74,7 +74,7 @@ struct AddPlanetForm: View {
                 .accessibilityLabel("换个随机名称")
             }
 
-            // 选择文件独占一行
+            // 选择文件独占一行：padding/背景放进 label，整块组件（含背景）都是点击热区。
             Button {
                 showFilePicker = true
             } label: {
@@ -91,11 +91,12 @@ struct AddPlanetForm: View {
                             .foregroundStyle(.tertiary)
                     }
                 }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 12)
+                .background(.quaternary, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
             .buttonStyle(.plain)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 12)
-            .background(.quaternary, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
 
             // URL：输入框左，导入按钮右（按钮高度与输入框一致）
             HStack(spacing: 10) {
