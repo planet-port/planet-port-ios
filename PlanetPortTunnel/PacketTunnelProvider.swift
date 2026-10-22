@@ -289,9 +289,15 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         // IPv4
         let v4Settings = NEIPv4Settings(addresses: v4.map { Self.ipOnly($0) },
                                         subnetMasks: v4.map { Self.subnetMask($0) })
+        // 物理 on-link 子网（WiFi/蜂窝本地网段）从隧道路由中挖除：ZT managed routes
+        // （如 192.168.0.0/16）会覆盖本机物理局域网，把本地网关/DNS 抓进隧道黑洞。
+        // 做法是对 includedRoutes 做前缀差集（挖掉物理子网后分解为更具体路由），
+        // 不使用 excludedRoutes——后者仅在 includedRoutes 含默认路由时才有定义，
+        // 分流场景下属于未定义行为，实测（iOS 26）会扰动物理路由殃及全局上网。
+        let v4Holes = Self.physicalOnLinkPrefixes4(excludingNetworksOf: v4)
         var v4Routes: [NEIPv4Route] = []
         if entry?.routeViaZeroTier == true {
-            v4Routes.append(NEIPv4Route.default())
+            v4Routes.append(contentsOf: Self.expandV4("0.0.0.0/0", subtracting: v4Holes))
         }
         // 与 Android builder.addRoute(addressToRoute(assignedAddress), prefix) 对齐：
         // 分配地址本身不会自动保证其直连网段进入 Packet Tunnel。
@@ -299,30 +305,27 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
             v4Routes.append(Self.route(Self.networkCIDR4(address)))
         }
         for r in cfg.routes where r.contains(".") && (entry?.routeViaZeroTier == true || !Self.isDefaultRoute(r)) {
-            v4Routes.append(Self.route(r))
+            v4Routes.append(contentsOf: Self.expandV4(r, subtracting: v4Holes))
         }
         v4Settings.includedRoutes = v4Routes
-        // 物理接口 on-link 子网排除出隧道：防止 managed routes（如 192.168.0.0/16）
-        // 把本地网关/DNS 抓进隧道形成黑洞（新域名解析失败的根因）
-        v4Settings.excludedRoutes = Self.physicalOnLinkRoutes4(excludingNetworksOf: v4)
         settings.ipv4Settings = v4Settings
 
         // IPv6
         if !v6.isEmpty {
             let v6Settings = NEIPv6Settings(addresses: v6.map { Self.ipOnly($0) },
                                             networkPrefixLengths: v6.map { Self.prefixLen($0) as NSNumber })
+            let v6Holes = Self.physicalOnLinkPrefixes6(excludingNetworksOf: v6)
             var v6Routes: [NEIPv6Route] = []
             if entry?.routeViaZeroTier == true {
-                v6Routes.append(NEIPv6Route.default())
+                v6Routes.append(contentsOf: Self.expandV6("::/0", subtracting: v6Holes))
             }
             for address in v6 {
                 v6Routes.append(Self.route6(Self.networkCIDR6(address)))
             }
             for r in cfg.routes where r.contains(":") && (entry?.routeViaZeroTier == true || !Self.isDefaultRoute(r)) {
-                v6Routes.append(Self.route6(r))
+                v6Routes.append(contentsOf: Self.expandV6(r, subtracting: v6Holes))
             }
             v6Settings.includedRoutes = v6Routes
-            v6Settings.excludedRoutes = Self.physicalOnLinkRoutes6(excludingNetworksOf: v6)
             settings.ipv6Settings = v6Settings
         }
 
@@ -570,19 +573,99 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         UInt(mask.reduce(0) { $0 + (8 - $1.leadingZeroBitCount) })
     }
 
-    /// 掩码字节 → 点分十进制
-    private static func maskString(_ mask: [UInt8]) -> String {
-        mask.map(String.init).joined(separator: ".")
+    // MARK: - 前缀差集（excludedRoutes 的替代方案）
+
+    /// 网络序 IP 前缀。IPv4 用 4 字节，IPv6 用 16 字节。
+    private struct IPPrefix: Equatable {
+        let bytes: [UInt8]
+        let length: Int
+
+        /// self ⊇ other（other 完全落在 self 网段内）
+        func contains(_ other: IPPrefix) -> Bool {
+            guard length <= other.length else { return false }
+            for i in 0..<length where bit(i) != other.bit(i) { return false }
+            return true
+        }
+
+        /// 一分为二（二叉前缀分解用）
+        func split() -> (IPPrefix, IPPrefix) {
+            let byteIndex = length / 8
+            let mask = UInt8(1) << UInt8(7 - length % 8)
+            var left = bytes
+            var right = bytes
+            left[byteIndex] &= ~mask
+            right[byteIndex] |= mask
+            return (IPPrefix(bytes: left, length: length + 1),
+                    IPPrefix(bytes: right, length: length + 1))
+        }
+
+        private func bit(_ i: Int) -> Int {
+            Int((bytes[i / 8] >> (7 - i % 8)) & 1)
+        }
     }
 
-    /// 物理接口 on-link IPv4 子网 → 排除路由。
+    /// dest 挖除 hole → 剩余前缀列表（递归二分，同 WireGuard iOS 的做法）
+    private static func subtract(_ dest: IPPrefix, _ hole: IPPrefix) -> [IPPrefix] {
+        if dest == hole || hole.contains(dest) { return [] }
+        guard dest.contains(hole) else { return [dest] }
+        let (left, right) = dest.split()
+        return subtract(left, hole) + subtract(right, hole)
+    }
+
+    /// 前缀长度 → 掩码字节（total = 4 或 16）
+    private static func maskBytes(length: Int, total: Int) -> [UInt8] {
+        (0..<total).map { i in
+            let ones = max(0, min(8, length - i * 8))
+            return ones == 0 ? 0 : UInt8.max << (8 - ones)
+        }
+    }
+
+    private static func v6String(_ bytes: [UInt8]) -> String {
+        var addr = in6_addr()
+        withUnsafeMutableBytes(of: &addr) { $0.copyBytes(from: bytes) }
+        var buf = [CChar](repeating: 0, count: Int(INET6_ADDRSTRLEN))
+        guard inet_ntop(AF_INET6, &addr, &buf, socklen_t(buf.count)) != nil else { return "::" }
+        return String(cString: buf)
+    }
+
+    /// IPv4 CIDR（可带 "via 网关"）挖除若干前缀后展开为 includedRoutes
+    private static func expandV4(_ r: String, subtracting holes: [IPPrefix]) -> [NEIPv4Route] {
+        let dest = String(r.split(separator: " ").first ?? Substring(r))
+        guard let ip = FrameConverter.parseIPv4(ipOnly(dest)) else { return [route(dest)] }
+        var result = [IPPrefix(
+            bytes: [UInt8((ip >> 24) & 0xff), UInt8((ip >> 16) & 0xff),
+                    UInt8((ip >> 8) & 0xff), UInt8(ip & 0xff)],
+            length: Int(min(prefixLen(dest), 32)))]
+        for hole in holes { result = result.flatMap { subtract($0, hole) } }
+        return result.map {
+            NEIPv4Route(destinationAddress: $0.bytes.map(String.init).joined(separator: "."),
+                        subnetMask: maskBytes(length: $0.length, total: 4)
+                            .map(String.init).joined(separator: "."))
+        }
+    }
+
+    /// IPv6 CIDR（可带 "via 网关"）挖除若干前缀后展开为 includedRoutes
+    private static func expandV6(_ r: String, subtracting holes: [IPPrefix]) -> [NEIPv6Route] {
+        let dest = String(r.split(separator: " ").first ?? Substring(r))
+        var addr = in6_addr()
+        guard inet_pton(AF_INET6, ipOnly(dest), &addr) == 1 else { return [route6(dest)] }
+        var result = [IPPrefix(bytes: withUnsafeBytes(of: addr) { Array($0) },
+                               length: Int(min(prefixLen(dest), 128)))]
+        for hole in holes { result = result.flatMap { subtract($0, hole) } }
+        return result.map {
+            NEIPv6Route(destinationAddress: v6String($0.bytes),
+                        networkPrefixLength: $0.length as NSNumber)
+        }
+    }
+
+    /// 物理接口 on-link IPv4 子网 → 待挖除前缀集合。
     /// ZT managed routes（如 192.168.0.0/16）会覆盖本机物理局域网，把本地网关/DNS
-    /// 的流量抓进隧道黑洞；排除后本地子网仍走物理网卡。
+    /// 的流量抓进隧道黑洞；从隧道路由中挖除后本地子网仍走物理网卡。
     /// excludingNetworksOf：子网与 ZT 分配地址所在网段相同时跳过，避免反过来打断 ZeroTier。
-    static func physicalOnLinkRoutes4(excludingNetworksOf assigned: [String]) -> [NEIPv4Route] {
+    private static func physicalOnLinkPrefixes4(excludingNetworksOf assigned: [String]) -> [IPPrefix] {
         let assignedNetworks = Set(assigned.map { networkCIDR4($0) })
         var seen = Set<String>()
-        var routes: [NEIPv4Route] = []
+        var prefixes: [IPPrefix] = []
         var ifap: UnsafeMutablePointer<ifaddrs>?
         guard getifaddrs(&ifap) == 0 else { return [] }
         defer { freeifaddrs(ifap) }
@@ -599,22 +682,20 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
                 withUnsafeBytes(of: $0.pointee.sin_addr) { Array($0.prefix(4)) }
             }
             let network = zip(addrBytes, maskBytes).map { $0 & $1 }
-            let networkStr = network.map(String.init).joined(separator: ".")
             let prefix = prefixLength(ofMask: maskBytes)
-            let cidr = "\(networkStr)/\(prefix)"
+            let cidr = "\(network.map(String.init).joined(separator: "."))/\(prefix)"
             guard !seen.contains(cidr), !assignedNetworks.contains(cidr) else { continue }
             seen.insert(cidr)
-            routes.append(NEIPv4Route(destinationAddress: networkStr,
-                                      subnetMask: maskString(maskBytes)))
+            prefixes.append(IPPrefix(bytes: network, length: Int(prefix)))
         }
-        return routes
+        return prefixes
     }
 
-    /// 物理接口 on-link IPv6 子网 → 排除路由（跳过 fe80:: 链路本地，本就不会经默认路由）。
-    static func physicalOnLinkRoutes6(excludingNetworksOf assigned: [String]) -> [NEIPv6Route] {
+    /// 物理接口 on-link IPv6 子网 → 待挖除前缀集合（跳过 fe80:: 链路本地，本就不会经默认路由）。
+    private static func physicalOnLinkPrefixes6(excludingNetworksOf assigned: [String]) -> [IPPrefix] {
         let assignedNetworks = Set(assigned.map { networkCIDR6($0) })
         var seen = Set<String>()
-        var routes: [NEIPv6Route] = []
+        var prefixes: [IPPrefix] = []
         var ifap: UnsafeMutablePointer<ifaddrs>?
         guard getifaddrs(&ifap) == 0 else { return [] }
         defer { freeifaddrs(ifap) }
@@ -632,19 +713,13 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
                 withUnsafeBytes(of: $0.pointee.sin6_addr) { Array($0.prefix(16)) }
             }
             let networkBytes = zip(addrBytes, maskBytes).map { $0 & $1 }
-            var addr6 = in6_addr()
-            withUnsafeMutableBytes(of: &addr6) { $0.copyBytes(from: networkBytes) }
-            var buf = [CChar](repeating: 0, count: Int(INET6_ADDRSTRLEN))
-            guard inet_ntop(AF_INET6, &addr6, &buf, socklen_t(buf.count)) != nil else { continue }
-            let networkStr = String(cString: buf)
             let prefix = prefixLength(ofMask: maskBytes)
-            let cidr = "\(networkStr)/\(prefix)"
+            let cidr = "\(v6String(networkBytes))/\(prefix)"
             guard !seen.contains(cidr), !assignedNetworks.contains(cidr) else { continue }
             seen.insert(cidr)
-            routes.append(NEIPv6Route(destinationAddress: networkStr,
-                                      networkPrefixLength: prefix as NSNumber))
+            prefixes.append(IPPrefix(bytes: networkBytes, length: Int(prefix)))
         }
-        return routes
+        return prefixes
     }
 
     static func statusName(_ status: Int32) -> String {
