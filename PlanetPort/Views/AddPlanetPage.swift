@@ -56,9 +56,7 @@ struct AddPlanetPage: View {
             }
         }
     }
-}
 
-extension AddPlanetPage {
     /// 预览身份区：虚线边框占位形态，信息随表单实时同步。
     private var previewCard: some View {
         let displayName = previewName.trimmingCharacters(in: .whitespacesAndNewlines)
