@@ -260,7 +260,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
     private func handleNetworkConfig(nwid: UInt64, op: Int32, cfg: ZTNetworkConfigData) {
         let nwidStr = String(format: "%016llx", nwid)
         var statuses = StatusStore.networkStatuses
-        statuses[nwidStr] = Self.statusName(cfg.status)
+        statuses[nwidStr] = Int(cfg.status)
         StatusStore.networkStatuses = statuses
         StatusStore.postChange()
 
@@ -506,7 +506,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
                 reply.networkConfig = NetworkConfigSnapshot(
                     nwid: String(format: "%016llx", cfg.nwid),
                     name: cfg.name,
-                    status: Self.statusName(cfg.status),
+                    status: ZTNetworkStatus(coreStatus: cfg.status),
                     type: cfg.type == 1 ? "PUBLIC" : "PRIVATE",
                     mac: String(format: "%012llx", cfg.mac),
                     mtu: Int(cfg.mtu),
@@ -525,20 +525,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
     // MARK: - 工具
 
     /// 路由数学与接口探测见 RoutePlanner（前缀差集、CIDR 换算、出口探测）。
-
-    static func statusName(_ status: Int32) -> String {
-        // 对齐 ZT_VirtualNetworkStatus 枚举（Core/include/ZeroTierOne.h，0..6）
-        switch status {
-        case 0: return "正在初始化"   // REQUESTING_CONFIGURATION
-        case 1: return "在线"         // OK
-        case 2: return "拒绝访问"     // ACCESS_DENIED
-        case 3: return "网络不存在"   // NOT_FOUND
-        case 4: return "端口错误"     // PORT_ERROR
-        case 5: return "客户端过旧"   // CLIENT_TOO_OLD
-        case 6: return "需要认证"     // AUTHENTICATION_REQUIRED
-        default: return "未知(\(status))"
-        }
-    }
+    /// 网络状态文案映射见 ZTNetworkStatus（Shared/Models.swift）。
 }
 
 private func sockaddrPtr(_ p: UnsafeMutablePointer<sockaddr_in>) -> UnsafeMutablePointer<sockaddr> {

@@ -25,9 +25,18 @@ enum StatusStore {
         get { AppGroup.defaults.string(forKey: kTunnelStatus) ?? "" }
         set { AppGroup.defaults.set(newValue, forKey: kTunnelStatus) }
     }
-    static var networkStatuses: [String: String] {
-        get { AppGroup.defaults.dictionary(forKey: kNetworkStatuses) as? [String: String] ?? [:] }
+    /// 网络状态（nwid → ZTNetworkStatus 原始值）。存原始 Int 而非文案：
+    /// 跨进程契约不依赖展示语言，UI 层用 networkStatusesTyped 取枚举。
+    /// 旧版本存的是中文文案字典，升级后 cast 失败一次性回到空（预期行为）：
+    /// 状态是运行时快照，隧道首个配置回调即重写，无需迁移。
+    static var networkStatuses: [String: Int] {
+        get { AppGroup.defaults.dictionary(forKey: kNetworkStatuses) as? [String: Int] ?? [:] }
         set { AppGroup.defaults.set(newValue, forKey: kNetworkStatuses) }
+    }
+
+    /// 类型化读取（无法识别的原始值统一落 .unknown，与详情页路径兜底一致）。
+    static var networkStatusesTyped: [String: ZTNetworkStatus] {
+        networkStatuses.mapValues { ZTNetworkStatus(rawValue: $0) ?? .unknown }
     }
 
     static func postChange() {

@@ -25,7 +25,7 @@ struct ProviderReply: Codable {
 struct NetworkConfigSnapshot: Codable, Equatable {
     var nwid: String
     var name: String
-    var status: String
+    var status: ZTNetworkStatus
     var type: String
     var mac: String
     var mtu: Int

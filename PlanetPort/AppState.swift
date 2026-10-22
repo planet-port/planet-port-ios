@@ -25,7 +25,7 @@ final class AppState: ObservableObject {
     @Published var online: Bool = false
     @Published var coreVersion: String = ""
     @Published var tunnelStatus: String = ""
-    @Published var networkStatuses: [String: String] = [:]
+    @Published var networkStatuses: [String: ZTNetworkStatus] = [:]
     @Published var networkConfigs: [String: NetworkConfigSnapshot] = [:]
     @Published var vpnRunning: Bool = false
 
@@ -140,7 +140,7 @@ final class AppState: ObservableObject {
         online = StatusStore.online
         coreVersion = StatusStore.coreVersion
         tunnelStatus = StatusStore.tunnelStatus
-        networkStatuses = StatusStore.networkStatuses
+        networkStatuses = StatusStore.networkStatusesTyped
         if !nodeId.isEmpty { cacheNodeId(nodeId) }
     }
 
@@ -172,7 +172,7 @@ final class AppState: ObservableObject {
                             if let on = reply.online { self.online = on }
                             if let v = reply.coreVersion, !v.isEmpty { self.coreVersion = v }
                             if !self.networkStatuses.isEmpty || self.networks.contains(where: { $0.lastActivated }) {
-                                self.networkStatuses = StatusStore.networkStatuses
+                                self.networkStatuses = StatusStore.networkStatusesTyped
                             }
                         }
                     }

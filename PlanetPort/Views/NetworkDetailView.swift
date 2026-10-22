@@ -15,7 +15,7 @@ struct NetworkDetailView: View {
             Section {
                 row("网络 ID", entry.networkId)
                 row("名称", snapshot?.name ?? entry.networkName)
-                row("状态", snapshot.map { $0.status } ?? "—")
+                row("状态", snapshot.map { $0.status.displayName } ?? "—")
                 row("类型", snapshot?.type ?? "—")
                 row("MAC", snapshot?.mac ?? "—")
                 row("MTU", snapshot.map { String($0.mtu) } ?? "—")

@@ -33,8 +33,6 @@ struct HomeView: View {
     /// 底部安全区高度：启动初期窗口未就绪取不到，兜底 34（主流全面屏），
     /// 场景激活后重读刷新，避免列表"2~3 秒后才撑满"。
     @State private var bottomInset: CGFloat = 34
-    /// FAB 当前中心点：nil = 默认右下；拖动吸附后持久化，启动恢复。
-    // （状态移入 FabButton 独立视图，拖动每帧只重绘按钮自身，不触发首页整体重算，保证跟手。）
 
     fileprivate static let addTag = "__add__"
 
@@ -130,12 +128,12 @@ struct HomeView: View {
             .onChange(of: app.networkStatuses) { statuses in
                 guard app.selectedPlanetId == app.activePlanetId else { return }
                 for (nwid, status) in statuses {
-                    // "需要认证"/"拒绝访问"= 首次加入待控制器授权，属正常流程，不弹窗，
-                    // 状态行显示"待授权"。
+                    // 待授权（需要认证/拒绝访问）= 首次加入待控制器授权，
+                    // 属正常流程，不弹窗，状态行显示"待授权"。
                     if let name = app.networks.first(where: { $0.networkId == nwid })?.networkName,
-                       ["网络不存在", "端口错误", "客户端过旧"].contains(status) {
+                       status.isAlertable {
                         errorTitle = "网络状态异常"
-                        errorAlert = "网络 \(name)：\(status)"
+                        errorAlert = "网络 \(name)：\(status.displayName)"
                         break
                     }
                 }
@@ -445,7 +443,8 @@ struct HomeView: View {
     }
 
     private func networkCard(_ entry: NetworkEntry) -> some View {
-        HStack(spacing: 12) {
+        let cardStatus = NetworkCardStatus(entry: entry, app: app)
+        return HStack(spacing: 12) {
             // 用 onTapGesture 而非 NavigationLink：位移超过阈值即失败，
             // 横滑翻页不会误开详情页。
             VStack(alignment: .leading, spacing: 5) {
@@ -460,11 +459,11 @@ struct HomeView: View {
                 // 状态行：IP 紧跟状态文本之后，复制按钮在 IP 后面。
                 HStack(spacing: 8) {
                     Circle()
-                        .fill(colorFor(statusText(entry)))
+                        .fill(cardStatus.color)
                         .frame(width: 6, height: 6)
-                    Text(statusText(entry))
+                    Text(cardStatus.text)
                         .font(.caption)
-                        .foregroundStyle(colorFor(statusText(entry)))
+                        .foregroundStyle(cardStatus.color)
 
                     if app.selectedPlanetId == app.activePlanetId,
                        let addresses = app.networkConfigs[entry.networkId]?.assignedAddrs,
@@ -531,25 +530,6 @@ struct HomeView: View {
     /// 非当前隧道 Planet 的网络统一显示为关闭，用户可直接打开以完成切换。
     private func networkAppearsActive(_ entry: NetworkEntry) -> Bool {
         app.selectedPlanetId == app.activePlanetId && entry.lastActivated
-    }
-
-    private func statusText(_ entry: NetworkEntry) -> String {
-        // 状态只有：未连接 / 建立隧道 / 待授权 / 核心实时状态（正在初始化、在线等）。
-        // 非当前隧道行星的网络也显示"未连接"——开关为关，打开即切换行星，无需中间状态。
-        if !app.vpnRunning { return entry.lastActivated ? "建立隧道" : "未连接" }
-        if !entry.lastActivated { return "未连接" }
-        let status = app.networkStatuses[entry.networkId] ?? "等待节点响应"
-        // 首次加入需控制器授权（核心报"需要认证"或"拒绝访问"）：统一显示"待授权"。
-        return (status == "需要认证" || status == "拒绝访问") ? "待授权" : status
-    }
-
-    private func colorFor(_ status: String) -> Color {
-        switch status {
-        case "在线": return .green
-        case "建立隧道", "待授权": return .orange
-        case "未连接", "未启用", "等待节点响应": return .secondary
-        default: return .orange
-        }
     }
 
     private func setNetworkActive(_ entry: NetworkEntry, active: Bool) {

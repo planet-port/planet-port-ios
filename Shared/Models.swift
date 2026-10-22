@@ -9,6 +9,50 @@ enum PlanetKind: String, Codable {
     case custom
 }
 
+/// ZT_VirtualNetworkStatus（Core/include/ZeroTierOne.h，0..6）。
+/// 跨进程契约（Extension → App）：StatusStore 与 ProviderReply 传原始枚举值，
+/// 中文文案仅在展示层通过 displayName 生成——禁止用文案字符串做逻辑判断。
+/// 核心未来新增状态码统一落 .unknown（兜底文案"未知"），两条读取路径行为一致。
+enum ZTNetworkStatus: Int, Codable {
+    case requestingConfiguration = 0   // REQUESTING_CONFIGURATION
+    case ok = 1                        // OK
+    case accessDenied = 2              // ACCESS_DENIED
+    case notFound = 3                  // NOT_FOUND
+    case portError = 4                 // PORT_ERROR
+    case clientTooOld = 5              // CLIENT_TOO_OLD
+    case authRequired = 6              // AUTHENTICATION_REQUIRED
+    /// 核心报出的未来新增状态码（不在 0..6）。
+    case unknown = -1
+
+    init(coreStatus: Int32) {
+        self = ZTNetworkStatus(rawValue: Int(coreStatus)) ?? .unknown
+    }
+
+    /// 展示文案（仅 UI 层使用）
+    var displayName: String {
+        switch self {
+        case .requestingConfiguration: return "正在初始化"
+        case .ok: return "在线"
+        case .accessDenied: return "拒绝访问"
+        case .notFound: return "网络不存在"
+        case .portError: return "端口错误"
+        case .clientTooOld: return "客户端过旧"
+        case .authRequired: return "需要认证"
+        case .unknown: return "未知"
+        }
+    }
+
+    /// 首次加入待控制器授权：核心报"需要认证"或"拒绝访问"均属正常流程。
+    var isPendingAuthorization: Bool {
+        self == .authRequired || self == .accessDenied
+    }
+
+    /// 需要弹窗提醒用户的异常（待授权不算，状态行显示即可）。
+    var isAlertable: Bool {
+        self == .notFound || self == .portError || self == .clientTooOld
+    }
+}
+
 /// 一套可独立切换的 Planet 配置。Network 与 Moon 均通过 planetId 归属于它。
 struct PlanetProfile: Codable, Identifiable, Equatable {
     static let officialId = "official"
