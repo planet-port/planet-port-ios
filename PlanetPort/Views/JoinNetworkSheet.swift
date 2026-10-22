@@ -9,6 +9,7 @@ struct JoinNetworkSheet: View {
     @State private var routeViaZeroTier = false
     @State private var dns = DNSConfig()
     @State private var showScanner = false
+    @State private var duplicateAlert = false
 
     private var idValid: Bool {
         networkId.count == 16 && networkId.allSatisfy { $0.isHexDigit }
@@ -59,25 +60,36 @@ struct JoinNetworkSheet: View {
                         .disabled(!idValid || !dns.isValid)
                 }
             }
+            .alert("网络已存在", isPresented: $duplicateAlert) {
+                Button("好", role: .cancel) {}
+            } message: {
+                Text("网络 \(networkId.lowercased()) 已在列表中，不能重复添加。")
+            }
             .sheet(isPresented: $showScanner) {
                 QRScannerView { id in
+                    // 回填 ID 并停留在加入弹窗，只关闭扫码层。
                     networkId = id
-                    dismiss()
+                    showScanner = false
                 }
             }
         }
     }
 
     private func join() {
-        let entry = NetworkEntry(networkId: networkId.lowercased(),
-                                 networkName: networkId.lowercased(),
+        // 网络 ID 查重：已存在视为同一网络，禁止重复添加。
+        let newId = networkId.lowercased()
+        guard !app.networks.contains(where: { $0.networkId == newId }) else {
+            duplicateAlert = true
+            return
+        }
+        let entry = NetworkEntry(networkId: newId,
+                                 networkName: newId,
                                  // 仅保存不自动连接，由用户手动打开开关。
                                  lastActivated: false,
                                  routeViaZeroTier: routeViaZeroTier,
                                  dnsMode: dns.mode,
                                  customDns: dns.mode == .custom ? dns.customServers : [])
         var networks = app.networks
-        networks.removeAll { $0.networkId == entry.networkId }  // 重复添加 = 覆盖
         networks.append(entry)
         AppConfigStore.writeNetworks(networks)
         app.reloadConfig()
