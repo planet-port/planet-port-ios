@@ -6,6 +6,8 @@ import SwiftUI
 struct AddPlanetPage: View {
     @EnvironmentObject private var app: AppState
     @Binding var previewName: String
+    /// 表单滑入动画：进入本页时表单从屏幕下方滑到当前位置，形成视觉差异。
+    @State private var formShown = false
 
     var body: some View {
         ScrollView {
@@ -22,6 +24,9 @@ struct AddPlanetPage: View {
                     previewName = PlanetNameSuggest.random(excluding: Set(app.planets.map(\.name)))
                 }
                 .padding(.horizontal, 20)
+                // 滑入：初始下移 120pt 且透明，onAppear 弹簧动画归位。
+                .offset(y: formShown ? 0 : 120)
+                .opacity(formShown ? 1 : 0)
             }
             .padding(.top, HomeMetrics.pageTopPadding)
             .padding(.bottom, 96)
@@ -32,6 +37,9 @@ struct AddPlanetPage: View {
         .onAppear {
             if previewName.isEmpty {
                 previewName = PlanetNameSuggest.random(excluding: Set(app.planets.map(\.name)))
+            }
+            withAnimation(.spring(response: 0.45, dampingFraction: 0.85).delay(0.05)) {
+                formShown = true
             }
         }
     }

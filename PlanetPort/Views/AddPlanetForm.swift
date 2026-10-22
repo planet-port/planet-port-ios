@@ -100,7 +100,7 @@ struct AddPlanetForm: View {
 
             // URL：输入框左，导入按钮右（按钮高度与输入框一致）
             HStack(spacing: 10) {
-                field($url, placeholder: "或输入行星文件地址", keyboard: .URL)
+                field($url, placeholder: "或输入行星文件URL", keyboard: .URL)
                 Button {
                     importFromURL()
                 } label: {

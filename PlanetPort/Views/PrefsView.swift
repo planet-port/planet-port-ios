@@ -4,7 +4,7 @@ import PhotosUI
 /// 全局设置。Planet 的管理在首页卡片与其设置页中完成。
 struct PrefsView: View {
     @EnvironmentObject private var app: AppState
-    @AppStorage(AppGroup.prefAllowCellular, store: AppGroup.defaults) private var allowCellular = false
+    @AppStorage(AppGroup.prefAllowCellular, store: AppGroup.defaults) private var allowCellular = true
     @AppStorage(AppGroup.prefDisableIPv6, store: AppGroup.defaults) private var disableIPv6 = false
     @AppStorage(AppGroup.prefMultiConnectLimit, store: AppGroup.defaults) private var multiConnectLimit = 2
     @AppStorage(AppGroup.prefConnectOnDemand, store: AppGroup.defaults) private var connectOnDemand = false
@@ -71,6 +71,11 @@ struct PrefsView: View {
                 Text("开启后系统在网络可用时自动建立 VPN；实际使用哪个行星仍由网络开关决定。")
             }
 
+            Section("关于") {
+                aboutRow("ZeroTier Core", app.coreVersion.isEmpty ? "未知" : app.coreVersion)
+                aboutRow("版本", Self.appVersion)
+            }
+
             Section("支持") {
                 Button {
                     showDonate = true
@@ -82,11 +87,6 @@ struct PrefsView: View {
                             .foregroundStyle(.tint)
                     }
                 }
-            }
-
-            Section("关于") {
-                aboutRow("ZeroTier Core", app.coreVersion.isEmpty ? "未知" : app.coreVersion)
-                aboutRow("版本", Self.appVersion)
             }
         }
         .navigationTitle("设置")

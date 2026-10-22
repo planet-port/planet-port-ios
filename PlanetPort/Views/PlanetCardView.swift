@@ -59,13 +59,13 @@ struct PlanetCardView: View {
             .overlay(alignment: .topTrailing) {
                 if isActive && app.hasActivatedPlanet { statusBadge }
             }
-            // 右下角灰色齿轮：骑缝一半在外，表示图标可点击进入行星设置。
+            // 右下角灰色齿轮：贴角放置，圆角外扩会把它完全挤出图标外，向内收 4pt。
             .overlay(alignment: .bottomTrailing) {
                 if !isPreview {
                     Image(systemName: "gearshape.fill")
                         .font(.system(size: 14, weight: .medium))
                         .foregroundStyle(Color(uiColor: .systemGray))
-                        .offset(x: 5, y: 5)
+                        .offset(x: 1, y: 1)
                 }
             }
     }
