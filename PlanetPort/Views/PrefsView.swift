@@ -5,12 +5,13 @@ struct PrefsView: View {
     @EnvironmentObject private var app: AppState
     @AppStorage(AppGroup.prefAllowCellular, store: AppGroup.defaults) private var allowCellular = false
     @AppStorage(AppGroup.prefDisableIPv6, store: AppGroup.defaults) private var disableIPv6 = false
+    @AppStorage(AppGroup.prefMultiConnectLimit, store: AppGroup.defaults) private var multiConnectLimit = 2
     @AppStorage(AppGroup.prefConnectOnDemand, store: AppGroup.defaults) private var connectOnDemand = false
     @State private var showDonate = false
 
     var body: some View {
         Form {
-            Section("网络") {
+            Section {
                 Toggle("允许移动数据", isOn: $allowCellular)
                 Toggle("禁用 IPv6", isOn: Binding(
                     get: { disableIPv6 },
@@ -18,6 +19,11 @@ struct PrefsView: View {
                         disableIPv6 = on
                         VPNManager.shared.restartIfRunning()
                     }))
+                Stepper("同时连接上限：\(multiConnectLimit)", value: $multiConnectLimit, in: 2...6)
+            } header: {
+                Text("网络")
+            } footer: {
+                Text("同时连接多个网络会增加耗电；超出上限时会提示确认，仍可强制开启。")
             }
 
             Section {

@@ -17,6 +17,9 @@ struct NetworkCardStatus {
                       color: entry.lastActivated ? .orange : .secondary)
         } else if !entry.lastActivated {
             self.init(text: "未连接", color: .secondary)
+        } else if let conflict = app.networkConflicts[entry.networkId] {
+            // 冲突原始码（跨进程契约）：address=地址冲突 / subnet=网段冲突，文案在此生成
+            self.init(text: conflict == "address" ? "地址冲突" : "网段冲突", color: .red)
         } else if let status = app.networkStatuses[entry.networkId] {
             // 首次加入需控制器授权：统一显示"待授权"。
             if status.isPendingAuthorization {

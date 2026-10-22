@@ -59,8 +59,11 @@ struct NetworkDetailView: View {
                 Toggle("经 ZeroTier 路由（默认路由）", isOn: Binding(
                     get: { currentEntry.routeViaZeroTier },
                     set: updateRouteViaZeroTier))
+                    .disabled(routeViaLocked)
             } footer: {
-                Text("开启后该网络的默认路由经 ZeroTier，立即生效")
+                Text(routeViaLocked
+                     ? "多网络同时连接时不可用"
+                     : "开启后该网络的默认路由经 ZeroTier，立即生效")
             }
             Section {
                 Button(role: .destructive) { showDelete = true } label: {
@@ -85,6 +88,12 @@ struct NetworkDetailView: View {
 
     private var currentEntry: NetworkEntry {
         app.networks.first { $0.networkId == entry.networkId } ?? entry
+    }
+
+    /// 多网络同时连接时默认路由的唯一性无解，锁定开关（控制面与数据面双侧拦截）。
+    private var routeViaLocked: Bool {
+        app.selectedPlanetId == app.activePlanetId
+            && app.networks.contains { $0.networkId != entry.networkId && $0.lastActivated }
     }
 
     /// 编辑中的 DNS 与已保存配置是否存在差异（决定"应用"按钮是否出现）。
