@@ -20,6 +20,9 @@ struct HomeView: View {
     @State private var errorAlert: String?
     @State private var errorTitle = "提示"
     @State private var pendingNetworks: Set<String> = []
+    /// 无线数据权限被拒提示（2 小时限流）。
+    @State private var permissionDenied = false
+    @State private var permissionChecker: CellularPermissionChecker?
     @State private var path: [HomeRoute] = []
     @State private var pagerSelection: String = AppConfigStore.selectedPlanetId
     /// 添加页表单与预览卡片共享的名称（进入添加页时随机生成并与现有行星去重）。
@@ -105,6 +108,13 @@ struct HomeView: View {
                 } message: {
                     Text(errorAlert ?? "")
                 }
+            // 无线数据权限被拒提示
+            .alert("无法使用网络", isPresented: $permissionDenied) {
+                Button("去设置") { CellularPermissionChecker.openSettings() }
+                Button("知道了", role: .cancel) {}
+            } message: {
+                Text("PlanetPort 未获得无线数据权限，VPN 将无法连接。请到 设置 → 蜂窝网络 → PlanetPort，选择「WLAN 与蜂窝网络」。")
+            }
             .onChange(of: app.networkStatuses) { statuses in
                 guard app.selectedPlanetId == app.activePlanetId else { return }
                 for (nwid, status) in statuses {
@@ -140,6 +150,7 @@ struct HomeView: View {
                    app.planets.contains(where: { $0.id == app.selectedPlanetId }) {
                     pagerSelection = app.selectedPlanetId
                 }
+                startPermissionCheck()
             }
             .onReceive(NotificationCenter.default.publisher(for: UIScene.didActivateNotification)) { _ in
                 bottomInset = Self.readBottomSafeInset()
@@ -553,6 +564,16 @@ struct HomeView: View {
                 }
             }
         }
+    }
+
+    /// 启动时检测"无线数据"权限：被拒则提示（2 小时内不重复提醒）。
+    private func startPermissionCheck() {
+        permissionChecker = CellularPermissionChecker {
+            guard CellularPermissionChecker.shouldPrompt() else { return }
+            CellularPermissionChecker.markPrompted()
+            permissionDenied = true
+        }
+        permissionChecker?.start()
     }
 
     private func isCellular() -> Bool {
