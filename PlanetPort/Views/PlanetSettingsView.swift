@@ -29,14 +29,14 @@ struct PlanetSettingsView: View {
             if !isOfficial {
                 Section {
                     Button(role: .destructive) { showDelete = true } label: {
-                        Text("删除此行星")
+                        Text("planet.delete")
                     }
                 } footer: {
-                    Text("将一并删除该行星下保存的网络和卫星。若隧道正在使用它，VPN 将停止并回退到官方行星。")
+                    Text("planet.delete.footer")
                 }
             }
         }
-        .navigationTitle(planet?.name ?? "行星")
+        .navigationTitle(planet?.displayName ?? loc("planet.title"))
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { name = planet?.name ?? "" }
         .sheet(isPresented: $showIconPicker) {
@@ -49,16 +49,16 @@ struct PlanetSettingsView: View {
                 }
             }
         }
-        .confirmationDialog("删除这颗行星？", isPresented: $showDelete, titleVisibility: .visible) {
-            Button("删除行星、网络和卫星", role: .destructive) { deletePlanet() }
-            Button("取消", role: .cancel) {}
+        .confirmationDialog("planet.delete.confirmTitle", isPresented: $showDelete, titleVisibility: .visible) {
+            Button("planet.delete.confirmAction", role: .destructive) { deletePlanet() }
+            Button("common.cancel", role: .cancel) {}
         } message: {
-            Text("此操作不可撤销。")
+            Text("common.irreversible")
         }
-        .alert("提示", isPresented: Binding(
+        .alert(loc("common.notice"), isPresented: Binding(
             get: { alert != nil },
             set: { if !$0 { alert = nil } })) {
-                Button("好", role: .cancel) {}
+                Button("common.ok", role: .cancel) {}
             } message: {
                 Text(alert ?? "")
             }
@@ -69,13 +69,13 @@ struct PlanetSettingsView: View {
     private var nameAndIconSection: some View {
         Section {
             HStack {
-                Text("名称")
+                Text("common.name")
                 Spacer()
                 if isOfficial {
-                    Text(planet?.name ?? "")
+                    Text(planet?.displayName ?? "")
                         .foregroundStyle(.secondary)
                 } else {
-                    TextField("名称", text: $name)
+                    TextField("common.name", text: $name)
                         .multilineTextAlignment(.trailing)
                         .focused($nameFocused)
                         .submitLabel(.done)
@@ -89,7 +89,7 @@ struct PlanetSettingsView: View {
                 showIconPicker = true
             } label: {
                 HStack {
-                    Text("图标")
+                    Text("common.icon")
                     Spacer()
                     if let planet {
                         Image(systemName: PlanetIcon.symbol(for: planet))
@@ -105,7 +105,7 @@ struct PlanetSettingsView: View {
             .disabled(isOfficial)
         } footer: {
             if isOfficial {
-                Text("官方行星使用 Core 内置配置，不支持修改。")
+                Text("planet.info.officialOnly")
             }
         }
     }
@@ -115,21 +115,22 @@ struct PlanetSettingsView: View {
     private var infoSection: some View {
         Section {
             row("World ID", app.planetWorldIds[planetId] ?? "—")
-            row("节点 ID", nodeIDText)
+            row(loc("planet.info.nodeId"), nodeIDText)
             if let planet {
-                row("类型", isOfficial ? "官方" : "私有")
+                row(loc("common.type"),
+                    isOfficial ? loc("planet.info.officialKind")
+                               : loc("planet.info.customKind"))
                 // "文件"项无意义，隐藏。
                 // if let fileName = planet.fileName {
                 //     row("文件", fileName)
                 // }
                 if let info = PlanetImporter.inspectPlanetFile(planet) {
-                    row("文件大小", ByteCountFormatter.string(fromByteCount: Int64(info.fileSize),
-                                                              countStyle: .file))
-                    row("修订时间", Self.timestampText(info.timestamp))
+                    row(loc("planet.info.fileSize"), locFileSize(info.fileSize))
+                    row(loc("planet.info.revision"), Self.timestampText(info.timestamp))
                 }
             }
         } footer: {
-            Text("节点身份与行星绑定，仅隧道正在使用的行星能读取到节点 ID。")
+            Text("planet.info.footer")
         }
     }
 
@@ -143,7 +144,10 @@ struct PlanetSettingsView: View {
         guard ts > 0 else { return "—" }
         // ZeroTier World 时间戳为毫秒。
         let date = Date(timeIntervalSince1970: TimeInterval(ts) / 1000)
-        return date.formatted(date: .abbreviated, time: .shortened)
+        // 格式化器不走 SwiftUI locale 环境，显式带应用语言（单位/日期与文案一致）。
+        return date.formatted(
+            Date.FormatStyle(date: .abbreviated, time: .shortened)
+                .locale(LanguageManager.shared.locale))
     }
 
     // MARK: - 诊断入口
@@ -153,21 +157,21 @@ struct PlanetSettingsView: View {
             NavigationLink {
                 PeerListView()
             } label: {
-                Label("查看 Peers", systemImage: "person.2")
+                Label("planet.diagnostics.peers", systemImage: "person.2")
             }
             .disabled(planetId != app.activePlanetId)
             NavigationLink {
                 MoonView()
             } label: {
-                Label("管理卫星节点", systemImage: "moon.stars")
+                Label("planet.diagnostics.moons", systemImage: "moon.stars")
             }
             NavigationLink {
                 ApplyTraceView()
             } label: {
-                Label("数据面诊断", systemImage: "waveform.path.ecg")
+                Label("planet.diagnostics.trace", systemImage: "waveform.path.ecg")
             }
         } footer: {
-            Text("Peers 来自隧道的实时连接，仅隧道正在使用的行星可查看。")
+            Text("planet.diagnostics.footer")
         }
     }
 
@@ -183,7 +187,7 @@ struct PlanetSettingsView: View {
         }
     }
 
-    /// 删除顺序对齐原 PlanetListView：激活中先停 VPN，级联清理由 AppConfigStore.deletePlanet 完成。
+    /// 删除顺序：激活中先停 VPN，级联清理由 AppConfigStore.deletePlanet 完成。
     private func deletePlanet() {
         guard let planet else { return }
         if planet.id == app.activePlanetId {

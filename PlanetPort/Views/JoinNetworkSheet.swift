@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 加入网络（对齐 Android JoinNetworkFragment）
+/// 加入网络
 struct JoinNetworkSheet: View {
     @EnvironmentObject var app: AppState
     @Environment(\.dismiss) private var dismiss
@@ -18,9 +18,9 @@ struct JoinNetworkSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("网络 ID") {
+                Section("network.id") {
                     HStack {
-                        TextField("16 位十六进制", text: $networkId)
+                        TextField("join.idPlaceholder", text: $networkId)
                             .font(.system(.body, design: .monospaced))
                             .autocorrectionDisabled()
                             .textInputAutocapitalization(.characters)
@@ -32,38 +32,38 @@ struct JoinNetworkSheet: View {
                                 .foregroundStyle(.tint)
                         }
                         .buttonStyle(.borderless)
-                        .accessibilityLabel("扫码识别网络 ID")
+                        .accessibilityLabel(Text("join.a11yScan"))
                     }
                     if !networkId.isEmpty && !idValid {
-                        Text("网络 ID 必须为 16 位十六进制字符")
+                        Text("join.idInvalid")
                             .font(.caption)
                             .foregroundStyle(.red)
                     }
                 }
                 Section {
-                    Toggle("默认路由经 ZeroTier", isOn: $routeViaZeroTier)
+                    Toggle("join.routeVia", isOn: $routeViaZeroTier)
                 } footer: {
-                    Text("开启后所有流量经 ZeroTier 隧道路由")
+                    Text("join.routeViaFooter")
                 }
                 Section("DNS") {
                     DNSConfigSection(config: $dns)
                 }
             }
-            .navigationTitle("加入网络")
+            .navigationTitle("join.title")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
+                    Button("common.cancel") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("加入") { join() }
+                    Button("join.action") { join() }
                         .disabled(!idValid || !dns.isValid)
                 }
             }
-            .alert("网络已存在", isPresented: $duplicateAlert) {
-                Button("好", role: .cancel) {}
+            .alert("join.duplicateTitle", isPresented: $duplicateAlert) {
+                Button("common.ok", role: .cancel) {}
             } message: {
-                Text("网络 \(networkId.lowercased()) 已在列表中，不能重复添加。")
+                Text("join.duplicateMessage \(networkId.lowercased())")
             }
             .sheet(isPresented: $showScanner) {
                 QRScannerView { id in

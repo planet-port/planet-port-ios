@@ -41,14 +41,14 @@ struct IconPickerSheet: View {
                 }
                 .padding(16)
             }
-            .navigationTitle("选择图标")
+            .navigationTitle("icon.title")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
+                    Button("common.cancel") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("恢复自动") {
+                    Button("icon.reset") {
                         onSelect(nil)
                         dismiss()
                     }

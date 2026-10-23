@@ -17,7 +17,19 @@ final class ThemeManager {
         0x4A4266,  // 黛
         0x9D2933,  // 胭脂
     ]
-    static let presetNames = ["默认红", "藤黄", "竹青", "石绿", "群青", "花青", "黛", "胭脂"]
+    /// 预设名（仅无障碍标签使用），按语言即时本地化。
+    static var presetNames: [String] {
+        [
+            loc("theme.preset.defaultRed"),
+            loc("theme.preset.gamboge"),
+            loc("theme.preset.bamboo"),
+            loc("theme.preset.malachite"),
+            loc("theme.preset.ultramarine"),
+            loc("theme.preset.indigo"),
+            loc("theme.preset.dark"),
+            loc("theme.preset.carmine"),
+        ]
+    }
 
     private static let keyMain = "theme.mainColorHex"
     private static let keyDerive = "theme.deriveStatusColor"
@@ -44,7 +56,7 @@ final class ThemeManager {
 
     // MARK: - 派生色
 
-    /// 全局主色：浅色用原色，深色提亮度增饱和（对齐色盘 500/200 明暗分级手法）。
+    /// 全局主色：浅色用原色，深色提亮度增饱和。
     var accent: Color {
         let base = Self.hsl(mainHex)
         return Self.dynamic(

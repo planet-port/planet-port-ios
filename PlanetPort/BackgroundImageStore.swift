@@ -40,8 +40,8 @@ enum BackgroundImageError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .tooLarge: return "图片超过 20MB 上限"
-        case .notImage: return "内容不是有效图片"
+        case .tooLarge: return loc("error.bg.tooLarge")
+        case .notImage: return loc("error.bg.notImage")
         }
     }
 }

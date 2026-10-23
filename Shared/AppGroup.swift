@@ -23,7 +23,7 @@ enum AppGroup {
             .appendingPathComponent(planetId, isDirectory: true)
     }
 
-    // MARK: - 偏好 key（对齐 Android Constants.java）
+    // MARK: - 偏好 key
     static let prefUseCustomPlanet = "planet_use_custom"
     /// 首页当前正在浏览的 Planet。切换它不会立即影响隧道。
     static let prefSelectedPlanetId = "planet_selected_id"
@@ -36,6 +36,8 @@ enum AppGroup {
     /// 同时连接网络数软上限（超出弹耗电确认，可强制开启）。
     static let prefMultiConnectLimit = "network_multi_connect_limit"
     static let prefConnectOnDemand = "general_connect_on_demand"
+    /// 应用语言覆盖（AppLanguage 原始值；未写入时跟随系统）。
+    static let prefLanguage = "general_language"
     /// 首页左右屏幕边缘滑动切换 Planet。
     static let prefEdgeSwipePlanet = "interaction_edge_swipe_planet"
     /// 首页背景视差动画（默认开启；仅在设置了自定义背景图时生效）

@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Peers 列表（对齐 Android PeerListFragment：下拉刷新、无定时器）。
+/// Peers 列表（下拉刷新、无定时器）。
 /// 视觉与首页卡片语言统一：透明行 + 灰底圆角卡；延迟按 好/一般/差 语义着色，
 /// 中转连接用橙色胶囊标识，查询/隧道未运行/空三种状态复用空态卡。
 struct PeerListView: View {
@@ -41,27 +41,27 @@ struct PeerListView: View {
         VStack(spacing: 10) {
             if !loaded {
                 ProgressView()
-                Text("正在查询 Peers…")
+                Text("peers.loading")
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(.primary)
             } else if !app.vpnRunning {
                 Image(systemName: "antenna.radiowaves.left.and.right.slash")
                     .font(.system(size: 32, weight: .light))
                     .foregroundStyle(.secondary)
-                Text("隧道未运行")
+                Text("peers.tunnelDown")
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(.primary)
-                Text("开启网络后可查看实时连接")
+                Text("peers.tunnelDownHint")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             } else {
                 Image(systemName: "person.2")
                     .font(.system(size: 32, weight: .light))
                     .foregroundStyle(.secondary)
-                Text("“\(app.activePlanet.name)”暂无 Peers")
+                Text("peers.emptyTitle \(app.activePlanet.displayName)")
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(.primary)
-                Text("下拉刷新重试")
+                Text("peers.refreshHint")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -105,7 +105,7 @@ struct PeerListView: View {
                 HStack(spacing: 4) {
                     Image(systemName: "arrow.triangle.branch")
                         .font(.caption2)
-                    Text("中转 relay")
+                    Text("peers.relay")
                         .font(.caption2.weight(.semibold))
                 }
                 .foregroundStyle(.orange)

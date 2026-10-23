@@ -9,9 +9,9 @@ enum PlanetImporter {
 
         var errorDescription: String? {
             switch self {
-            case .badHeader: return "不是有效的 planet 文件（文件头校验失败）"
-            case .downloadFailed: return "下载失败"
-            case .emptyName: return "请输入行星名称"
+            case .badHeader: return loc("error.planet.badHeader")
+            case .downloadFailed: return loc("error.downloadFailed")
+            case .emptyName: return loc("error.planet.emptyName")
             }
         }
     }
@@ -111,7 +111,7 @@ enum PlanetImporter {
     }
 
     /// 从 .planet 文件尽力解读只读信息。
-    /// 文件格式（对齐 Core World::deserialize）：byte0 类型(1=planet) + 8 字节大端 worldId + 8 字节大端时间戳。
+    /// 文件格式：byte0 类型(1=planet) + 8 字节大端 worldId + 8 字节大端时间戳。
     static func inspectPlanetFile(_ profile: PlanetProfile) -> (worldId: UInt64, timestamp: UInt64, fileSize: Int)? {
         guard let fileName = profile.fileName else { return nil }
         let url = AppGroup.planetsDir.appendingPathComponent(fileName)

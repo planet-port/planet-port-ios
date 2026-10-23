@@ -21,7 +21,7 @@ final class ARPTable {
         return map.count
     }
 
-    // MARK: - 报文构造/解析（RFC 826，字段大端；对齐 Android ARPReplyData 的字节布局）
+    // MARK: - 报文构造/解析（RFC 826，字段大端）
 
     static func request(senderIP: UInt32, senderMAC: UInt64, targetIP: UInt32) -> Data {
         var p = Data(capacity: 28)

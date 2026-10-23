@@ -1,7 +1,7 @@
 import Foundation
 import NetworkExtension
 
-/// App 侧 VPN 配置管理（对应 Android 的 VpnService.prepare/startService 流程）
+/// App 侧 VPN 配置管理
 final class VPNManager {
     static let shared = VPNManager()
 
@@ -45,7 +45,7 @@ final class VPNManager {
                 manager.saveToPreferences { [weak self] error in
                     guard let self else { return }
                     if let error {
-                        completion(false, "保存 VPN 配置失败: \(error.localizedDescription)")
+                        completion(false, loc("vpn.error.save \(error.localizedDescription)"))
                         return
                     }
                     self.manager = nil
@@ -168,7 +168,7 @@ final class VPNManager {
         return proto.providerBundleIdentifier == "cn.imgozi.PlanetPortI.tunnel"
     }
 
-    /// Connect On Demand（iOS 侧补全 Android 半成品开机自启）
+    /// Connect On Demand（按需连接）
     private func applyOnDemand(_ m: NETunnelProviderManager) {
         let on = AppGroup.defaults.bool(forKey: AppGroup.prefConnectOnDemand)
         m.isOnDemandEnabled = on
@@ -183,7 +183,7 @@ final class VPNManager {
             m.isEnabled = true
             m.saveToPreferences { error in
                 if let error {
-                    completion(false, "保存 VPN 配置失败: \(error.localizedDescription)")
+                    completion(false, loc("vpn.error.save \(error.localizedDescription)"))
                     return
                 }
                 self.startTunnel(m, completion: completion)
@@ -201,7 +201,7 @@ final class VPNManager {
             if e.code == .configurationInvalid {
                 // 配置失效：缓存对象与系统偏好脱节时，丢弃缓存重载偏好后重试一次。
                 guard !recoveringInvalidConfig else {
-                    completion(false, "VPN 启动失败: \(e.localizedDescription)")
+                    completion(false, loc("vpn.error.start \(e.localizedDescription)"))
                     return
                 }
                 recoveringInvalidConfig = true
@@ -222,14 +222,14 @@ final class VPNManager {
                         try m.connection.startVPNTunnel()
                         completion(true, nil)
                     } catch {
-                        completion(false, "VPN 启动失败: \(error.localizedDescription)")
+                        completion(false, loc("vpn.error.start \(error.localizedDescription)"))
                     }
                 }
             } else {
-                completion(false, "VPN 启动失败: \(e.localizedDescription)")
+                completion(false, loc("vpn.error.start \(e.localizedDescription)"))
             }
         } catch {
-            completion(false, "VPN 启动失败: \(error.localizedDescription)")
+            completion(false, loc("vpn.error.start \(error.localizedDescription)"))
         }
     }
 }

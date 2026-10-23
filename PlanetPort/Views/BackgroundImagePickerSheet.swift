@@ -14,11 +14,11 @@ struct BackgroundImagePickerSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("从相册选择") {
+                Section("bg.albumHeader") {
                     Button {
                         showPhotoPicker = true
                     } label: {
-                        Label("选择照片", systemImage: "photo.on.rectangle")
+                        Label("bg.choosePhoto", systemImage: "photo.on.rectangle")
                     }
                 }
                 Section {
@@ -30,13 +30,13 @@ struct BackgroundImagePickerSheet: View {
                         download()
                     } label: {
                         HStack {
-                            Label("下载", systemImage: "arrow.down.circle")
+                            Label("bg.download", systemImage: "arrow.down.circle")
                             if downloading { Spacer(); ProgressView() }
                         }
                     }
                     .disabled(urlText.isEmpty || downloading)
                 } header: {
-                    Text("从 URL 下载")
+                    Text("bg.urlHeader")
                 } footer: {
                     if let errorText {
                         Text(errorText).foregroundStyle(.red)
@@ -44,18 +44,18 @@ struct BackgroundImagePickerSheet: View {
                 }
                 if app.backgroundImage != nil {
                     Section {
-                        Button("清除背景图", role: .destructive) {
+                        Button("bg.clear", role: .destructive) {
                             app.clearBackgroundImage()
                             dismiss()
                         }
                     }
                 }
             }
-            .navigationTitle("背景图")
+            .navigationTitle("bg.title")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("完成") { dismiss() }
+                    Button("common.done") { dismiss() }
                 }
             }
             .sheet(isPresented: $showPhotoPicker) {
@@ -76,7 +76,7 @@ struct BackgroundImagePickerSheet: View {
         let trimmed = urlText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let url = URL(string: trimmed), let scheme = url.scheme,
               scheme == "http" || scheme == "https" else {
-            errorText = "URL 无效"
+            errorText = loc("bg.error.invalidUrl")
             return
         }
         downloading = true
@@ -86,13 +86,13 @@ struct BackgroundImagePickerSheet: View {
             do {
                 let (data, _) = try await URLSession.shared.data(from: url)
                 guard !data.isEmpty else {
-                    errorText = "下载失败：无内容"
+                    errorText = loc("bg.error.emptyContent")
                     return
                 }
                 try app.applyBackgroundImage(data)
                 dismiss()
             } catch {
-                errorText = "下载失败：\(error.localizedDescription)"
+                errorText = loc("bg.error.download \(error.localizedDescription)")
             }
         }
     }

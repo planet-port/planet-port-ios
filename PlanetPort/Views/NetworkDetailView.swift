@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 网络详情（对齐 Android NetworkDetailFragment：静态+实时配置合并展示）
+/// 网络详情（静态+实时配置合并展示）
 struct NetworkDetailView: View {
     @EnvironmentObject var app: AppState
     let entry: NetworkEntry
@@ -13,21 +13,25 @@ struct NetworkDetailView: View {
     var body: some View {
         List {
             Section {
-                row("网络 ID", entry.networkId)
-                row("名称", snapshot?.name ?? entry.networkName)
-                row("状态", snapshot.map { $0.status.displayName } ?? "—")
-                row("类型", snapshot?.type ?? "—")
+                row(loc("network.id"), entry.networkId)
+                row(loc("common.name"), snapshot?.name ?? entry.networkName)
+                row(loc("common.status"), snapshot.map { $0.status.displayName } ?? "—")
+                row(loc("common.type"), snapshot?.type ?? "—")
                 row("MAC", snapshot?.mac ?? "—")
                 row("MTU", snapshot.map { String($0.mtu) } ?? "—")
-                row("广播", snapshot.map { $0.broadcastEnabled ? "允许" : "禁止" } ?? "—")
-                row("桥接", snapshot.map { $0.bridge ? "是" : "否" } ?? "—")
+                row(loc("network.broadcast"),
+                    snapshot.map { $0.broadcastEnabled ? loc("common.allowed")
+                                                       : loc("common.forbidden") } ?? "—")
+                row(loc("network.bridge"),
+                    snapshot.map { $0.bridge ? loc("common.yes")
+                                             : loc("common.no") } ?? "—")
             }
-            Section("分配的地址") {
+            Section("network.assignedAddrs") {
                 if let addrs = snapshot?.assignedAddrs, !addrs.isEmpty {
                     ForEach(addrs, id: \.self) { Text($0).font(.system(.body, design: .monospaced)) }
                 } else { Text("—") }
             }
-            Section("托管路由") {
+            Section("network.managedRoutes") {
                 if let routes = snapshot?.routes, !routes.isEmpty {
                     ForEach(routes, id: \.self) { Text($0).font(.system(.body, design: .monospaced)) }
                 } else { Text("—") }
@@ -41,48 +45,50 @@ struct NetworkDetailView: View {
                             Text($0).font(.system(.body, design: .monospaced))
                         }
                     } else {
-                        Text("等待网络下发…").foregroundStyle(.secondary)
+                        Text("network.dnsPending").foregroundStyle(.secondary)
                     }
                 }
                 // 改 DNS 会触发热重配隧道（重建网络设置），用显式"应用"确认，不做静默生效。
                 if dnsDirty {
-                    Button("应用 DNS 配置") { applyDNS() }
+                    Button("network.applyDns") { applyDNS() }
                         .disabled(!dns.isValid)
                         .frame(maxWidth: .infinity, alignment: .center)
                 }
             } header: {
                 Text("DNS")
             } footer: {
-                Text("修改后需点「应用」生效；隧道运行时会自动重配，无需断开重连。")
+                Text("network.dnsFooter")
             }
             Section {
-                Toggle("经 ZeroTier 路由（默认路由）", isOn: Binding(
+                Toggle("network.routeVia", isOn: Binding(
                     get: { currentEntry.routeViaZeroTier },
                     set: updateRouteViaZeroTier))
                     .disabled(routeViaLocked)
             } footer: {
-                Text(routeViaLocked
-                     ? "多网络同时连接时不可用"
-                     : "开启后该网络的默认路由经 ZeroTier，立即生效")
+                if routeViaLocked {
+                    Text("network.routeVia.lockedFooter")
+                } else {
+                    Text("network.routeVia.footer")
+                }
             }
             Section {
                 Button(role: .destructive) { showDelete = true } label: {
-                    Text("删除网络")
+                    Text("network.delete")
                 }
             }
         }
-        .navigationTitle("网络详情")
+        .navigationTitle("network.detailTitle")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             refresh()
             dns = DNSConfig(mode: currentEntry.dnsMode, customDns: currentEntry.customDns)
         }
         .refreshable { refresh() }
-        .confirmationDialog("删除这个网络？", isPresented: $showDelete, titleVisibility: .visible) {
-            Button("删除网络", role: .destructive) { deleteNetwork() }
-            Button("取消", role: .cancel) {}
+        .confirmationDialog("network.delete.confirmTitle", isPresented: $showDelete, titleVisibility: .visible) {
+            Button("network.delete", role: .destructive) { deleteNetwork() }
+            Button("common.cancel", role: .cancel) {}
         } message: {
-            Text("将从当前行星的网络列表中移除；若隧道正在使用，将停止加入该网络。")
+            Text("network.delete.confirmMessage")
         }
     }
 
@@ -110,7 +116,7 @@ struct NetworkDetailView: View {
         }
     }
 
-    /// 对齐 Android updateTunnelConfig 的热重配路径：写配置文件 + Darwin 通知隧道重读。
+    /// 热重配路径：写配置文件 + Darwin 通知隧道重读。
     private func applyDNS() {
         var networks = app.networks
         guard let idx = networks.firstIndex(where: { $0.networkId == entry.networkId }) else { return }
@@ -120,7 +126,7 @@ struct NetworkDetailView: View {
         app.reloadConfig()
     }
 
-    /// 对齐 Android NetworkDetailModel.doUpdateRouteViaZeroTier：写库 + 通知隧道重配
+    /// 写库 + 通知隧道重配
     private func updateRouteViaZeroTier(_ on: Bool) {
         var networks = app.networks
         guard let idx = networks.firstIndex(where: { $0.networkId == entry.networkId }) else { return }

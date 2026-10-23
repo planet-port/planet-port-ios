@@ -37,10 +37,10 @@ struct AddPlanetForm: View {
                 alert = error.localizedDescription
             }
         }
-        .alert("导入失败", isPresented: Binding(
+        .alert("addplanet.importFailed", isPresented: Binding(
             get: { alert != nil },
             set: { if !$0 { alert = nil } })) {
-                Button("好", role: .cancel) {}
+                Button("common.ok", role: .cancel) {}
             } message: {
                 Text(alert ?? "")
             }
@@ -61,7 +61,7 @@ struct AddPlanetForm: View {
 
             // 名称 + 随机换名
             HStack(spacing: 10) {
-                field($name, placeholder: "行星名称")
+                field($name, placeholder: loc("addplanet.namePlaceholder"))
                 Button {
                     name = PlanetNameSuggest.random(excluding: Set(app.planets.map(\.name)))
                 } label: {
@@ -71,7 +71,7 @@ struct AddPlanetForm: View {
                         .background(.quaternary, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("换个随机名称")
+                .accessibilityLabel(Text("addplanet.randomName"))
             }
 
             // 选择文件独占一行：padding/背景放进 label，整块组件（含背景）都是点击热区。
@@ -79,10 +79,10 @@ struct AddPlanetForm: View {
                 showFilePicker = true
             } label: {
                 HStack {
-                    Label("选择行星文件", systemImage: "doc")
+                    Label("addplanet.chooseFile", systemImage: "doc")
                     Spacer()
                     if let data = pendingData {
-                        Text("已就绪 · \(ByteCountFormatter.string(fromByteCount: Int64(data.count), countStyle: .file))")
+                        Text("addplanet.ready \(locFileSize(data.count))")
                             .font(.caption)
                             .foregroundStyle(ThemeManager.shared.success)
                     } else {
@@ -100,7 +100,7 @@ struct AddPlanetForm: View {
 
             // URL：输入框左，导入按钮右（按钮高度与输入框一致）
             HStack(spacing: 10) {
-                field($url, placeholder: "或输入行星文件URL", keyboard: .URL)
+                field($url, placeholder: loc("addplanet.urlPlaceholder"), keyboard: .URL)
                 Button {
                     importFromURL()
                 } label: {
@@ -108,7 +108,7 @@ struct AddPlanetForm: View {
                         if downloading {
                             ProgressView()
                         } else {
-                            Text("导入")
+                            Text("common.import")
                                 .font(.subheadline.weight(.semibold))
                         }
                     }
@@ -131,7 +131,7 @@ struct AddPlanetForm: View {
         Button {
             add()
         } label: {
-            Text("添加行星服务器")
+            Text("addplanet.action")
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
@@ -175,7 +175,7 @@ struct AddPlanetForm: View {
         // 相同 World ID 视为同一个 Planet，禁止重复创建。
         if let worldId = PlanetImporter.worldId(of: data),
            PlanetImporter.existingWorldIds().contains(worldId) {
-            alert = "已存在相同的 Planet（World ID \(String(format: "%016llx", worldId))），不能重复添加。"
+            alert = loc("addplanet.duplicate \(String(format: "%016llx", worldId))")
             return
         }
         do {

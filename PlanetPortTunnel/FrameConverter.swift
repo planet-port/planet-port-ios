@@ -108,7 +108,7 @@ final class FrameConverter {
             let version = pkt[0] >> 4
             if version == 4 {
                 let dst = Self.bigEndianIP32(pkt, 16)
-                // 广播/组播直送所有有 IPv4 地址的网络（对齐 Android：组播包直接发对应组播 MAC）
+                // 广播/组播直送所有有 IPv4 地址的网络（组播包直接发对应组播 MAC）
                 if dst == 0xffffffff || Self.isIPv4Multicast(dst) {
                     let dstMac: UInt64 = (dst == 0xffffffff) ? Ethernet.broadcastMAC : Self.ipv4MulticastMAC(dst)
                     for ctx in orderedContextsLocked() where !ctx.ipv4Addresses.isEmpty && ctx.mac != 0 {
@@ -190,7 +190,7 @@ final class FrameConverter {
     private func handleARP(_ ctx: NetworkContext, payload: Data, senderMac: UInt64) {
         guard let p = ARPTable.parse(payload) else { return }
         switch p.op {
-        case 1: // 请求：问 targetIP 的 MAC；若是本网络持有的地址则应答（对齐 Android ARPTable）
+        case 1: // 请求：问 targetIP 的 MAC；若是本网络持有的地址则应答
             if ctx.ipv4Addresses.contains(p.targetIP) {
                 let reply = ARPTable.reply(senderIP: p.targetIP, senderMAC: ctx.mac,
                                            targetIP: p.senderIP, targetMAC: p.senderMAC)

@@ -18,7 +18,7 @@ struct HomeView: View {
     @EnvironmentObject private var app: AppState
     @State private var showJoin = false
     @State private var errorAlert: String?
-    @State private var errorTitle = "提示"
+    @State private var errorTitle = loc("common.notice")
     @State private var pendingNetworks: Set<String> = []
     /// 超出并发上限的确认弹窗（软上限：多开增加耗电，可强制开启）。
     @State private var limitConfirmTarget: NetworkEntry?
@@ -93,7 +93,7 @@ struct HomeView: View {
                     if let entry = app.networks.first(where: { $0.networkId == id }) {
                         NetworkDetailView(entry: entry)
                     } else {
-                        Text("网络不存在")
+                        Text("network.status.notFound")
                     }
                 case .settings: PrefsView()
                 case .planetSettings(let id): PlanetSettingsView(planetId: id)
@@ -102,25 +102,25 @@ struct HomeView: View {
             .alert(errorTitle, isPresented: Binding(
                 get: { errorAlert != nil },
                 set: { if !$0 { errorAlert = nil } })) {
-                    Button("好", role: .cancel) {}
+                    Button("common.ok", role: .cancel) {}
                 } message: {
                     Text(errorAlert ?? "")
                 }
             // 并发上限确认（软上限：可强制开启）
-            .alert("开启更多网络", isPresented: Binding(
+            .alert("home.alert.openMore", isPresented: Binding(
                 get: { limitConfirmTarget != nil },
                 set: { if !$0 { limitConfirmTarget = nil } })) {
-                    Button("仍要开启", role: .destructive) { confirmOpenBeyondLimit() }
-                    Button("取消", role: .cancel) {}
+                    Button("home.alert.openAnyway", role: .destructive) { confirmOpenBeyondLimit() }
+                    Button("common.cancel", role: .cancel) {}
                 } message: {
-                    Text("同时连接多个网络会增加耗电，仍要开启「\(displayName(limitConfirmTarget))」？")
+                    Text("home.alert.limitConfirm \(displayName(limitConfirmTarget))")
                 }
             // 无线数据权限被拒提示
-            .alert("无法使用网络", isPresented: $permissionDenied) {
-                Button("去设置") { CellularPermissionChecker.openSettings() }
-                Button("知道了", role: .cancel) {}
+            .alert("home.alert.noNetworkAccess", isPresented: $permissionDenied) {
+                Button("home.alert.goSettings") { CellularPermissionChecker.openSettings() }
+                Button("home.alert.gotIt", role: .cancel) {}
             } message: {
-                Text("PlanetPort 未获得无线数据权限，VPN 将无法连接。请到 设置 → 蜂窝网络 → PlanetPort，选择「WLAN 与蜂窝网络」。")
+                Text("home.alert.cellularDeniedMessage")
             }
             .onChange(of: app.networkStatuses) { statuses in
                 guard app.selectedPlanetId == app.activePlanetId else { return }
@@ -129,8 +129,8 @@ struct HomeView: View {
                     // 属正常流程，不弹窗，状态行显示"待授权"。
                     if let name = app.networks.first(where: { $0.networkId == nwid })?.networkName,
                        status.isAlertable {
-                        errorTitle = "网络状态异常"
-                        errorAlert = "网络 \(name)：\(status.displayName)"
+                        errorTitle = loc("home.alert.networkStatusError")
+                        errorAlert = loc("home.alert.networkStatus \(name): \(status.displayName)")
                         break
                     }
                 }
@@ -191,7 +191,7 @@ struct HomeView: View {
                     HStack(spacing: 3) {
                         Text("🔗")
                             .font(.system(size: 22 * 0.65 * 2 / 3))
-                        Text(app.activePlanet.name)
+                        Text(app.activePlanet.displayName)
                             .font(.system(size: 22 * 0.65, weight: .semibold))
                     }
                     .foregroundStyle(.secondary)
@@ -207,7 +207,7 @@ struct HomeView: View {
                     .onTapGesture {
                         switchPager(to: app.activePlanetId)
                     }
-                    .accessibilityHint("切换到当前行星分页")
+                    .accessibilityHint(Text("home.a11y.activePlanetHint"))
                     .transition(.flyFromPlanetCard)
                     // 翻页事务自带的 easeInOut 会盖掉隐式动画，这里强制 easeOut 曲线。
                     .transaction { $0.animation = .easeOut(duration: 0.28) }
@@ -221,7 +221,7 @@ struct HomeView: View {
                         .frame(width: 36, height: 36)
                         .contentShape(Rectangle())
                 }
-                .accessibilityLabel("设置")
+                .accessibilityLabel(Text("common.settings"))
                     }
                     // 出现/隐藏走弹簧动画，驱动 .flyFromPlanetCard 转场。
                     .animation(.spring(response: 0.45, dampingFraction: 0.85), value: showActivePlanetChip)
@@ -286,11 +286,12 @@ struct HomeView: View {
     private var indicator: some View {
         HStack(spacing: 7) {
             ForEach(app.planets) { planet in
-                dot(isSelected: planet.id == pagerSelection, label: "浏览 \(planet.name)") {
+                dot(isSelected: planet.id == pagerSelection,
+                    label: loc("home.a11y.browsePlanet \(planet.displayName)")) {
                     pagerBinding.wrappedValue = planet.id
                 }
             }
-            dot(isSelected: pagerSelection == Self.addTag, label: "添加行星") {
+            dot(isSelected: pagerSelection == Self.addTag, label: loc("planet.add.title")) {
                 pagerBinding.wrappedValue = Self.addTag
             }
         }
@@ -384,12 +385,14 @@ struct HomeView: View {
 
     /// 计数行：网络区头部，紧贴细分隔线下方。多网络连接中追加已连接数。
     private func networkHeader(count: Int) -> some View {
-        var text = "网络 · \(count)"
+        var text = loc("home.network.header \(count)")
         if app.selectedPlanetId == app.activePlanetId && app.vpnRunning {
             let connected = app.networks.filter {
                 $0.lastActivated && app.networkConflicts[$0.networkId] == nil
             }.count
-            if connected > 1 { text += " · 已连接 \(connected)" }
+            if connected > 1 {
+                text += " · " + loc("home.network.connected \(connected)")
+            }
         }
         return Text(text)
             .font(.footnote.weight(.semibold))
@@ -402,10 +405,10 @@ struct HomeView: View {
             Image(systemName: "network.slash")
                 .font(.system(size: 32, weight: .light))
                 .foregroundStyle(.secondary)
-            Text("这颗行星还没有网络")
+            Text("home.network.emptyTitle")
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(.primary)
-            Text("点击此处或右下角 + 添加")
+            Text("home.network.emptyHint")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
         }
@@ -496,8 +499,8 @@ struct HomeView: View {
         AppConfigStore.writeNetworks(networks)
         app.reloadConfig()
         if routeViaTurnedOff {
-            errorTitle = "多网络连接"
-            errorAlert = "已自动关闭「经 ZeroTier 路由（默认路由）」：多网络同时连接时不可用"
+            errorTitle = loc("home.error.multiNetworkTitle")
+            errorAlert = loc("home.error.multiNetworkMessage")
         }
 
         // 快速路径：同行星且隧道在跑——writeNetworks 已发配置变更通知，
@@ -513,8 +516,8 @@ struct HomeView: View {
         }
 
         if !AppGroup.defaults.bool(forKey: AppGroup.prefAllowCellular), isCellular() {
-            errorTitle = "移动数据未开启"
-            errorAlert = "当前使用移动数据，未在设置中允许移动数据"
+            errorTitle = loc("home.error.cellularTitle")
+            errorAlert = loc("home.error.cellularMessage")
         }
 
         pendingNetworks.insert(entry.networkId)
@@ -523,8 +526,8 @@ struct HomeView: View {
                 pendingNetworks.remove(entry.networkId)
                 app.reloadConfig()
                 if !ok {
-                    errorTitle = "无法启动 VPN"
-                    errorAlert = error ?? "VPN 启动失败"
+                    errorTitle = loc("home.error.vpnStartTitle")
+                    errorAlert = error ?? loc("vpn.error.startFallback")
                 }
             }
         }

@@ -21,12 +21,12 @@ struct QRScannerView: View {
                         Image(systemName: "camera.on.rectangle")
                             .font(.system(size: 40))
                             .foregroundStyle(.secondary)
-                        Text("无法访问相机")
+                        Text("qr.deniedTitle")
                             .font(.headline)
-                        Text("请在系统设置中允许 PlanetPort 使用相机后重试")
+                        Text("qr.deniedMessage")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
-                        Button("前往设置") {
+                        Button("common.goSettings") {
                             if let url = URL(string: UIApplication.openSettingsURLString) {
                                 UIApplication.shared.open(url)
                             }
@@ -36,11 +36,11 @@ struct QRScannerView: View {
                     .padding()
                 }
             }
-            .navigationTitle("扫码加入")
+            .navigationTitle("qr.title")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
+                    Button("common.cancel") { dismiss() }
                 }
             }
             .task { await checkPermission() }

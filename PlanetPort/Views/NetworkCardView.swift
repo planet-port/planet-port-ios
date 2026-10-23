@@ -13,7 +13,8 @@ struct NetworkCardStatus {
         // 状态只有：未连接 / 建立隧道 / 待授权 / 核心实时状态（正在初始化、在线等）。
         // 非当前隧道行星的网络也显示"未连接"——开关为关，打开即切换行星，无需中间状态。
         if !app.vpnRunning {
-            self.init(text: entry.lastActivated ? "建立隧道" : "未连接",
+            self.init(text: entry.lastActivated ? loc("status.establishing")
+                                                : loc("status.disconnected"),
                       color: entry.lastActivated ? .orange : .secondary)
         } else if let conflict = app.networkConflicts[entry.networkId], entry.lastActivated {
             // 冲突原始码（跨进程契约）：address=地址冲突 / subnet=网段冲突，文案在此生成
@@ -22,19 +23,20 @@ struct NetworkCardStatus {
         } else if !entry.lastActivated {
             if let last = entry.lastConflict {
                 // 冲突已自动断开：显示原因 + 断开态，再次手动开启时清除记录
-                self.init(text: "\(Self.conflictText(last)),断开", color: .red)
+                self.init(text: loc("card.conflict.offline \(Self.conflictText(last))"),
+                          color: .red)
             } else {
-                self.init(text: "未连接", color: .secondary)
+                self.init(text: loc("status.disconnected"), color: .secondary)
             }
         } else if let status = app.networkStatuses[entry.networkId] {
             // 首次加入需控制器授权：统一显示"待授权"。
             if status.isPendingAuthorization {
-                self.init(text: "待授权", color: .orange)
+                self.init(text: loc("status.pendingAuth"), color: .orange)
             } else {
                 self.init(text: status.displayName, color: status == .ok ? ThemeManager.shared.success : .orange)
             }
         } else {
-            self.init(text: "等待节点响应", color: .secondary)
+            self.init(text: loc("status.waitingNode"), color: .secondary)
         }
     }
 
@@ -45,7 +47,7 @@ struct NetworkCardStatus {
 
     /// 冲突原始码 → 展示文案（仅 UI 层使用）
     private static func conflictText(_ code: String) -> String {
-        code == "address" ? "地址冲突" : "网段冲突"
+        loc(code == "address" ? "card.conflict.address" : "card.conflict.subnet")
     }
 }
 
@@ -110,7 +112,7 @@ struct NetworkCardView: View {
                 Button {
                     UIPasteboard.general.string = entry.networkId
                 } label: {
-                    Label("复制 ID", systemImage: "doc.on.doc")
+                    Label("common.copyId", systemImage: "doc.on.doc")
                 }
             }
 
@@ -122,7 +124,7 @@ struct NetworkCardView: View {
                     get: { appearsActive },
                     set: { onToggle($0) }))
                     .labelsHidden()
-                    .accessibilityLabel("启用网络 \(entry.networkName.isEmpty ? entry.networkId : entry.networkName)")
+                    .accessibilityLabel(Text("card.a11yToggle \(entry.networkName.isEmpty ? entry.networkId : entry.networkName)"))
             }
 
             // "更多"箭头固定在最右。
@@ -159,7 +161,7 @@ struct NetworkCardView: View {
             .padding(1)
             .contentShape(Rectangle())
             .onTapGesture { copyFirstIP(addresses) }
-            .accessibilityLabel("复制 IP")
+            .accessibilityLabel(Text("common.copyIp"))
     }
 
     private func copyFirstIP(_ addresses: [String]) {

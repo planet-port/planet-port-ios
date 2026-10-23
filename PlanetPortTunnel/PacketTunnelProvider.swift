@@ -9,16 +9,16 @@ enum TunnelError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .socketCreateFailed(let code):
-            return "UDP socket 创建失败（errno=\(code): \(String(cString: strerror(code)))）"
+            return loc("tunnel.error.socketCreate \(code): \(String(cString: strerror(code)))")
         case .socketBindFailed(let code):
-            return "UDP 端口绑定失败（errno=\(code): \(String(cString: strerror(code)))）"
+            return loc("tunnel.error.socketBind \(code): \(String(cString: strerror(code)))")
         case .coreInitFailed:
-            return "ZeroTier Core 初始化失败"
+            return loc("tunnel.error.coreInit")
         }
     }
 }
 
-/// 隧道主体（对齐 Android ZeroTierOneService 的职责）：
+/// 隧道主体：
 /// 核心生命周期、UDP 收发、后台任务驱动、网络配置→setTunnelNetworkSettings、
 /// 配置同步（Darwin notify）、AppMessage 查询。
 final class PacketTunnelProvider: NEPacketTunnelProvider {
@@ -43,7 +43,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
     private var applyingSettings = false
     private var settingsDirty = false
     private var configObserver: DarwinNotifyObserver?
-    /// 网络路径监听：接口切换（Wi-Fi↔蜂窝）或断网恢复时重启核心（对齐 Android 网络变化重启服务）
+    /// 网络路径监听：接口切换（Wi-Fi↔蜂窝）或断网恢复时重启核心
     private var pathMonitor: Network.NWPathMonitor?
     private let restartQueue = DispatchQueue(label: "zt-restart")
     private var restartWork: DispatchWorkItem?
@@ -87,7 +87,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         } catch {
             stopCore()
             let detail = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-            StatusStore.tunnelStatus = "启动失败: \(detail)"
+            StatusStore.tunnelStatus = loc("tunnel.status.startFailed \(detail)")
             StatusStore.postChange()
             completionHandler(error)
         }
@@ -110,7 +110,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
             self?.networkConfigs = [:]
         }
         stopCore()
-        StatusStore.tunnelStatus = "已停止"
+        StatusStore.tunnelStatus = loc("tunnel.status.stopped")
         StatusStore.online = false
         StatusStore.networkStatuses = [:]
         StatusStore.networkConflicts = [:]
@@ -156,7 +156,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         StatusStore.coreVersion = ZTBridge.coreVersion()
         StatusStore.nodeId = String(format: "%010llx", b.nodeAddress())
         StatusStore.networkConflicts = [:]   // 上次运行若被系统强杀，stopTunnel 不会执行，此处兜底清残留
-        StatusStore.tunnelStatus = "运行中"
+        StatusStore.tunnelStatus = loc("tunnel.status.running")
         StatusStore.postChange()
 
         // 3. UDP 收包线程（代号递增，旧线程在 socket 关闭后自行退出）
@@ -182,7 +182,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
             configQueue.async { self.networkConfigs = [:] }
         }
 
-        // 5. join 已配置网络 + orbit moons（对齐 Android onStartCommand 查 lastActivated）
+        // 5. join 已配置网络 + orbit moons
         applyConfig(fullSync: true)
     }
 
@@ -200,10 +200,10 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         converter = nil
     }
 
-    /// 网络切换重启核心：身份/网络配置持久化在磁盘，1~2 秒内恢复（对齐 Android 网络变化重启服务）
+    /// 网络切换重启核心：身份/网络配置持久化在磁盘，1~2 秒内恢复
     private func restartCore() {
         guard running else { return }
-        StatusStore.tunnelStatus = "网络切换，重连中"
+        StatusStore.tunnelStatus = loc("tunnel.status.reconnecting")
         StatusStore.online = false
         StatusStore.postChange()
         stopCore()
@@ -212,7 +212,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
             NSLog("[ZT] core restarted on network change")
         } catch {
             let detail = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-            StatusStore.tunnelStatus = "重连失败: \(detail)"
+            StatusStore.tunnelStatus = loc("tunnel.status.reconnectFailed \(detail)")
             StatusStore.postChange()
         }
     }
@@ -259,12 +259,12 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
             return Int32(sent < 0 ? errno : EMSGSIZE)
         }
 
-        // 网络配置变更（对齐 Android onNetworkConfigurationUpdated → updateTunnelConfig）
+        // 网络配置变更
         bridge.onNetworkConfig = { [weak self] nwid, op, cfg in
             self?.handleNetworkConfig(nwid: nwid, op: op, cfg: cfg)
         }
 
-        // 事件（对齐 Android onEvent）
+        // 事件
         bridge.onEvent = { event, _ in
             switch event {
             case "ONLINE":
@@ -274,7 +274,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
                 StatusStore.online = false
                 StatusStore.postChange()
             case "FATAL_ERROR_IDENTITY_COLLISION":
-                StatusStore.tunnelStatus = "致命错误：节点地址冲突"
+                StatusStore.tunnelStatus = loc("tunnel.status.fatalConflict")
                 StatusStore.postChange()
             default:
                 break
@@ -410,8 +410,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
             appendV6(RoutePlanner.expandV6("::/0", subtracting: v6Holes))
         }
         for item in valid {
-            // 与 Android builder.addRoute(addressToRoute(assignedAddress), prefix) 对齐：
-            // 分配地址本身不会自动保证其直连网段进入 Packet Tunnel。
+                        // 分配地址本身不会自动保证其直连网段进入 Packet Tunnel。
             for address in item.v4 {
                 appendV4([RoutePlanner.route(RoutePlanner.networkCIDR4(address))])
             }
@@ -458,7 +457,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         }
 
         // DNS：多网络时不设置（默认路由已禁用，系统流量不走隧道，ZT DNS 无意义）；
-        // 单网络维持三模式（对齐 Android updateTunnelConfig）
+        // 单网络维持三模式
         if valid.count == 1 {
             let item = valid[0]
             switch item.entry.dnsMode {
@@ -479,12 +478,12 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         applySettingsSerial(settings) { [weak self] error in
             if let error {
                 self?.diagLog("设置应用失败: \(error.localizedDescription)")
-                StatusStore.tunnelStatus = "隧道配置失败: \(error.localizedDescription)"
+                StatusStore.tunnelStatus = loc("tunnel.status.applyFailed \(error.localizedDescription)")
                 StatusStore.postChange()
                 return
             }
             self?.diagLog("设置应用成功")
-            // 组播订阅（纯软件路径：broadcast + ADI=各网络首个 IPv4，对齐 Android API≥29）
+            // 组播订阅（纯软件路径：broadcast + ADI=各网络首个 IPv4）
             for item in valid {
                 if let ipv4 = item.v4.first.flatMap({ FrameConverter.parseIPv4(RoutePlanner.ipOnly($0)) }) {
                     self?.bridge?.multicastSubscribe(item.nwid, group: 0xffffffffffff, adi: UInt64(ipv4))
@@ -542,12 +541,12 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
                 self?.scheduleSettingsApply()
             }
         }
-        // orbit moons（对齐 Android：join 后自动 orbit 全部已配置 moon）
+        // orbit moons（join 后自动 orbit 全部已配置 moon）
         for moon in moons where !orbitedMoons.contains(moon.worldId) {
             bridge.orbit(moon.worldId, seed: moon.seed)
             orbitedMoons.insert(moon.worldId)
         }
-        // 用户侧配置（默认路由/DNS）变更 → 热重配隧道（对齐 Android NetworkConfigChangedByUserEvent）
+        // 用户侧配置（默认路由/DNS）变更 → 热重配隧道
         for nwid in joinedNetworks {
             let entry = networks.first { UInt64($0.networkId, radix: 16) == nwid }
             let routeVia = entry?.routeViaZeroTier ?? false
@@ -563,7 +562,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
             }
         }
         if fullSync {
-            StatusStore.tunnelStatus = "运行中"
+            StatusStore.tunnelStatus = loc("tunnel.status.running")
         }
     }
 

@@ -61,7 +61,7 @@ struct AddPlanetPage: View {
     private var previewCard: some View {
         let displayName = previewName.trimmingCharacters(in: .whitespacesAndNewlines)
         let profile = PlanetProfile(id: "preview-\(displayName.isEmpty ? "planet" : displayName)",
-                                    name: displayName.isEmpty ? "新行星" : displayName,
+                                    name: displayName.isEmpty ? loc("addplanet.previewName") : displayName,
                                     kind: .custom, fileName: nil)
         return PlanetCardView(planet: profile, activePlanetName: "", isActive: false,
                               app: app, isPreview: true)
@@ -70,10 +70,10 @@ struct AddPlanetPage: View {
     /// 标题：headline 主标题 + footnote 副指引，与行星页的低调计数行拉开层级。
     private var header: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("添加行星")
+            Text("planet.add.title")
                 .font(.headline)
                 .foregroundStyle(.primary)
-            Text("导入 planet 文件，或输入下载地址")
+            Text("addplanet.subtitle")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
         }

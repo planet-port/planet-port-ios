@@ -17,7 +17,7 @@ struct PlanetCardView: View {
     var body: some View {
         VStack(spacing: 8) {
             iconWithBadge
-            Text(planet.name)
+            Text(planet.displayName)
                 .font(.system(size: 20, weight: .semibold))
                 .lineLimit(1)
             idLine
@@ -91,7 +91,7 @@ struct PlanetCardView: View {
                 Text("·")
                     .font(.footnote)
                     .foregroundStyle(.tertiary)
-                Text("卫星 x \(moonCount)")
+                Text("planetcard.moonCount \(moonCount)")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -111,7 +111,7 @@ struct PlanetCardView: View {
     /// 未跑 = 「上次使用」(灰底 secondary 字 + 发丝描边,与背景图隔离)。
     private var statusBadge: some View {
         let running = app.vpnRunning
-        return Text(running ? "使用中" : "上次使用")
+        return Text(running ? loc("planetcard.inUse") : loc("planetcard.lastUsed"))
             .font(.system(size: 10, weight: .semibold))
             .foregroundStyle(running ? Color.white : Color.secondary)
             .padding(.horizontal, 7)
@@ -126,11 +126,11 @@ struct PlanetCardView: View {
     // MARK: - 连接状态(由原首页节点状态卡迁移,按 Planet 维度判断;状态行暂时隐藏)
 
     private var statusText: String {
-        if isPreview { return "待添加" }
+        if isPreview { return loc("status.pendingAdd") }
         if isActive && app.vpnRunning {
-            return app.online ? "已连接" : "连接中"
+            return app.online ? loc("status.connected") : loc("status.connecting")
         }
-        return "未连接"
+        return loc("status.disconnected")
     }
 
     private var statusColor: Color {

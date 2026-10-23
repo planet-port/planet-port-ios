@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Moon 管理页（对齐 Android MoonOrbitFragment）
+/// Moon 管理页
 struct MoonView: View {
     @EnvironmentObject var app: AppState
     @State private var showAdd = false
@@ -27,25 +27,25 @@ struct MoonView: View {
                         Button(role: .destructive) {
                             deleteOrbit(moon)
                         } label: {
-                            Label("删除入轨", systemImage: "trash")
+                            Label("moon.deleteOrbit", systemImage: "trash")
                         }
                     }
                     .contextMenu {
                         Button(role: .destructive) {
                             deleteOrbit(moon)
                         } label: {
-                            Label("删除入轨", systemImage: "trash")
+                            Label("moon.deleteOrbit", systemImage: "trash")
                         }
                         Button {
                             UIPasteboard.general.string = String(format: "%016llx", moon.worldId)
                         } label: {
-                            Label("复制地址", systemImage: "doc.on.doc")
+                            Label("moon.copyAddress", systemImage: "doc.on.doc")
                         }
                         if moon.fromFile {
                             Button(role: .destructive) {
                                 deleteCache(moon)
                             } label: {
-                                Label("删除缓存文件", systemImage: "doc.bad.gearshape")
+                                Label("moon.deleteCache", systemImage: "doc.bad.gearshape")
                             }
                         }
                     }
@@ -54,7 +54,7 @@ struct MoonView: View {
         // 去掉系统分组底，页面底色与首页一致。
         .scrollContentBackground(.hidden)
         .background(Color(uiColor: .systemGroupedBackground))
-        .navigationTitle("卫星")
+        .navigationTitle("moon.title")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -81,8 +81,8 @@ struct MoonView: View {
                 errorAlert = e.localizedDescription
             }
         }
-        .alert("提示", isPresented: .init(get: { errorAlert != nil }, set: { if !$0 { errorAlert = nil } })) {
-            Button("好", role: .cancel) {}
+        .alert(loc("common.notice"), isPresented: .init(get: { errorAlert != nil }, set: { if !$0 { errorAlert = nil } })) {
+            Button("common.ok", role: .cancel) {}
         } message: {
             Text(errorAlert ?? "")
         }
@@ -96,10 +96,10 @@ struct MoonView: View {
             Image(systemName: "moon.stars")
                 .font(.system(size: 32, weight: .light))
                 .foregroundStyle(.secondary)
-            Text("“\(app.selectedPlanet.name)”尚未配置卫星")
+            Text("moon.emptyTitle \(app.selectedPlanet.displayName)")
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(.primary)
-            Text("右上角 + 添加")
+            Text("moon.emptyHint")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
         }
@@ -146,7 +146,7 @@ struct MoonView: View {
                 Image(systemName: "doc.fill")
                     .font(.caption2)
             }
-            Text(cached ? "已缓存" : "未缓存")
+            Text(cached ? loc("moon.cached") : loc("moon.notCached"))
                 .font(.caption2.weight(.semibold))
         }
         .foregroundStyle(cached ? ThemeManager.shared.success : Color.secondary)
@@ -156,7 +156,7 @@ struct MoonView: View {
                     in: Capsule())
     }
 
-    // MARK: - 添加 sheet（文件导入 / 手动 orbit 二选一，对齐 Android 弹窗）
+    // MARK: - 添加 sheet（文件导入 / 手动 orbit 二选一）
 
     private var addMoonSheet: some View {
         AddMoonSheet(
@@ -180,7 +180,7 @@ struct MoonView: View {
         app.reloadConfig()
     }
 
-    /// 删除入轨：清记录 + 删缓存（对齐 Android 行为：不调 deorbit）
+    /// 删除入轨：清记录 + 删缓存（不调 deorbit）
     private func deleteOrbit(_ moon: MoonEntry) {
         var moons = app.moons
         moons.removeAll { $0.worldId == moon.worldId }
@@ -207,32 +207,32 @@ private struct AddMoonSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("从文件导入") {
+                Section("moon.importFileHeader") {
                     Button {
                         onFileImport()
                     } label: {
-                        Label("选择 .moon 文件", systemImage: "doc")
+                        Label("moon.chooseFile", systemImage: "doc")
                     }
                 }
-                Section("手动入轨") {
-                    TextField("World ID（16 位 hex）", text: $worldIdText)
+                Section("moon.manualHeader") {
+                    TextField("moon.worldIdPlaceholder", text: $worldIdText)
                         .font(.system(.body, design: .monospaced))
                         .textInputAutocapitalization(.characters)
-                    TextField("Seed（16 位 hex）", text: $seedText)
+                    TextField("moon.seedPlaceholder", text: $seedText)
                         .font(.system(.body, design: .monospaced))
                         .textInputAutocapitalization(.characters)
-                    Button("入轨") {
+                    Button("moon.orbit") {
                         onManualOrbit(UInt64(worldIdText, radix: 16) ?? 0,
                                       UInt64(seedText, radix: 16) ?? 0)
                     }
                     .disabled(!hex16Valid(worldIdText) || !hex16Valid(seedText))
                 }
             }
-            .navigationTitle("添加卫星")
+            .navigationTitle("moon.addTitle")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
+                    Button("common.cancel") { dismiss() }
                 }
             }
         }

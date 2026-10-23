@@ -1,7 +1,7 @@
 import Foundation
 import UniformTypeIdentifiers
 
-/// Moon 文件导入（对齐 Android MoonOrbitFragment.checkTempMoonFile）
+/// Moon 文件导入
 enum MoonImporter {
     enum ImportError: LocalizedError {
         case badHeader
@@ -9,14 +9,14 @@ enum MoonImporter {
 
         var errorDescription: String? {
             switch self {
-            case .badHeader: return "不是有效的 moon 文件（文件头校验失败）"
-            case .readFailed: return "文件读取失败"
+            case .badHeader: return loc("error.moon.badHeader")
+            case .readFailed: return loc("error.moon.readFailed")
             }
         }
     }
 
     /// 校验 .moon 文件并落盘当前 Planet 独立的 moons.d 目录。
-    /// 文件格式：首字节 0x7f + 8 字节大端 worldId（对齐 Android 校验逻辑）
+    /// 文件格式：首字节 0x7f + 8 字节大端 worldId
     static func importMoonFile(at url: URL) throws -> MoonEntry {
         let accessing = url.startAccessingSecurityScopedResource
         let scoped = accessing()

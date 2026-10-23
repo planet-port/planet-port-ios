@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// DNS 配置编辑状态（加入网络 / 网络详情共用）。
-/// 四槽位模型对齐 Android CustomDNSFragment（v4×2 + v6×2），持久化时合并为 [String]。
+/// 四槽位模型（v4×2 + v6×2），持久化时合并为 [String]。
 struct DNSConfig: Equatable {
     var mode: DNSMode = .none
     var v4a = ""
@@ -32,7 +32,7 @@ struct DNSConfig: Equatable {
             && !customServers.isEmpty
     }
 
-    // MARK: - 校验（对齐 Android CustomDNSFragment 的 IP 校验）
+    // MARK: - 校验
 
     private static func isValidIPv4(_ s: String) -> Bool {
         var addr = in_addr()
@@ -54,21 +54,21 @@ struct DNSConfigSection: View {
     @Binding var config: DNSConfig
 
     var body: some View {
-        Picker("模式", selection: $config.mode) {
-            Text("不使用").tag(DNSMode.none)
-            Text("使用网络 DNS").tag(DNSMode.network)
-            Text("自定义").tag(DNSMode.custom)
+        Picker("dns.mode", selection: $config.mode) {
+            Text("dns.mode.none").tag(DNSMode.none)
+            Text("dns.mode.network").tag(DNSMode.network)
+            Text("dns.mode.custom").tag(DNSMode.custom)
         }
         .pickerStyle(.segmented)
         if config.mode == .custom {
-            TextField("IPv4 DNS 1", text: $config.v4a)
+            TextField("dns.v4a", text: $config.v4a)
                 .keyboardType(.decimalPad)
-            TextField("IPv4 DNS 2（可选）", text: $config.v4b)
+            TextField("dns.v4b", text: $config.v4b)
                 .keyboardType(.decimalPad)
-            TextField("IPv6 DNS 1", text: $config.v6a)
-            TextField("IPv6 DNS 2（可选）", text: $config.v6b)
+            TextField("dns.v6a", text: $config.v6a)
+            TextField("dns.v6b", text: $config.v6b)
             if !config.isValid {
-                Text("DNS 地址格式不正确")
+                Text("dns.invalid")
                     .font(.caption)
                     .foregroundStyle(.red)
             }

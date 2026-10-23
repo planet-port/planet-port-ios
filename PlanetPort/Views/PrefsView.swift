@@ -15,26 +15,37 @@ struct PrefsView: View {
     var body: some View {
         Form {
             Section {
-                Toggle("允许移动数据", isOn: $allowCellular)
-                Toggle("禁用 IPv6", isOn: Binding(
+                Toggle("prefs.network.allowCellular", isOn: $allowCellular)
+                Toggle("prefs.network.disableIPv6", isOn: Binding(
                     get: { disableIPv6 },
                     set: { on in
                         disableIPv6 = on
                         VPNManager.shared.restartIfRunning()
                     }))
-                Stepper("同时连接上限：\(multiConnectLimit)", value: $multiConnectLimit, in: 2...6)
+                Stepper("prefs.network.multiConnectLimit \(multiConnectLimit)", value: $multiConnectLimit, in: 2...6)
             } header: {
-                Text("网络")
+                Text("prefs.network.sectionHeader")
             } footer: {
-                Text("同时连接多个网络会增加耗电；超出上限时会提示确认，仍可强制开启。")
+                Text("prefs.network.footer")
             }
 
+            Section {
+                // 语言选项：各语言以自身名称显示，仅"跟随系统"随界面语言本地化。
+                Picker("prefs.language.sectionHeader", selection: languageBinding) {
+                    // "跟随系统"始终以系统语言显示：绕过 locale 环境，直接按
+                    // 系统首选语言查表（String 构造不读 environment(\.locale)）。
+                    Text(String(localized: "prefs.language.system")).tag(AppLanguage.system)
+                    ForEach(AppLanguage.allCases.filter { $0.nativeName != nil }) { lang in
+                        Text(lang.nativeName!).tag(lang)
+                    }
+                }
+            }
             Section {
                 Button {
                     showBackgroundPicker = true
                 } label: {
                     HStack {
-                        Text("背景图")
+                        Text("prefs.appearance.background")
                             .foregroundStyle(.primary)
                         Spacer()
                         if let image = app.backgroundImage {
@@ -44,7 +55,7 @@ struct PrefsView: View {
                                 .frame(width: 44, height: 44)
                                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                         } else {
-                            Text("未设置")
+                            Text("common.notSet")
                                 .foregroundStyle(.secondary)
                         }
                         Image(systemName: "chevron.right")
@@ -54,13 +65,13 @@ struct PrefsView: View {
                 }
                 // plain 样式：Form 按钮默认把整个标签染成主色，脱离后文字用默认色
                 .buttonStyle(.plain)
-                Toggle("视差动画", isOn: $parallaxEnabled)
+                Toggle("prefs.appearance.parallax", isOn: $parallaxEnabled)
                     .disabled(app.backgroundImage == nil)
                     // 禁用时标签同步置灰，避免被误读为可用状态
                     .foregroundStyle(app.backgroundImage == nil ? Color.secondary : Color.primary)            } header: {
-                Text("外观")
+                Text("prefs.appearance.sectionHeader")
             } footer: {
-                Text("背景图可从相册选择或通过 URL 下载；视差动画仅在设置了背景图时生效。")
+                Text("prefs.appearance.footer")
             }
 
             Section {
@@ -84,65 +95,76 @@ struct PrefsView: View {
                                 }
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel("主色 \(ThemeManager.presetNames[index])")
+                        .accessibilityLabel(loc("prefs.theme.a11yPreset \(ThemeManager.presetNames[index])"))
                     }
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 4)
-                ColorPicker("自定义主色", selection: Binding(
+                ColorPicker("prefs.theme.custom", selection: Binding(
                     get: { ThemeManager.color(hex: ThemeManager.shared.mainHex) },
                     set: { ThemeManager.shared.setMainColor(ThemeManager.hex(of: $0)) }))
-                Toggle("状态色跟随主色派生", isOn: Binding(
+                Toggle("prefs.theme.deriveStatus", isOn: Binding(
                     get: { ThemeManager.shared.deriveStatusColor },
                     set: { ThemeManager.shared.setDeriveStatusColor($0) }))
             } header: {
-                Text("主题色")
+                Text("prefs.theme.sectionHeader")
             } footer: {
-                Text("主色决定按钮、指示器与行星装饰色，深浅模式自动适配；状态色默认保持绿/橙/红语义，打开开关后成功色随主色三角派生。")
+                Text("prefs.theme.footer")
             }
 
             Section {
-                Toggle("按需连接（Connect On Demand）", isOn: Binding(
+                Toggle("prefs.ondemand", isOn: Binding(
                     get: { connectOnDemand },
                     set: { on in
                         connectOnDemand = on
                         VPNManager.shared.updateOnDemand()
                     }))
             } footer: {
-                Text("开启后系统在网络可用时自动建立 VPN；实际使用哪个行星仍由网络开关决定。")
+                Text("prefs.ondemand.footer")
             }
 
-            Section("关于") {
-                aboutRow("ZeroTier Core", app.coreVersion.isEmpty ? "未知" : app.coreVersion)
-                aboutRow("版本", Self.appVersion)
+            Section("prefs.about.sectionHeader") {
+                aboutRow("ZeroTier Core", app.coreVersion.isEmpty ? loc("common.unknown") : app.coreVersion)
+                aboutRow(loc("prefs.about.version"), Self.appVersion)
             }
 
-            Section("支持") {
-                Button {
-                    showDonate = true
-                } label: {
-                    HStack {
-                        Text("捐赠")
-                        Spacer()
-                        Image(systemName: "heart")
-                            .foregroundStyle(.tint)
+            // 支持区暂隐藏（内容待补充），代码保留。
+            if false {
+                Section("prefs.support.sectionHeader") {
+                    Button {
+                        showDonate = true
+                    } label: {
+                        HStack {
+                            Text("prefs.support.donate")
+                            Spacer()
+                            Image(systemName: "heart")
+                                .foregroundStyle(.tint)
+                        }
                     }
                 }
             }
         }
-        .navigationTitle("设置")
+        // 标题用 String 而非 key：loc() 读取语言状态建立观察，切换即时刷新
+        // （navigationTitle 的 key 查表不受 locale 环境驱动，会出现滞后）。
+        .navigationTitle(loc("common.settings"))
         .navigationBarTitleDisplayMode(.inline)
         // 捐赠弹窗：内容暂空。
         .sheet(isPresented: $showDonate) {
             NavigationStack {
                 Color.clear
-                    .navigationTitle("捐赠")
+                    .navigationTitle("prefs.support.donate")
                     .navigationBarTitleDisplayMode(.inline)
             }
         }
         .sheet(isPresented: $showBackgroundPicker) {
             BackgroundImagePickerSheet()
         }
+    }
+
+    private var languageBinding: Binding<AppLanguage> {
+        Binding(
+            get: { LanguageManager.shared.current },
+            set: { LanguageManager.shared.set($0) })
     }
 
     private static var appVersion: String {

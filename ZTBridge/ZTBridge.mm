@@ -81,7 +81,7 @@ static NSString* ztSockAddrToString(const struct sockaddr_storage* ss) {
     return @"";
 }
 
-/// 状态对象 → 状态文件路径（对齐 ZT_StateObjectType 注释的 canonical path）
+/// 状态对象 → 状态文件路径
 static NSString* ztStateFilePath(NSString* home, enum ZT_StateObjectType type, const uint64_t id[2]) {
     switch (type) {
         case ZT_STATE_OBJECT_IDENTITY_PUBLIC:
@@ -163,7 +163,7 @@ static void ztStatePut(ZT_Node* node, void* uptr, void* tptr,
     NSError* err = nil;
     [d writeToFile:path options:NSDataWritingAtomic error:&err];
     if (!err && type == ZT_STATE_OBJECT_IDENTITY_SECRET) {
-        // 私钥收紧权限（对齐 canonical 注释 mode 0600）
+        // 私钥收紧权限
         chmod(path.fileSystemRepresentation, 0600);
     }
 }
@@ -401,7 +401,7 @@ static void ztEvent(ZT_Node* node, void* uptr, void* tptr, enum ZT_Event event, 
         d.role = (int32_t)p->role;
         d.latency = p->latency;
         d.version = [NSString stringWithFormat:@"%d.%d.%d", p->versionMajor, p->versionMinor, p->versionRev];
-        // 优选物理路径：取第一条有效 path（对齐 Android PeerListFragment 显示优选路径）
+        // 优选物理路径：取第一条有效 path（显示优选路径）
         d.path = @"";
         for (unsigned int j = 0; j < p->pathCount; ++j) {
             NSString* s = ztSockAddrToString(&p->paths[j].address);

@@ -44,7 +44,7 @@ struct FabButton: View {
             .scaleEffect(dragging ? 0.95 : 1)
             .contentShape(Circle())
             .onTapGesture(perform: action)
-            .accessibilityLabel("添加网络")
+            .accessibilityLabel(Text("fab.addNetwork"))
             .accessibilityAddTraits(.isButton)
     }
 

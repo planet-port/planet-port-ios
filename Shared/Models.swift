@@ -31,14 +31,14 @@ enum ZTNetworkStatus: Int, Codable {
     /// 展示文案（仅 UI 层使用）
     var displayName: String {
         switch self {
-        case .requestingConfiguration: return "正在初始化"
-        case .ok: return "在线"
-        case .accessDenied: return "拒绝访问"
-        case .notFound: return "网络不存在"
-        case .portError: return "端口错误"
-        case .clientTooOld: return "客户端过旧"
-        case .authRequired: return "需要认证"
-        case .unknown: return "未知"
+        case .requestingConfiguration: return loc("network.status.requestingConfiguration")
+        case .ok: return loc("network.status.ok")
+        case .accessDenied: return loc("network.status.accessDenied")
+        case .notFound: return loc("network.status.notFound")
+        case .portError: return loc("network.status.portError")
+        case .clientTooOld: return loc("network.status.clientTooOld")
+        case .authRequired: return loc("network.status.authRequired")
+        case .unknown: return loc("network.status.unknown")
         }
     }
 
@@ -68,6 +68,11 @@ struct PlanetProfile: Codable, Identifiable, Equatable {
     var icon: String? = nil
     /// 该行星下本机节点 ID 的缓存（隧道运行时回读并持久化，离线可显示）。
     var lastNodeId: String? = nil
+
+    /// UI 展示名：官方行星的存储名不翻译，展示时映射为本地化文案。
+    var displayName: String {
+        id == PlanetProfile.officialId ? loc("planet.official.name") : name
+    }
 }
 
 struct NetworkEntry: Codable, Identifiable, Equatable {
@@ -93,7 +98,7 @@ struct MoonEntry: Codable, Identifiable, Equatable {
     /// nil 仅用于兼容升级前的数据。
     var planetId: String? = nil
 
-    /// moons.d 缓存文件路径（对齐 Android MoonOrbit.MOON_FILE_PATH）
+    /// moons.d 缓存文件路径
     var cacheFileURL: URL {
         AppGroup.planetStateDir(planetId ?? AppConfigStore.selectedPlanetId)
             .appendingPathComponent("moons.d", isDirectory: true)

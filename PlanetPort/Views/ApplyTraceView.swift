@@ -6,12 +6,12 @@ struct ApplyTraceView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                section("最近一次聚合决策", StatusStore.applyTrace)
-                section("事件日志（最近 40 条）", StatusStore.eventLog)
+                section(loc("trace.last"), StatusStore.applyTrace)
+                section(loc("trace.events"), StatusStore.eventLog)
             }
             .padding()
         }
-        .navigationTitle("数据面诊断")
+        .navigationTitle("trace.title")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             Button {
@@ -19,7 +19,7 @@ struct ApplyTraceView: View {
             } label: {
                 Image(systemName: "doc.on.doc")
             }
-            .accessibilityLabel("复制诊断信息")
+            .accessibilityLabel(Text("trace.copy"))
         }
     }
 
@@ -28,7 +28,7 @@ struct ApplyTraceView: View {
             Text(title)
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
-            Text(content.isEmpty ? "暂无" : content)
+            Text(content.isEmpty ? loc("trace.empty") : content)
                 .font(.system(.caption, design: .monospaced))
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .textSelection(.enabled)

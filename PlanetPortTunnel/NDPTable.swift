@@ -17,7 +17,7 @@ final class NDPTable {
         map[v6] = mac
     }
 
-    // MARK: - ICMPv6 NS/NA 报文构造（对齐 Android NDPTable 构造逻辑）
+    // MARK: - ICMPv6 NS/NA 报文构造
 
     /// 邻居请求（ICMPv6 type 135）：目标地址的请求节点组播地址
     static func neighborSolicitation(target: Data, senderMAC: UInt64, senderIPv6: Data?) -> Data {
@@ -30,7 +30,6 @@ final class NDPTable {
     }
 
     /// IPv6 组播地址对应的组播 MAC（前缀 0x3333 + 地址低 32 位，
-    /// 对齐 Android InetAddressUtils.macFromMulticastAddress）
     static func multicastMAC(for v6: Data) -> UInt64 {
         precondition(v6.count == 16)
         let b = [UInt8](v6)
