@@ -1,16 +1,41 @@
-# Planet Port
+# Planet Port 🪐
 
-ZeroTier 1.16.2 非官方 iOS 客户端，个人自用，Xcode 直装。
+[English](README.en.md) | 中文
 
-## 功能
+**Planet Port** 是一个建立在 [ZeroTier](https://www.zerotier.com) 之上的 iOS 网络连接管理层：不自己发明网络，而是把 ZeroTier 的连接能力包装成好用、可控、可定制的 App——多份根服务器（Planet）随身切换、多网络同时连接、Moon 节点、按需连接，以及完整的主题定制。免费开源，基于 2024 年底重新开源的 ZeroTier 1.16 核心（MPL-2.0）。
 
-- 加入/退出 ZeroTier 网络，实时状态（在线、拒绝访问、需要认证等中文提示）
-- 默认路由（经 ZT 路由）与 DNS 三模式（网络下发 / 自定义 / 不使用）可切换，隧道热重配
-- 多 Planet：官方与多份私有 Planet 快速切换，支持文件/URL 导入、重命名和删除
-- Network、Moon 与 Planet 关联，切换 Planet 时展示各自独立的列表与 Core 缓存
-- Moon 节点：文件导入、手动 orbit、缓存管理
-- 允许移动数据、禁用 IPv6、Connect On Demand（按需连接，对应 Android 开机自启）
-- Peers 实时列表（角色 / 版本 / 延迟 / 物理路径）
+> 非官方客户端，与 ZeroTier, Inc. 无隶属关系。
+
+## 特色
+
+- **多 Planet 管理**：官方与多份私有 Planet 并存，文件/URL 导入、重命名、删除；切换 Planet 即切换整套网络列表与核心缓存，根服务器随身携带
+- **多网络同时连接**：软上限（默认 2，可调 2–6）带确认放行；地址/网段冲突自动检测并断开，卡片上直接给出冲突原因
+- **完整网络管理**：加入/退出网络，实时状态中文提示（在线、待授权、拒绝访问等），managed IP 一键复制
+- **默认路由与 DNS 三模式**：经 ZT 路由开关、DNS 网络下发/自定义/不使用，全部隧道内热重配，无需重连
+- **Moon 节点**：.moon 文件导入、手动 orbit、缓存管理
+- **按需连接（Connect On Demand）**：锁屏、切网自动重连；允许移动数据、禁用 IPv6 细粒度控制
+- **Peers 实时列表**：角色/版本/延迟/物理路径，延迟分级着色
+- **主题定制**：预设国画经典色板（藤黄、竹青、石绿、群青、花青、黛、胭脂）+ 自定义拾色器，主色派生全局视觉（含行星装饰盘与状态色）
+- **原生 SwiftUI**，界面纯中文，无任何遥测
+
+## 核心用法
+
+1. **安装**：克隆仓库 → `xcodegen generate` → Xcode 选择自己的开发团队（主 target 与 tunnel extension 都要设）→ 真机 Cmd+R。个人（免费）Apple 开发者账号即可。
+2. **加入网络**：首页添加行星（或使用官方 Planet）→ 输入 16 位网络 ID → 到 [ZeroTier Central](https://my.zerotier.com) 授权新节点 → 状态变「在线」即互通。
+3. **切换 Planet**：导入私有 Planet 文件/URL → 首页左右翻页切换行星 → 打开其下网络开关即切换隧道。
+4. **按需连接**：设置页开启 Connect On Demand，网络变化自动恢复连接。
+
+### 命令行构建
+
+```bash
+brew install xcodegen   # 首次
+xcodegen generate
+open PlanetPort.xcodeproj
+```
+
+## 截图
+
+<!-- TODO: 补充首页/添加行星/设置页截图 -->
 
 ## 架构
 
@@ -27,44 +52,41 @@ ZeroTier 1.16.2 非官方 iOS 客户端，个人自用，Xcode 直装。
 ```
 
 - **核心**：ZeroTier 1.16.2 C API 跑在 extension 进程，stateGet/statePut 落 App Group 容器
-- **Planet 隔离**：`ZT_STATE_OBJECT_PLANET` 按当前配置重定向；Network/Moon/Peer Core 缓存按 Planet 分目录
+- **Planet 隔离**：`ZT_STATE_OBJECT_PLANET` 按当前配置重定向；Network/Moon/Peer 核心缓存按 Planet 分目录
 - **帧语义**：C API 帧不含以太网头（MAC/etherType 为独立参数），FrameConverter 负责与 NEPacketTunnelProvider 的 L3 IP 包互转，ARP/NDP 为纯软件表
-- **组播**：broadcast + ADI=本机 IPv4 软件订阅（无 PacketMixin）
 
-## 目录
+### 目录
 
-- `Core/` — ZeroTier 1.16.2 核心源码（node/ + osdep 子集 + json/prometheus 头）
+- `Core/` — ZeroTier 1.16.2 核心源码（MPL-2.0，见 `Core/LICENSE-MPL-2.0.txt`）
 - `ZTBridge/` — OC++ 桥接层（C API ↔ Swift）
 - `PlanetPortTunnel/` — 隧道 extension（帧转换、UDP、后台任务驱动）
 - `Shared/` — App/Extension 共用（App Group、配置存储、IPC 模型、状态）
 - `PlanetPort/` — 主 App（UI、VPNManager、导入器）
 
-## 构建
+## 协议
 
-```bash
-brew install xcodegen   # 首次
-xcodegen generate
-open PlanetPort.xcodeproj
-# Xcode 中选择自己的开发团队（主 target 与 tunnel extension 都要设）
-# 真机连接后 Cmd+R 运行主 target（extension 随主 App 嵌入安装）
-```
+- 本项目自有代码以 [MIT](LICENSE) 发布：免费使用，借用或引用请署名，再无其它限制
+- `Core/` 内 ZeroTier 核心源码为第三方代码，保持其原始 [MPL-2.0](Core/LICENSE-MPL-2.0.txt) 协议，版权归 ZeroTier, Inc. 所有
 
-依赖的 entitlements 已在 project.yml 声明：App Groups (`group.cn.imgozi.PlanetPortI`)、Packet Tunnel Provider（个人账号可用）。
+### 致谢
 
-## 真机验证清单
+- [ZeroTier](https://github.com/zerotier/ZeroTier) — 网络核心
 
-1. **安装与授权**：Cmd+R 安装，首次启动 VPN 弹系统授权 → 允许
-2. **生成身份**：启动后状态栏出现 10 位节点 ID；到 my.zerotier.com 授权该新节点
-3. **加入网络**：输入 16 位网络 ID 加入 → 状态变「在线」，分到 managed IP，互 ping 通
-4. **默认路由开关**：详情页开「经 ZT 路由」→ 路由表出现 default 经 utun；关 → 恢复（不重启隧道）
-5. **DNS 模式**：切「自定义」填 DNS → `settings.dnsSettings` 生效（可访问内网域名验证）
-6. **切换 Planet**：顶部选择另一 Planet 仅切换列表；打开其网络开关后才切换隧道并连接
-7. **Moon**：导入 .moon 文件（或手动填 worldId/seed）→ Peers 页出现 MOON 角色
-8. **Connect On Demand**：开启后锁屏/切网自动重连；关闭后手动启停
-9. **禁用 IPv6**：开启后网络详情无 IPv6 地址下发到 tun
-10. **重启恢复**：杀 App、重启手机 → 隧道按 lastActivated 恢复已连接网络
+## 捐赠
+
+如果 Planet Port 帮到了你，欢迎请作者喝杯咖啡 ☕
+
+<!-- TODO: 替换为真实收款码图片（docs/donate/ 下） -->
+| 支付宝 | 微信 |
+|:---:|:---:|
+| ![支付宝](docs/donate/alipay.png) | ![微信](docs/donate/wechat.png) |
+
+- **BTC**：`TODO_钱包地址`
+- **ETH**：`TODO_钱包地址`
+- **爱发电**：[TODO_主页链接](https://afdian.com)
 
 ## 已知限制
 
-- 未导入 Android identity（新节点需在 ZeroTier Central 重新授权）
-- 蜂窝提示为占位（未实现 NWPathMonitor 实时判断）
+- 未导入已有 ZeroTier 身份（新节点需在 ZeroTier Central 重新授权）
+- 蜂窝网络提示为固定占位（未实时判断当前链路类型）
+- App Store 未上架，需自行源码构建安装
