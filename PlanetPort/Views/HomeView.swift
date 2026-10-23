@@ -531,7 +531,7 @@ struct HomeView: View {
     }
 
     private func isCellular() -> Bool {
-        // 现阶段仍沿用原项目占位；后续可用 NWPathMonitor 接入真实链路判断。
+        // 现阶段为固定占位；后续可用 NWPathMonitor 接入真实链路判断。
         false
     }
 }

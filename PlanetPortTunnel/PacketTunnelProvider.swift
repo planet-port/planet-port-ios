@@ -120,7 +120,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
 
     /// 核心 + UDP socket 启动（startTunnel 与网络切换重启共用）
     private func startCore() throws {
-        // 1. UDP socket 绑定 9994。
+        // 1. UDP socket 绑定 ZeroTier 标准端口 9994。
         let fd = socket(AF_INET, SOCK_DGRAM, 0)
         guard fd >= 0 else { throw TunnelError.socketCreateFailed(errno) }
         var yes: Int32 = 1
