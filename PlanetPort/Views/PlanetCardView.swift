@@ -9,8 +9,6 @@ struct PlanetCardView: View {
     let isActive: Bool
     @ObservedObject var app: AppState
     @State private var pressed = false
-    /// ID 行复制反馈:图标短暂变对勾。
-    @State private var copied = false
 
     var body: some View {
         VStack(spacing: 8) {
@@ -56,19 +54,15 @@ struct PlanetCardView: View {
         app.moonCounts[planet.id] ?? 0
     }
 
-    /// ID 等宽 tertiary(16pt,较原 footnote 加大约 20%);moon>0 时以间隔号「·」
-    /// (U+00B7,垂直居中)跟随「卫星 x n」。点击复制节点 ID,复制小图标与文字同高。
+    /// ID 等宽 tertiary(16pt);moon>0 时以间隔号「·」(U+00B7)跟随「卫星 x n」。
+    /// 点击 ID 复制(热区外扩),无常驻复制图标,成功瞬间短暂显示对勾。
     private var idLine: some View {
         let nodeId = app.planetNodeIds[planet.id] ?? "-"
         return HStack(spacing: 4) {
-            Text(nodeId)
-                .font(.system(size: 16, design: .monospaced))
-                .foregroundStyle(.tertiary)
-                .lineLimit(1)
-            // 复制图标:高度为 ID 文字的 2/3(用户调整),复制成功短暂变对勾反馈。
-            Image(systemName: copied ? "checkmark" : "doc.on.doc")
-                .font(.system(size: 11, weight: copied ? .semibold : .regular))
-                .foregroundStyle(copied ? AnyShapeStyle(ThemeManager.shared.success) : AnyShapeStyle(HierarchicalShapeStyle.tertiary))
+            CopyableValue(text: nodeId,
+                          showsIcon: false,
+                          font: .system(size: 16, design: .monospaced),
+                          color: .secondary)
             if moonCount > 0 {
                 Text("·")
                     .font(.footnote)
@@ -76,15 +70,6 @@ struct PlanetCardView: View {
                 Text("planetcard.moonCount \(moonCount)")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
-            }
-        }
-        .contentShape(Rectangle())
-        .onTapGesture {
-            guard nodeId != "-" else { return }
-            UIPasteboard.general.string = nodeId
-            withAnimation(.easeOut(duration: 0.15)) { copied = true }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-                withAnimation(.easeIn(duration: 0.15)) { copied = false }
             }
         }
     }
