@@ -21,11 +21,12 @@ struct CopyableValue: View {
                 .foregroundStyle(color)
                 .lineLimit(1)
                 .truncationMode(.middle)
-            Image(systemName: copied ? "checkmark" : "doc.on.doc")
-                .font(.system(size: iconSize, weight: copied ? .semibold : .regular))
-                .foregroundStyle(copied ? AnyShapeStyle(ThemeManager.shared.success)
-                                        : AnyShapeStyle(HierarchicalShapeStyle.tertiary))
-                .opacity(showsIcon || copied ? 1 : 0)
+            if showsIcon || copied {
+                Image(systemName: copied ? "checkmark" : "doc.on.doc")
+                    .font(.system(size: iconSize, weight: copied ? .semibold : .regular))
+                    .foregroundStyle(copied ? AnyShapeStyle(ThemeManager.shared.success)
+                                            : AnyShapeStyle(HierarchicalShapeStyle.tertiary))
+            }
         }
         // 透明热区图层(外扩 5pt)承接点击:文字小字号时命中区不足。
         .overlay(
@@ -41,7 +42,7 @@ struct CopyableValue: View {
     }
 
     private func copy() {
-        guard !text.isEmpty, text != "—" else { return }
+        guard !text.isEmpty, text != "—", text != "-" else { return }
         UIPasteboard.general.string = text
         withAnimation(.easeOut(duration: 0.15)) { copied = true }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
