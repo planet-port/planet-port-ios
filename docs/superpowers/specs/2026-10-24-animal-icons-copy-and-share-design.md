@@ -19,10 +19,10 @@
 
 `Shared/Models.swift` / `PlanetPort/Views/PlanetIcon.swift`：
 
-- `PlanetProfile.icon: String?` 语义变更：存动物 key（如 `"cat"`）。解码兼容：旧值不在动物表（SF Symbol 名）→ 视为未设置，回退按 id 哈希确定性选一个动物。无需迁移脚本。
+- `PlanetProfile.icon: String?` 语义变更：存动物 key（如 `"cat"`）。有有效动物 key（用户主动设置过）→ 永远使用该值，不再走任何自动。解码兼容：nil 或旧值不在动物表（SF Symbol 名）→ 视为未设置，按**名称**哈希确定性选一个动物（名称不变则动物不变；同名行星得到同一动物）。无需迁移脚本。
 - 新增 `PlanetProfile.iconColor: String?`（hex，如 `"#D44037"`）。nil → 回退 ThemeManager tint 按 id 哈希（已存在行星外观不变）。Codable 可选新字段，老数据解码正常。
 - 随机底色：随机 HSL，饱和度 0.45–0.85、亮度 0.32–0.55，转 hex 存储；白图形对比度有保证。
-- `PlanetIcon.catalog` 换为 92 个动物 key；`symbol(for:)` 更名/改返回动物 key；官方行星整块磁贴资产不变。
+- `PlanetIcon.catalog` 换为 92 个动物 key；`symbol(for:)` 更名/改返回动物 key，回退哈希源为名称；底色回退哈希源保持 id（老行星颜色不变）；官方行星整块磁贴资产不变。
 
 ## 三、新增行星页面（AddPlanetPage / AddPlanetForm）
 
