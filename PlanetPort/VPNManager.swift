@@ -1,9 +1,11 @@
 import Foundation
 import NetworkExtension
+import os
 
 /// App 侧 VPN 配置管理
 final class VPNManager {
     static let shared = VPNManager()
+    private static let log = Logger(subsystem: "cn.imgozi.PlanetPortI", category: "VPNManager")
 
     private var manager: NETunnelProviderManager?
     /// configurationInvalid 恢复中标记，防止恢复路径自身无限重试。
@@ -71,8 +73,23 @@ final class VPNManager {
             // 未在运行的隧道跳过：stop 用于"无网络时空跑"等自动收敛场景，
             // 可能被反复调用，保持幂等安全。
             let status = manager.connection.status
-            guard status == .connected || status == .connecting || status == .reasserting else { return }
-            manager.connection.stopVPNTunnel()
+            guard status == .connected || status == .connecting || status == .reasserting else {
+                Self.log.info("stop 跳过：隧道状态 \(String(describing: status), privacy: .public)")
+                return
+            }
+            // on-demand 的 Connect 规则会在 stopVPNTunnel 后立刻把隧道拉回来
+            // （表现为"关不掉"），必须先把规则从系统配置摘除再停。
+            // 偏好不回写：下次开启网络时 applyOnDemand 会按偏好重新装回。
+            if manager.isOnDemandEnabled {
+                manager.isOnDemandEnabled = false
+                manager.saveToPreferences { _ in
+                    Self.log.info("stopVPNTunnel（先摘 on-demand，状态 \(String(describing: status), privacy: .public)）")
+                    manager.connection.stopVPNTunnel()
+                }
+            } else {
+                Self.log.info("stopVPNTunnel（状态 \(String(describing: status), privacy: .public)）")
+                manager.connection.stopVPNTunnel()
+            }
         }
     }
 

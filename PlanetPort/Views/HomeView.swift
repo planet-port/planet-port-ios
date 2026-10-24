@@ -1,4 +1,5 @@
 import SwiftUI
+import os
 
 private enum HomeRoute: Hashable {
     case network(String)
@@ -36,6 +37,8 @@ struct HomeView: View {
     @AppStorage(AppGroup.prefParallaxEnabled) private var parallaxEnabled = true
 
     fileprivate static let addTag = "__add__"
+    /// 网络开关诊断日志（Console 按 subsystem 过滤）。
+    private static let netLog = Logger(subsystem: "cn.imgozi.PlanetPortI", category: "NetworkToggle")
 
     /// 窗口底部安全区高度（Home 指示条），随机型 34/20/0pt，动态补偿列表视口用。
     /// 不过滤场景激活状态：冷启动首帧场景还未 active，过滤会导致头几秒读到 0。
@@ -448,8 +451,9 @@ struct HomeView: View {
             AppConfigStore.writeNetworks(networks, planetId: planetId)
             app.reloadConfig()
             // 关闭后若该行星下已无启用中的网络，同时停掉 VPN。
-            if planetId == app.activePlanetId,
-               !networks.contains(where: { $0.lastActivated }) {
+            let remaining = networks.filter(\.lastActivated).count
+            Self.netLog.info("关闭网络 \(entry.networkId, privacy: .public) planet=\(planetId, privacy: .public) active=\(app.activePlanetId, privacy: .public) 剩余启用 \(remaining)")
+            if planetId == app.activePlanetId, remaining == 0 {
                 VPNManager.shared.stop()
             }
             return

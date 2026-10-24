@@ -87,6 +87,7 @@ final class AppState: ObservableObject {
         selectedPlanetId = AppConfigStore.selectedPlanetId
         activePlanetId = AppConfigStore.activePlanetId
         hasActivatedPlanet = AppConfigStore.hasActivatedPlanet
+        stopVPNIfNoActiveNetworks()
         networks = AppConfigStore.readNetworks()
         planetNetworks = AppConfigStore.readNetworksByPlanet()
         planetNodeIds = Dictionary(uniqueKeysWithValues: planets.compactMap { profile in
@@ -188,7 +189,8 @@ final class AppState: ObservableObject {
     }
 
     /// 网络断开/删除后的收敛检查：活跃行星下已无启用网络时自动停掉 VPN，
-    /// 避免隧道无网络空跑（冲突自动断开、删除网络等路径统一走这里）。
+    /// 避免隧道无网络空跑（冲突自动断开、删除网络、配置重载兜底统一走这里）。
+    /// 按需连接也拦不住：stop() 内会先摘除 on-demand 规则再停隧道。
     func stopVPNIfNoActiveNetworks() {
         guard !AppConfigStore.readActiveNetworks().contains(where: { $0.lastActivated }) else { return }
         VPNManager.shared.stop()
