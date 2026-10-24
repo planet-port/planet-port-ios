@@ -34,19 +34,11 @@ enum PlanetIcon {
     }
 
     /// 底色:自定义 hex 优先(解析失败视为未设置),否则按 id 哈希回退 tint。
-    /// 回退沿用旧版双重取模链路(先 % 12 再 % tints 数量,12 = 旧 SF Symbol
-    /// catalog 数量),确保升级后已存在行星底色不变。
+    /// 回退色以当前色表为准,与历史版本是否同色不作保证。
     static func tint(for planet: PlanetProfile) -> Color {
         if let hex = planet.iconColor, let color = Color(hex: hex) { return color }
         let tints = ThemeManager.shared.planetTints
-        return tints[legacyTintIndex(of: planet.id) % tints.count]
-    }
-
-    /// 旧版底色索引链:djb2 → % 12 → % tints 数量(与升级前逐位一致)。
-    private static func legacyTintIndex(of id: String) -> Int {
-        var hash: UInt64 = 5381
-        for byte in id.utf8 { hash = (hash &* 33) &+ UInt64(byte) }
-        return Int(hash % 12)
+        return tints[djb2(of: planet.id) % tints.count]
     }
 
     /// 随机底色 hex:随机色相 + 中低亮度域(饱和度 0.45–0.85、亮度 0.32–0.55),
