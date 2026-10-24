@@ -16,11 +16,20 @@ enum PlanetImporter {
         }
     }
 
+    // MARK: - 名称保护（已隐藏）
+    // /// 商标保护：名称不得包含 ZeroTier 及其变体（不区分大小写）。
+    // /// "ZeroTier One"/"Zero Tier One" 分别被 "zerotier"/"zero tier" 前缀覆盖，无需单独列举。
+    // static func containsReservedBrand(_ name: String) -> Bool {
+    //     let lower = name.lowercased()
+    //     return lower.contains("zerotier") || lower.contains("zero tier")
+    // }
+
     @discardableResult
     static func importPlanetData(_ data: Data, name: String) throws -> PlanetProfile {
         guard data.first == 0x01 else { throw ImportError.badHeader }
         let normalizedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalizedName.isEmpty else { throw ImportError.emptyName }
+        // guard !containsReservedBrand(normalizedName) else { throw ImportError.reservedName }
 
         let id = UUID().uuidString.lowercased()
         let fileName = "\(id).planet"
@@ -77,6 +86,7 @@ enum PlanetImporter {
     static func rename(_ profile: PlanetProfile, to name: String) throws {
         let normalizedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalizedName.isEmpty else { throw ImportError.emptyName }
+        // guard !containsReservedBrand(normalizedName) else { throw ImportError.reservedName }
         var profiles = AppConfigStore.readPlanets()
         guard let index = profiles.firstIndex(where: { $0.id == profile.id }) else { return }
         profiles[index].name = normalizedName

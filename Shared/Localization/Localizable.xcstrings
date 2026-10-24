@@ -1299,6 +1299,28 @@
         }
       }
     },
+    "error.planet.reservedName": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Planet names may not contain “ZeroTier” or “Zero Tier” (trademark protection)"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "行星名称不能包含 “ZeroTier”或 “Zero Tier”（商标保护）"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "行星名稱不能包含 “ZeroTier”或 “Zero Tier”（商標保護）"
+          }
+        }
+      }
+    },
     "fab.addNetwork": {
       "localizations": {
         "en": {
