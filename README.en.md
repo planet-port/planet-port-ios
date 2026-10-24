@@ -71,6 +71,7 @@ open PlanetPort.xcodeproj
 ### Acknowledgements
 
 - [ZeroTier](https://github.com/zerotier/ZeroTier) — the network core
+- Some animal icons are from [Material Design Icons](https://pictogrammers.com/) (Pictogrammers Free License) and [Font Awesome Free](https://fontawesome.com/) (CC BY 4.0; Icons by Font Awesome).
 
 ## Donate
 

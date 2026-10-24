@@ -71,6 +71,7 @@ open PlanetPort.xcodeproj
 ### 致谢
 
 - [ZeroTier](https://github.com/zerotier/ZeroTier) — 网络核心
+- 部分动物图标来自 [Material Design Icons](https://pictogrammers.com/)（Pictogrammers Free License）与 [Font Awesome Free](https://fontawesome.com/)（CC BY 4.0，Icons by Font Awesome）。
 
 ## 捐赠
 
