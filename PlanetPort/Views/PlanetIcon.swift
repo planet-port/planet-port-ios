@@ -64,9 +64,10 @@ enum PlanetIcon {
     }
 
     /// 动物本地化名(animal.<key> 查表)。动态 key 须先拼 String 再构造
-    /// LocalizationValue,避免字符串插值被当作格式化键。
+    /// LocalizationValue:插值写在 LocalizationValue 字面量内会被当作
+    /// 格式化键(查 animal.%@)而查表失败,原样回显 "animal.<key>"。
     static func localizedName(_ key: String) -> String {
-        loc(String.LocalizationValue("animal.\(key)"))
+        loc(String.LocalizationValue(String("animal.\(key)")))
     }
 
     /// HSL → "#rrggbb"(小写)。h∈[0,360) s,l∈[0,1]。

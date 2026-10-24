@@ -100,12 +100,12 @@ struct NetworkDetailView: View {
         app.networks.first { $0.networkId == entry.networkId } ?? entry
     }
 
-    /// 网络 ID 行:点击复制 + 二维码分享入口。
+    /// 网络 ID 行:点击复制(无常驻图标,仅二维码入口,避免双图标)。
     private var networkIdRow: some View {
         HStack {
             Text(loc("network.id"))
             Spacer()
-            CopyableValue(text: entry.networkId)
+            CopyableValue(text: entry.networkId, showsIcon: false)
             Button {
                 showQR = true
             } label: {

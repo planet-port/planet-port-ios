@@ -108,6 +108,8 @@ struct PlanetSettingsView: View {
                     }
                 }
             }
+            // plain 样式:Form 按钮默认把整个标签染成主色,脱离后文字用默认色
+            .buttonStyle(.plain)
             .disabled(isOfficial)
         } footer: {
             if isOfficial {
@@ -121,7 +123,7 @@ struct PlanetSettingsView: View {
     private var infoSection: some View {
         Section {
             row("World ID", app.planetWorldIds[planetId] ?? "—")
-            CopyableRow(title: loc("planet.info.nodeId"), text: nodeIDText, showsIcon: false)
+            CopyableRow(title: loc("planet.info.nodeId"), text: nodeIDText)
             if let planet {
                 row(loc("common.type"),
                     isOfficial ? loc("planet.info.officialKind")
