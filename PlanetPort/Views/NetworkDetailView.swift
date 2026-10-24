@@ -6,6 +6,7 @@ struct NetworkDetailView: View {
     let entry: NetworkEntry
 
     @State private var snapshot: NetworkConfigSnapshot?
+    @State private var showQR = false
     @State private var showDelete = false
     @State private var dns = DNSConfig()
     @Environment(\.dismiss) private var dismiss
@@ -13,11 +14,11 @@ struct NetworkDetailView: View {
     var body: some View {
         List {
             Section {
-                row(loc("network.id"), entry.networkId)
+                networkIdRow
                 row(loc("common.name"), snapshot?.name ?? entry.networkName)
                 row(loc("common.status"), snapshot.map { $0.status.displayName } ?? "—")
                 row(loc("common.type"), snapshot?.type ?? "—")
-                row("MAC", snapshot?.mac ?? "—")
+                CopyableRow(title: "MAC", text: macText)
                 row("MTU", snapshot.map { String($0.mtu) } ?? "—")
                 row(loc("network.broadcast"),
                     snapshot.map { $0.broadcastEnabled ? loc("common.allowed")
@@ -28,7 +29,9 @@ struct NetworkDetailView: View {
             }
             Section("network.assignedAddrs") {
                 if let addrs = snapshot?.assignedAddrs, !addrs.isEmpty {
-                    ForEach(addrs, id: \.self) { Text($0).font(.system(.body, design: .monospaced)) }
+                    ForEach(addrs, id: \.self) { addr in
+                        CopyableValue(text: addr)
+                    }
                 } else { Text("—") }
             }
             Section("network.managedRoutes") {
@@ -84,6 +87,7 @@ struct NetworkDetailView: View {
             dns = DNSConfig(mode: currentEntry.dnsMode, customDns: currentEntry.customDns)
         }
         .refreshable { refresh() }
+        .sheet(isPresented: $showQR) { NetworkQRSheet(entry: currentEntry, snapshot: snapshot) }
         .confirmationDialog("network.delete.confirmTitle", isPresented: $showDelete, titleVisibility: .visible) {
             Button("network.delete", role: .destructive) { deleteNetwork() }
             Button("common.cancel", role: .cancel) {}
@@ -94,6 +98,44 @@ struct NetworkDetailView: View {
 
     private var currentEntry: NetworkEntry {
         app.networks.first { $0.networkId == entry.networkId } ?? entry
+    }
+
+    /// 网络 ID 行:点击复制 + 二维码分享入口。
+    private var networkIdRow: some View {
+        HStack {
+            Text(loc("network.id"))
+            Spacer()
+            CopyableValue(text: entry.networkId)
+            Button {
+                showQR = true
+            } label: {
+                Image(systemName: "qrcode")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(Color(uiColor: .tertiaryLabel))
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.borderless)
+            .accessibilityLabel(Text("qrcode.title"))
+        }
+    }
+
+    /// MAC 常用格式 aa:bb:cc:dd:ee:ff(隧道进程传 12 位无分隔 hex,UI 层格式化)。
+    private var macText: String {
+        guard let raw = snapshot?.mac else { return "—" }
+        return Self.formatMAC(raw)
+    }
+
+    static func formatMAC(_ raw: String) -> String {
+        let hex = raw.lowercased()
+        guard hex.count == 12, hex.allSatisfy(\.isHexDigit) else { return raw }
+        var result = ""
+        for i in stride(from: 0, to: 12, by: 2) {
+            let start = hex.index(hex.startIndex, offsetBy: i)
+            let end = hex.index(start, offsetBy: 2)
+            result += i > 0 ? ":" : ""
+            result += String(hex[start..<end])
+        }
+        return result
     }
 
     /// 多网络同时连接时默认路由的唯一性无解，锁定开关（控制面与数据面双侧拦截）。
@@ -151,5 +193,50 @@ struct NetworkDetailView: View {
                 .foregroundStyle(.secondary)
                 .font(.system(.body, design: .monospaced))
         }
+    }
+}
+
+/// 网络 ID 二维码分享 sheet:二维码(内容 = 网络 ID 纯文本,与 App 内扫码
+/// 填 ID 互逆)+ 网络名称 + 网络 ID(点击/图标均可复制)。
+private struct NetworkQRSheet: View {
+    let entry: NetworkEntry
+    let snapshot: NetworkConfigSnapshot?
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Text("qrcode.title")
+                .font(.headline)
+            if let image = Self.qrImage(for: entry.networkId) {
+                Image(uiImage: image)
+                    .interpolation(.none)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 200, height: 200)
+            }
+            let name = (snapshot?.name.isEmpty ?? true) ? entry.networkName : (snapshot?.name ?? "")
+            VStack(spacing: 6) {
+                Text(name.isEmpty ? entry.networkId : name)
+                    .font(.subheadline.weight(.semibold))
+                CopyableValue(text: entry.networkId,
+                              font: .system(.footnote, design: .monospaced),
+                              iconSize: 9)
+            }
+        }
+        .padding(24)
+        .presentationDetents([.medium])
+    }
+
+    /// 系统 CIQRCodeGenerator 生成二维码位图,放大 10 倍保证清晰。
+    static func qrImage(for string: String, scale: Int = 10) -> UIImage? {
+        guard let filter = CIFilter(name: "CIQRCodeGenerator") else { return nil }
+        filter.setValue(Data(string.utf8), forKey: "inputMessage")
+        filter.setValue("M", forKey: "inputCorrectionLevel")
+        guard let output = filter.outputImage else { return nil }
+        let transformed = output.transformed(
+            by: CGAffineTransform(scaleX: CGFloat(scale), y: CGFloat(scale)))
+        guard let cgImage = CIContext().createCGImage(transformed, from: transformed.extent) else {
+            return nil
+        }
+        return UIImage(cgImage: cgImage)
     }
 }
