@@ -183,7 +183,7 @@ struct PlanetSettingsView: View {
         let date = Date(timeIntervalSince1970: TimeInterval(ts) / 1000)
         // 格式化器不走 SwiftUI locale 环境，显式带应用语言（单位/日期与文案一致）。
         return date.formatted(
-            Date.FormatStyle(date: .abbreviated, time: .shortened)
+            Date.FormatStyle(date: .numeric, time: .shortened)
                 .locale(LanguageManager.shared.locale))
     }
 
