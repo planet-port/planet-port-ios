@@ -2377,6 +2377,28 @@
         }
       }
     },
+    "network.addr": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Address"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "地址"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "位址"
+          }
+        }
+      }
+    },
     "network.addrLabel %lld": {
       "localizations": {
         "en": {
@@ -2615,6 +2637,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "託管路由"
+          }
+        }
+      }
+    },
+    "network.route": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Route"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "路由"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "路由"
           }
         }
       }

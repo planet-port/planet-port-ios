@@ -36,14 +36,14 @@ struct NetworkDetailView: View {
                             CopyableValue(text: addr)
                         }
                     }
-                } else { Text("—") }
+                } else { row(loc("network.addr"), "—") }
             }
             Section("network.managedRoutes") {
                 if let routes = snapshot?.routes, !routes.isEmpty {
                     ForEach(Array(routes.enumerated()), id: \.element) { index, route in
                         row(loc("network.routeLabel \(index + 1)"), route)
                     }
-                } else { Text("—") }
+                } else { row(loc("network.route"), "—") }
             }
             Section {
                 DNSConfigSection(config: $dns)
