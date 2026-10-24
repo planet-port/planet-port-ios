@@ -16,7 +16,12 @@ struct NetworkDetailView: View {
             Section {
                 networkIdRow
                 row(loc("common.name"), snapshot?.name ?? entry.networkName)
-                row(loc("common.status"), snapshot.map { $0.status.displayName } ?? "—")
+                // REQUESTING_CONFIGURATION 与卡片一致按 online 分段（连接服务器/请求网络配置/连接超时）
+                row(loc("common.status"), snapshot.map {
+                    $0.status == .requestingConfiguration
+                        ? NetworkCardStatus.connectPhaseText(app: app)
+                        : $0.status.displayName
+                } ?? "—")
                 row(loc("common.type"), snapshot?.type ?? "—")
                 CopyableRow(title: "MAC", text: macText)
                 row("MTU", snapshot.map { String($0.mtu) } ?? "—")

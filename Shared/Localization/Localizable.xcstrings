@@ -485,6 +485,28 @@
         }
       }
     },
+    "card.timeout.offline": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connection Timed Out"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "连接超时"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "連線逾時"
+          }
+        }
+      }
+    },
     "card.conflict.subnet": {
       "localizations": {
         "en": {
@@ -1585,6 +1607,50 @@
         }
       }
     },
+    "home.alert.switchPlanet": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switch Planet"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "切换行星"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "切換行星"
+          }
+        }
+      }
+    },
+    "home.alert.switchPlanetMessage": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The current planet is connected. Enabling this network will disconnect it and switch planets. Enable anyway?"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "当前行星正在连接中。开启此网络将断开现有连接并切换到该网络所属的行星，仍要开启？"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "目前行星正在連線中。開啟此網路將中斷現有連線並切換到該網路所屬的行星，仍要開啟？"
+          }
+        }
+      }
+    },
     "home.error.cellularMessage": {
       "localizations": {
         "en": {
@@ -1691,6 +1757,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "無法啟動 VPN"
+          }
+        }
+      }
+    },
+    "home.network.connecting %lld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld connecting"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "连接中 %lld"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "連線中 %lld"
           }
         }
       }
@@ -2712,19 +2800,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "When enabled, this network's default route goes through ZeroTier, effective immediately"
+            "value": "When enabled, this network's default route goes through ZeroTier. Unavailable while multiple networks are connected"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "开启后该网络的默认路由经 ZeroTier，立即生效"
+            "value": "开启后网络的默认路由经 ZeroTier。多网络同时连接时不可用。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "開啟後該網路的預設路由經 ZeroTier，立即生效"
+            "value": "開啟後網路的預設路由經 ZeroTier。多網路同時連線時不可用。"
           }
         }
       }
@@ -2901,6 +2989,50 @@
           "stringUnit": {
             "state": "translated",
             "value": "正在初始化"
+          }
+        }
+      }
+    },
+    "network.status.connectingServer": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connecting to Server"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "连接服务器"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "連線伺服器"
+          }
+        }
+      }
+    },
+    "network.status.requestingConfig": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Requesting Network Config"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请求网络配置"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請求網路設定"
           }
         }
       }

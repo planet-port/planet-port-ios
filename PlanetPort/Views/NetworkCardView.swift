@@ -16,26 +16,33 @@ struct NetworkCardStatus {
         // 全局判断会让旁页卡片瞬时取错显示值。
         if !isActivePlanet {
             self.init(text: loc("status.disconnected"), color: .secondary)
-        } else if !app.vpnRunning {
-            self.init(text: entry.lastActivated ? loc("status.establishing")
-                                                : loc("status.disconnected"),
-                      color: entry.lastActivated ? .orange : .secondary)
         } else if let conflict = app.networkConflicts[entry.networkId], entry.lastActivated {
             // 冲突原始码（跨进程契约）：address=地址冲突 / subnet=网段冲突，文案在此生成
             // （App 自动断开前的瞬时窗口）
             self.init(text: Self.conflictText(conflict), color: .red)
         } else if !entry.lastActivated {
+            // 断开态优先于 vpnRunning 判定：自动断开（超时/冲突）通常伴随停 VPN，
+            // 若先判 vpnRunning 会把原因吞掉显示成"未连接"。
             if let last = entry.lastConflict {
-                // 冲突已自动断开：显示原因 + 断开态，再次手动开启时清除记录
-                self.init(text: loc("card.conflict.offline \(Self.conflictText(last))"),
-                          color: .red)
+                // 连接超时是共享故障，直接显示"连接超时"，不套"冲突,断开"模板。
+                let text = last == ConflictCode.timeout
+                    ? loc("card.timeout.offline")
+                    : loc("card.conflict.offline \(Self.conflictText(last))")
+                self.init(text: text, color: .red)
             } else {
                 self.init(text: loc("status.disconnected"), color: .secondary)
             }
+        } else if !app.vpnRunning {
+            self.init(text: loc("status.establishing"), color: .orange)
         } else if let status = app.networkStatuses[entry.networkId] {
             // 首次加入需控制器授权：统一显示"待授权"。
             if status.isPendingAuthorization {
                 self.init(text: loc("status.pendingAuth"), color: .orange)
+            } else if status == .requestingConfiguration {
+                // 核心等待链按 online 拆段：未连根服务器="连接服务器"
+                // （超过 connectTimeout 判超时），已连但未拿到配置="请求网络配置"。
+                let phase = Self.connectPhase(app: app)
+                self.init(text: phase.text, color: phase.color)
             } else {
                 self.init(text: status.displayName, color: status == .ok ? ThemeManager.shared.success : .orange)
             }
@@ -47,6 +54,24 @@ struct NetworkCardStatus {
     private init(text: String, color: Color) {
         self.text = text
         self.color = color
+    }
+
+    /// REQUESTING_CONFIGURATION 的分段文案（卡片与详情页共用）。
+    static func connectPhaseText(app: AppState) -> String {
+        connectPhase(app: app).text
+    }
+
+    /// REQUESTING_CONFIGURATION 的分段展示：online 为核心是否已连通行星根服务器
+    /// （VPN 级共享状态）。计时起点缺失（如在线后再次掉线）不判超时，仅显示进行中文案。
+    private static func connectPhase(app: AppState) -> (text: String, color: Color) {
+        if app.online {
+            return (loc("network.status.requestingConfig"), .orange)
+        }
+        if let start = app.connectStartedAt,
+           Date().timeIntervalSince(start) >= AppState.connectTimeout {
+            return (loc("card.timeout.offline"), .red)
+        }
+        return (loc("network.status.connectingServer"), .orange)
     }
 
     /// 冲突原始码 → 展示文案（仅 UI 层使用）

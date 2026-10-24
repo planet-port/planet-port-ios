@@ -7,6 +7,10 @@ import UIKit
 /// 数据源：App Group 共享文件/UserDefaults + StatusStore Darwin 通知 + 定时查询
 @MainActor
 final class AppState: ObservableObject {
+    /// "连接服务器"阶段（核心连行星根服务器）的超时阈值：到点仍未 online
+    /// 判定物理网络故障，全部启用网络自动断开。
+    static let connectTimeout: TimeInterval = 30
+
     @Published var planets: [PlanetProfile] = []
     @Published var selectedPlanetId: String = PlanetProfile.officialId
     @Published var activePlanetId: String = PlanetProfile.officialId
@@ -31,6 +35,11 @@ final class AppState: ObservableObject {
     @Published var networkConflicts: [String: String] = [:]
     @Published var networkConfigs: [String: NetworkConfigSnapshot] = [:]
     @Published var vpnRunning: Bool = false
+    /// VPN 起跑（观察到 vpnRunning 且未 online）的时刻，卡片"连接服务器"
+    /// 分段展示与超时判定的共同起点；online 达成或 VPN 停止时清空。
+    @Published private(set) var connectStartedAt: Date?
+    /// 连接超时任务（App 侧计时；后台挂起冻结，回前台经 evaluateConnectTimer 补触发）。
+    private var connectTimeoutTask: Task<Void, Never>?
     /// 首页自定义背景图（nil = 未设置，页面用纯底色）
     @Published var backgroundImage: UIImage? = BackgroundImageStore.load()
 
@@ -135,12 +144,29 @@ final class AppState: ObservableObject {
     /// 用户主动打开网络时才应用 Planet（取网络归属的行星，而非当前浏览页，
     /// 避免滑页过程中的选中态错位导致激活错行星）；跨 Planet 时需要重启 Core。
     func applyPlanetAndStartVPN(_ planetId: String, completion: @escaping (Bool, String?) -> Void) {
+        let previousPlanetId = activePlanetId
         let planetChanged = AppConfigStore.activatePlanet(planetId)
         activePlanetId = AppConfigStore.activePlanetId
         if planetChanged {
+            // 行星切换数据对齐（一次性收敛，杜绝跨行星串显）：
+            // 1) 旧行星网络启用标记清零——隧道已不再承载它们，残留会让旧行星
+            //    卡片显示"建立隧道"等错态；lastConflict 保留（真实历史事件）。
+            // 2) 共享状态区清空旧核心会话残留——networkStatuses 按 networkId
+            //    全局索引且只在下次隧道启动时清，不清则切换窗口期跨行星串显
+            //    "在线/请求配置"，online 同理。
+            deactivateNetworks(planetId: previousPlanetId)
+            reloadConfig()
+            StatusStore.networkStatuses = [:]
+            StatusStore.networkConflicts = [:]
+            StatusStore.online = false
+            StatusStore.postChange()
             online = false
             networkStatuses = [:]
             networkConfigs = [:]
+            // 核心随行星切换重启，连接超时窗口重新起算
+            connectTimeoutTask?.cancel()
+            connectTimeoutTask = nil
+            connectStartedAt = nil
         }
         VPNManager.shared.connectionStatus { status in
             let running = status == .connected || status == .connecting || status == .reasserting
@@ -159,33 +185,128 @@ final class AppState: ObservableObject {
         online = StatusStore.online
         coreVersion = StatusStore.coreVersion
         tunnelStatus = StatusStore.tunnelStatus
-        networkStatuses = StatusStore.networkStatusesTyped
-        networkConflicts = StatusStore.networkConflicts
+        // 状态/冲突按当前活跃行星的作用域读取：其它行星（含旧隧道会话）的同
+        // networkId 状态天然隔离，不参与本行星的展示与判定
+        networkStatuses = StatusStore.networkStatuses(planetId: activePlanetId)
+        networkConflicts = StatusStore.networkConflicts(planetId: activePlanetId)
         autoDisconnectConflictedNetworks()
+        evaluateConnectTimer()
         if !nodeId.isEmpty { cacheNodeId(nodeId) }
+    }
+
+    /// 连接计时的起止与补偿判定：vpnRunning 且未 online 且有启用网络时起算；
+    /// online 达成或 VPN 停止即取消。App 后台挂起时计时任务冻结，回前台后的
+    /// 状态刷新走"已超期"分支补触发，不依赖计时器本身到点。
+    private func evaluateConnectTimer() {
+        if vpnRunning, !online,
+           AppConfigStore.readActiveNetworks().contains(where: { $0.lastActivated }) {
+            if let start = connectStartedAt {
+                // 补触发：后台冻结错过到点，按已耗时直接判超时
+                if Date().timeIntervalSince(start) >= Self.connectTimeout {
+                    disconnectOnConnectTimeout()
+                }
+            } else {
+                connectStartedAt = Date()
+                // 新连接周期开始：上一轮的超时断开记录随之失效（超时是整轮共享
+                // 事件，不该在新周期里继续显示在未参与连接的网络上）
+                clearStaleTimeoutRecords()
+                connectTimeoutTask = Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: UInt64(Self.connectTimeout * 1_000_000_000))
+                    guard !Task.isCancelled else { return }
+                    disconnectOnConnectTimeout()
+                }
+            }
+        } else {
+            connectTimeoutTask?.cancel()
+            connectTimeoutTask = nil
+            connectStartedAt = nil
+        }
+    }
+
+    /// 清除上一轮连接周期遗留的超时记录（仅 timeout；冲突记录是单网络事件，保留）。
+    private func clearStaleTimeoutRecords() {
+        let planetId = activePlanetId
+        var updated = AppConfigStore.readNetworks(planetId: planetId)
+        guard updated.contains(where: { $0.lastConflict == ConflictCode.timeout }) else { return }
+        for index in updated.indices where updated[index].lastConflict == ConflictCode.timeout {
+            updated[index].lastConflict = nil
+        }
+        AppConfigStore.writeNetworks(updated, planetId: planetId)
+        reloadConfig()
+    }
+
+    /// 连接超时自动断开：核心起跑超过 connectTimeout 仍未连通行星根服务器，
+    /// 判定物理网络故障，当前行星全部启用网络关闭并记录原因（服务器连不上是
+    /// 共享故障，单关一个无意义），Extension 随配置通知 leave；无剩余启用网络
+    /// 则停 VPN。与冲突自动断开（autoDisconnectConflictedNetworks）同构。
+    private func disconnectOnConnectTimeout() {
+        guard vpnRunning, !online else { return }
+        // 断开前先向隧道进程复核实时 online：online 事件经 Darwin 通知送达有
+        // 延迟，核心恰在 30s 边沿连上时不至于误杀（提示超时却连接成功）。
+        VPNManager.shared.query(ProviderRequest(type: "status", nwid: nil)) { [weak self] reply in
+            Task { @MainActor in
+                guard let self else { return }
+                if reply?.online == true {
+                    self.online = true
+                    self.evaluateConnectTimer()
+                    return
+                }
+                self.performConnectTimeoutDisconnect()
+            }
+        }
+    }
+
+    private func performConnectTimeoutDisconnect() {
+        guard vpnRunning, !online else { return }
+        connectTimeoutTask?.cancel()
+        connectTimeoutTask = nil
+        connectStartedAt = nil
+        let planetId = activePlanetId
+        var updated = AppConfigStore.readNetworks(planetId: planetId)
+        guard updated.contains(where: \.lastActivated) else { return }
+        for index in updated.indices where updated[index].lastActivated {
+            updated[index].lastActivated = false
+            updated[index].lastConflict = ConflictCode.timeout
+        }
+        AppConfigStore.writeNetworks(updated, planetId: planetId)
+        reloadConfig()
+        stopVPNIfNoActiveNetworks()
     }
 
     /// 冲突自动断开：Extension 检出地址/网段冲突（原始码经 StatusStore 透出）后，
     /// App 侧立即停用后开启的网络并记录原因（lastConflict），Extension 随配置通知 leave。
     /// 数据面在 Extension 侧已隔离，此处收敛配置态；App 未运行时由下次启动补做。
+    /// 冲突只可能来自隧道会话（= 活跃行星），限定活跃行星处理，避免其它行星
+    /// 同 networkId 的网络被误关。
     private func autoDisconnectConflictedNetworks() {
         guard !networkConflicts.isEmpty else { return }
+        let planetId = activePlanetId
+        var updated = AppConfigStore.readNetworks(planetId: planetId)
+        guard updated.contains(where: { $0.lastActivated && networkConflicts[$0.networkId] != nil }) else { return }
         var changed = false
-        for (planetId, entries) in AppConfigStore.readNetworksByPlanet() {
-            guard entries.contains(where: { $0.lastActivated && networkConflicts[$0.networkId] != nil }) else { continue }
-            var updated = entries
-            for index in updated.indices
-            where updated[index].lastActivated && networkConflicts[updated[index].networkId] != nil {
-                updated[index].lastConflict = networkConflicts[updated[index].networkId]
-                updated[index].lastActivated = false
-                changed = true
-            }
-            AppConfigStore.writeNetworks(updated, planetId: planetId)
+        for index in updated.indices
+        where updated[index].lastActivated && networkConflicts[updated[index].networkId] != nil {
+            updated[index].lastConflict = networkConflicts[updated[index].networkId]
+            updated[index].lastActivated = false
+            changed = true
         }
         if changed {
+            AppConfigStore.writeNetworks(updated, planetId: planetId)
             reloadConfig()
             stopVPNIfNoActiveNetworks()
         }
+    }
+
+    /// 旧行星网络停用：行星互斥（单隧道单行星），切换后旧行星的启用标记
+    /// 是残留态，会让旧行星卡片显示"建立隧道"等错态。仅清启用标记，
+    /// lastConflict 保留（单网络的真实历史事件）。
+    private func deactivateNetworks(planetId: String) {
+        var updated = AppConfigStore.readNetworks(planetId: planetId)
+        guard updated.contains(where: \.lastActivated) else { return }
+        for index in updated.indices where updated[index].lastActivated {
+            updated[index].lastActivated = false
+        }
+        AppConfigStore.writeNetworks(updated, planetId: planetId)
     }
 
     /// 网络断开/删除后的收敛检查：活跃行星下已无启用网络时自动停掉 VPN，
@@ -213,6 +334,7 @@ final class AppState: ObservableObject {
             Task { @MainActor in
                 guard let self else { return }
                 self.vpnRunning = (status == .connected || status == .connecting || status == .reasserting)
+                self.evaluateConnectTimer()
                 if self.vpnRunning {
                     VPNManager.shared.query(ProviderRequest(type: "status", nwid: nil)) { reply in
                         Task { @MainActor in
@@ -222,15 +344,19 @@ final class AppState: ObservableObject {
                                 self.cacheNodeId(id)
                             }
                             if let on = reply.online { self.online = on }
+                            self.evaluateConnectTimer()
                             if let v = reply.coreVersion, !v.isEmpty { self.coreVersion = v }
                             if !self.networkStatuses.isEmpty || self.networks.contains(where: { $0.lastActivated }) {
-                                self.networkStatuses = StatusStore.networkStatusesTyped
+                                self.networkStatuses = StatusStore.networkStatuses(planetId: self.activePlanetId)
                             }
                         }
                     }
                     self.refreshActiveNetworkConfigs()
                 } else {
                     self.networkConfigs = [:]
+                    // 隧道不在跑，状态快照整体失效（含旧会话残留），不参与展示
+                    self.networkStatuses = [:]
+                    self.networkConflicts = [:]
                 }
             }
         }

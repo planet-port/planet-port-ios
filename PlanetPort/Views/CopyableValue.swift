@@ -14,6 +14,12 @@ struct CopyableValue: View {
     /// 复制反馈:图标短暂变对勾。
     @State private var copied = false
 
+    /// 占位值（空 / "—" / "-"，调用方无数据时的显示约定）：不可复制，
+    /// 常驻复制图标随之隐藏，避免"看着能点、点了没反应"。
+    private var isPlaceholder: Bool {
+        text.isEmpty || text == "—" || text == "-"
+    }
+
     var body: some View {
         HStack(spacing: 4) {
             Text(text)
@@ -21,7 +27,7 @@ struct CopyableValue: View {
                 .foregroundStyle(color)
                 .lineLimit(1)
                 .truncationMode(.middle)
-            if showsIcon || copied {
+            if (showsIcon && !isPlaceholder) || copied {
                 Image(systemName: copied ? "checkmark" : "doc.on.doc")
                     .font(.system(size: iconSize, weight: copied ? .semibold : .regular))
                     .foregroundStyle(copied ? AnyShapeStyle(ThemeManager.shared.success)
@@ -42,7 +48,7 @@ struct CopyableValue: View {
     }
 
     private func copy() {
-        guard !text.isEmpty, text != "—", text != "-" else { return }
+        guard !isPlaceholder else { return }
         UIPasteboard.general.string = text
         withAnimation(.easeOut(duration: 0.15)) { copied = true }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {

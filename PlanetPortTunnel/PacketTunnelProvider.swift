@@ -32,6 +32,10 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
     private var keepaliveTimer: DispatchSourceTimer?
     private var joinedNetworks: Set<UInt64> = []
     private var orbitedMoons: Set<UInt64> = []
+    /// 本隧道会话的行星（核心启动时捕获，之后不再读全局标记）：行星切换
+    /// 重启窗口期旧会话仍在写状态，若实时读全局标记会把旧行星的状态写进
+    /// 新行星的作用域。写入一律用本值。
+    private var sessionPlanetId = ""
     /// 已应用的用户侧网络配置（nwid → (routeViaZeroTier, dnsMode, customDns)），变更时热重配隧道
     private var appliedEntries: [UInt64: (Bool, DNSMode, [String])] = [:]
     /// op==2 的最近网络配置快照（nwid → cfg），聚合设置的输入
@@ -120,6 +124,8 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
 
     /// 核心 + UDP socket 启动（startTunnel 与网络切换重启共用）
     private func startCore() throws {
+        // 捕获本会话行星（状态作用域键，见 sessionPlanetId 注释）
+        sessionPlanetId = AppConfigStore.activePlanetId
         // 1. UDP socket 绑定 ZeroTier 标准端口 9994。
         let fd = socket(AF_INET, SOCK_DGRAM, 0)
         guard fd >= 0 else { throw TunnelError.socketCreateFailed(errno) }
@@ -288,7 +294,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         let nwidStr = String(format: "%016llx", nwid)
         diagLog("cfg \(nwidStr) op=\(op) status=\(cfg.status) addrs=\((cfg.assignedAddrs as [String]).count)")
         var statuses = StatusStore.networkStatuses
-        statuses[nwidStr] = Int(cfg.status)
+        statuses[StatusStore.scopedKey(planetId: sessionPlanetId, nwid: nwidStr)] = Int(cfg.status)
         StatusStore.networkStatuses = statuses
         StatusStore.postChange()
 
@@ -355,10 +361,11 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
             return Item(nwid: nwid, entry: entry, cfg: cfg, v4: v4, v6: v6)
         }
 
-        // 冲突检测（后进入者让路）→ 状态透出（原始码，App 层生成文案）
+        // 冲突检测（后进入者让路）→ 状态透出（作用域键 + 原始码，App 层生成文案）
         let conflicts = NetworkContextMath.detectConflicts(items.map { ($0.nwid, $0.v4, $0.v6) })
         StatusStore.networkConflicts = conflicts.reduce(into: [String: String]()) { map, pair in
-            map[String(format: "%016llx", pair.key)] = pair.value.rawValue
+            map[StatusStore.scopedKey(planetId: sessionPlanetId,
+                                      nwid: String(format: "%016llx", pair.key))] = pair.value.rawValue
         }
         StatusStore.postChange()
         // 转换器上下文：冲突网络不建（保留 join 仅展示状态）
