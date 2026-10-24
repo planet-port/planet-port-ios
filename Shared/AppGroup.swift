@@ -1,7 +1,7 @@
 import Foundation
 
 enum AppGroup {
-    static let id = "group.cn.imgozi.PlanetPortI"
+    static let id = "group.cn.imgozi.i.PlanetPort"
     static var container: URL {
         if let shared = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: id) {
             return shared

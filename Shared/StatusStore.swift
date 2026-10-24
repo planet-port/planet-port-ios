@@ -1,7 +1,7 @@
 import Foundation
 
 enum StatusStore {
-    static let notifyStatusChanged = "cn.imgozi.PlanetPortI.statusChanged"
+    static let notifyStatusChanged = "cn.imgozi.i.PlanetPort.statusChanged"
 
     private static let kNodeId = "status_nodeId"
     private static let kOnline = "status_online"

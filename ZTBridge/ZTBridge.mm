@@ -7,7 +7,7 @@
 #include <sys/types.h>
 
 // 核心编译版本（ZEROTIER_ONE_VERSION_* 宏）
-static NSString* const kAppGroupID = @"group.cn.imgozi.PlanetPortI";
+static NSString* const kAppGroupID = @"group.cn.imgozi.i.PlanetPort";
 
 // 类扩展前置：C 回调函数需要访问这些属性
 @interface ZTBridge ()

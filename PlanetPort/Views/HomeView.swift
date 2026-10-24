@@ -40,7 +40,7 @@ struct HomeView: View {
 
     fileprivate static let addTag = "__add__"
     /// 网络开关诊断日志（Console 按 subsystem 过滤）。
-    private static let netLog = Logger(subsystem: "cn.imgozi.PlanetPortI", category: "NetworkToggle")
+    private static let netLog = Logger(subsystem: "cn.imgozi.i.PlanetPort", category: "NetworkToggle")
 
     /// 窗口底部安全区高度（Home 指示条），随机型 34/20/0pt，动态补偿列表视口用。
     /// 不过滤场景激活状态：冷启动首帧场景还未 active，过滤会导致头几秒读到 0。

@@ -5,7 +5,7 @@ import os
 /// App 侧 VPN 配置管理
 final class VPNManager {
     static let shared = VPNManager()
-    private static let log = Logger(subsystem: "cn.imgozi.PlanetPortI", category: "VPNManager")
+    private static let log = Logger(subsystem: "cn.imgozi.i.PlanetPort", category: "VPNManager")
 
     private var manager: NETunnelProviderManager?
     /// configurationInvalid 恢复中标记，防止恢复路径自身无限重试。
@@ -175,7 +175,7 @@ final class VPNManager {
             }
             let m = NETunnelProviderManager()
             let proto = NETunnelProviderProtocol()
-            proto.providerBundleIdentifier = "cn.imgozi.PlanetPortI.tunnel"
+            proto.providerBundleIdentifier = "cn.imgozi.i.PlanetPort.tunnel"
             proto.providerConfiguration = [:]
             proto.serverAddress = "ZeroTier"
             m.protocolConfiguration = proto
@@ -188,7 +188,7 @@ final class VPNManager {
 
     private func isOurs(_ m: NETunnelProviderManager) -> Bool {
         guard let proto = m.protocolConfiguration as? NETunnelProviderProtocol else { return false }
-        return proto.providerBundleIdentifier == "cn.imgozi.PlanetPortI.tunnel"
+        return proto.providerBundleIdentifier == "cn.imgozi.i.PlanetPort.tunnel"
     }
 
     /// Connect On Demand（按需连接）

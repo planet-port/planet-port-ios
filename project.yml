@@ -15,7 +15,7 @@ targets:
     platform: iOS
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: cn.imgozi.PlanetPortI
+        PRODUCT_BUNDLE_IDENTIFIER: cn.imgozi.i.PlanetPort
         # 无 AppIcon 资源（与建仓时一致）；仅有背景图 imageset。
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         # 全局主色：三角配色 500(#D44037)/深色 200(#ff695b)。
@@ -31,13 +31,14 @@ targets:
       path: PlanetPort/PlanetPort.entitlements
       properties:
         com.apple.security.application-groups:
-          - group.cn.imgozi.PlanetPortI
+          - group.cn.imgozi.i.PlanetPort
         com.apple.developer.networking.networkextension:
           - packet-tunnel-provider
     info:
       path: PlanetPort/Info.plist
       properties:
         CFBundleDisplayName: Planet Port
+        CFBundleShortVersionString: "1.0.0"
         UILaunchScreen: {}
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         NSAppTransportSecurity:
@@ -55,7 +56,7 @@ targets:
           - "**/*.md"
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: cn.imgozi.PlanetPortI.tunnel
+        PRODUCT_BUNDLE_IDENTIFIER: cn.imgozi.i.PlanetPort.tunnel
         CLANG_CXX_LANGUAGE_STANDARD: c++17
         CLANG_CXX_LIBRARY: libc++
         GCC_PREPROCESSOR_DEFINITIONS:
@@ -71,13 +72,14 @@ targets:
       path: PlanetPortTunnel/PlanetPortTunnel.entitlements
       properties:
         com.apple.security.application-groups:
-          - group.cn.imgozi.PlanetPortI
+          - group.cn.imgozi.i.PlanetPort
         com.apple.developer.networking.networkextension:
           - packet-tunnel-provider
     info:
       path: PlanetPortTunnel/Info.plist
       properties:
         CFBundleDisplayName: PlanetPortTunnel
+        CFBundleShortVersionString: "1.0.0"
         NSExtension:
           NSExtensionPointIdentifier: com.apple.networkextension.packet-tunnel
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).PacketTunnelProvider

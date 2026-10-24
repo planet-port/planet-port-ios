@@ -8,7 +8,7 @@
 	</array>
 	<key>com.apple.security.application-groups</key>
 	<array>
-		<string>group.cn.imgozi.PlanetPortI</string>
+		<string>group.cn.imgozi.i.PlanetPort</string>
 	</array>
 </dict>
 </plist>
