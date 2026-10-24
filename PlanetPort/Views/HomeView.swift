@@ -23,6 +23,8 @@ struct HomeView: View {
     @State private var pendingNetworks: Set<String> = []
     /// 超出并发上限的确认弹窗（软上限：多开增加耗电，可强制开启）。
     @State private var limitConfirmTarget: NetworkEntry?
+    /// 跨行星开启确认目标（当前行星隧道在跑时，开启他行星网络需先确认切换）。
+    @State private var switchConfirmTarget: NetworkEntry?
     /// 无线数据权限被拒提示（2 小时限流）。
     @State private var permissionDenied = false
     @State private var permissionChecker: CellularPermissionChecker?
@@ -117,6 +119,15 @@ struct HomeView: View {
                     Button("common.cancel", role: .cancel) {}
                 } message: {
                     Text("home.alert.limitConfirm \(displayName(limitConfirmTarget))")
+                }
+            // 跨行星切换确认（行星互斥：切换会断开当前行星的全部连接）
+            .alert("home.alert.switchPlanet", isPresented: Binding(
+                get: { switchConfirmTarget != nil },
+                set: { if !$0 { switchConfirmTarget = nil } })) {
+                    Button("home.alert.openAnyway", role: .destructive) { confirmSwitchPlanet() }
+                    Button("common.cancel", role: .cancel) {}
+                } message: {
+                    Text("home.alert.switchPlanetMessage")
                 }
             // 无线数据权限被拒提示
             .alert("home.alert.noNetworkAccess", isPresented: $permissionDenied) {
@@ -386,16 +397,22 @@ struct HomeView: View {
         FabButton(action: { showJoin = true })
     }
 
-    /// 计数行：网络区头部，紧贴细分隔线下方。多网络连接中追加已连接数。
-    /// 已连接数取本页行星自己的网络（planetNetworks），不用全局选中页数据。
+    /// 计数行：网络区头部，紧贴细分隔线下方。启用网络按实时状态分桶展示
+    /// "连接中 X | 已连接 Y"（已连接 = 核心报 OK），计数为 0 的桶不显示，
+    /// 全为 0 则不追加。数据取本页行星自己的网络（planetNetworks）。
     private func networkHeader(count: Int, planet: PlanetProfile) -> some View {
         var text = loc("home.network.header \(count)")
         if planet.id == app.activePlanetId && app.vpnRunning {
-            let connected = (app.planetNetworks[planet.id] ?? []).filter {
+            let enabled = (app.planetNetworks[planet.id] ?? []).filter {
                 $0.lastActivated && app.networkConflicts[$0.networkId] == nil
-            }.count
-            if connected > 1 {
-                text += " · " + loc("home.network.connected \(connected)")
+            }
+            let connected = enabled.filter { app.networkStatuses[$0.networkId] == .ok }.count
+            let connecting = enabled.count - connected
+            var parts: [String] = []
+            if connecting > 0 { parts.append(loc("home.network.connecting \(connecting)")) }
+            if connected > 0 { parts.append(loc("home.network.connected \(connected)")) }
+            if !parts.isEmpty {
+                text += " · " + parts.joined(separator: " | ")
             }
         }
         return Text(text)
@@ -458,6 +475,12 @@ struct HomeView: View {
             }
             return
         }
+        // 跨行星开启：行星互斥，当前行星隧道在跑时切换会断开其全部连接，
+        // 先确认再走启动流程。
+        if planetId != app.activePlanetId, app.vpnRunning {
+            switchConfirmTarget = entry
+            return
+        }
         // 软上限：新开网络会超出上限时先确认耗电（可强制开启）。
         let activeCount = AppConfigStore.readNetworks(planetId: planetId)
             .filter { $0.lastActivated && $0.networkId != entry.networkId }.count
@@ -472,6 +495,12 @@ struct HomeView: View {
     /// 确认超出软上限开启（耗电提示后仍要开启）。
     private func confirmOpenBeyondLimit() {
         guard let target = limitConfirmTarget else { return }
+        performNetworkActivate(target)
+    }
+
+    /// 确认跨行星切换开启（断开当前行星连接后切换）。
+    private func confirmSwitchPlanet() {
+        guard let target = switchConfirmTarget else { return }
         performNetworkActivate(target)
     }
 

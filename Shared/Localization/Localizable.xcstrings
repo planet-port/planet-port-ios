@@ -1607,6 +1607,50 @@
         }
       }
     },
+    "home.alert.switchPlanet": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switch Planet"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "切换行星"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "切換行星"
+          }
+        }
+      }
+    },
+    "home.alert.switchPlanetMessage": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The current planet is connected. Enabling this network will disconnect it and switch planets. Enable anyway?"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "当前行星正在连接中。开启此网络将断开现有连接并切换到该网络所属的行星，仍要开启？"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "目前行星正在連線中。開啟此網路將中斷現有連線並切換到該網路所屬的行星，仍要開啟？"
+          }
+        }
+      }
+    },
     "home.error.cellularMessage": {
       "localizations": {
         "en": {
@@ -1713,6 +1757,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "無法啟動 VPN"
+          }
+        }
+      }
+    },
+    "home.network.connecting %lld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld connecting"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "连接中 %lld"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "連線中 %lld"
           }
         }
       }

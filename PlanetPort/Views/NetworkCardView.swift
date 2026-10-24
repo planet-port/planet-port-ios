@@ -16,17 +16,14 @@ struct NetworkCardStatus {
         // 全局判断会让旁页卡片瞬时取错显示值。
         if !isActivePlanet {
             self.init(text: loc("status.disconnected"), color: .secondary)
-        } else if !app.vpnRunning {
-            self.init(text: entry.lastActivated ? loc("status.establishing")
-                                                : loc("status.disconnected"),
-                      color: entry.lastActivated ? .orange : .secondary)
         } else if let conflict = app.networkConflicts[entry.networkId], entry.lastActivated {
             // 冲突原始码（跨进程契约）：address=地址冲突 / subnet=网段冲突，文案在此生成
             // （App 自动断开前的瞬时窗口）
             self.init(text: Self.conflictText(conflict), color: .red)
         } else if !entry.lastActivated {
+            // 断开态优先于 vpnRunning 判定：自动断开（超时/冲突）通常伴随停 VPN，
+            // 若先判 vpnRunning 会把原因吞掉显示成"未连接"。
             if let last = entry.lastConflict {
-                // 自动断开：显示原因，再次手动开启时清除记录。
                 // 连接超时是共享故障，直接显示"连接超时"，不套"冲突,断开"模板。
                 let text = last == ConflictCode.timeout
                     ? loc("card.timeout.offline")
@@ -35,6 +32,8 @@ struct NetworkCardStatus {
             } else {
                 self.init(text: loc("status.disconnected"), color: .secondary)
             }
+        } else if !app.vpnRunning {
+            self.init(text: loc("status.establishing"), color: .orange)
         } else if let status = app.networkStatuses[entry.networkId] {
             // 首次加入需控制器授权：统一显示"待授权"。
             if status.isPendingAuthorization {

@@ -28,8 +28,8 @@ enum StatusStore {
         get { AppGroup.defaults.string(forKey: kTunnelStatus) ?? "" }
         set { AppGroup.defaults.set(newValue, forKey: kTunnelStatus) }
     }
-    /// 网络状态（nwid → ZTNetworkStatus 原始值）。存原始 Int 而非文案：
-    /// 跨进程契约不依赖展示语言，UI 层用 networkStatusesTyped 取枚举。
+    /// 网络状态（作用域键 → ZTNetworkStatus 原始值）。存原始 Int 而非文案：
+    /// 跨进程契约不依赖展示语言，UI 层用 networkStatuses(planetId:) 取枚举。
     /// 旧版本存的是中文文案字典，升级后 cast 失败一次性回到空（预期行为）：
     /// 状态是运行时快照，隧道首个配置回调即重写，无需迁移。
     static var networkStatuses: [String: Int] {
@@ -37,16 +37,41 @@ enum StatusStore {
         set { AppGroup.defaults.set(newValue, forKey: kNetworkStatuses) }
     }
 
-    /// 类型化读取（无法识别的原始值统一落 .unknown，与详情页路径兜底一致）。
-    static var networkStatusesTyped: [String: ZTNetworkStatus] {
-        networkStatuses.mapValues { ZTNetworkStatus(rawValue: $0) ?? .unknown }
+    /// 状态键的行星作用域：同一 networkId 可存在于多个行星，核心状态只属于
+    /// 产生它的行星会话。Extension 写入用隧道会话启动时捕获的行星（见
+    /// PacketTunnelProvider.sessionPlanetId），行星切换重启窗口期旧会话的
+    /// 写入仍落在旧命名空间，从根上杜绝跨行星串显。
+    static func scopedKey(planetId: String, nwid: String) -> String {
+        "\(planetId)|\(nwid)"
     }
 
-    /// 网络冲突（nwid → 原因原始码 "address"/"subnet"）。存原始码而非文案：
-    /// 跨进程契约不依赖展示语言，UI 层按码生成中文文案。
+    /// 按行星取出 nwid → 状态（键剥掉作用域前缀）。无前缀的旧格式键不匹配
+    /// 任何行星前缀，自然丢弃（运行时快照，无需迁移）。
+    static func networkStatuses(planetId: String) -> [String: ZTNetworkStatus] {
+        let prefix = scopedKey(planetId: planetId, nwid: "")
+        return networkStatuses.compactMapValues { ZTNetworkStatus(rawValue: $0) }
+            .filter { $0.key.hasPrefix(prefix) }
+            .reduce(into: [String: ZTNetworkStatus]()) { map, pair in
+                map[String(pair.key.dropFirst(prefix.count))] = pair.value
+            }
+    }
+
+    /// 网络冲突（作用域键 → 原因原始码 "address"/"subnet"/"timeout"）。存原始码
+    /// 而非文案：跨进程契约不依赖展示语言，UI 层按码生成中文文案。
+    /// 作用域规则与 networkStatuses 一致。
     static var networkConflicts: [String: String] {
         get { AppGroup.defaults.dictionary(forKey: kNetworkConflicts) as? [String: String] ?? [:] }
         set { AppGroup.defaults.set(newValue, forKey: kNetworkConflicts) }
+    }
+
+    /// 按行星取出 nwid → 冲突原始码（键剥掉作用域前缀）。
+    static func networkConflicts(planetId: String) -> [String: String] {
+        let prefix = scopedKey(planetId: planetId, nwid: "")
+        return networkConflicts
+            .filter { $0.key.hasPrefix(prefix) }
+            .reduce(into: [String: String]()) { map, pair in
+                map[String(pair.key.dropFirst(prefix.count))] = pair.value
+            }
     }
 
     /// 聚合应用诊断追踪（Extension 每次聚合应用写入的决策快照，
