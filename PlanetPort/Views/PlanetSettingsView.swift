@@ -40,10 +40,10 @@ struct PlanetSettingsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { name = planet?.name ?? "" }
         .sheet(isPresented: $showIconPicker) {
-            IconPickerSheet(current: planet?.icon ?? "") { symbol in
+            IconPickerSheet(animal: PlanetIcon.animalKey(for: planet ?? .official),
+                            color: planet?.iconColor) { animal, color in
                 do {
-                    try PlanetImporter.updateIcon(planet ?? .official, icon: symbol,
-                                                  color: planet?.iconColor)
+                    try PlanetImporter.updateIcon(planet ?? .official, icon: animal, color: color)
                     app.reloadConfig()
                 } catch {
                     alert = error.localizedDescription
