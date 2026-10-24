@@ -29,14 +29,20 @@ struct NetworkDetailView: View {
             }
             Section("network.assignedAddrs") {
                 if let addrs = snapshot?.assignedAddrs, !addrs.isEmpty {
-                    ForEach(addrs, id: \.self) { addr in
-                        CopyableValue(text: addr)
+                    ForEach(Array(addrs.enumerated()), id: \.element) { index, addr in
+                        HStack {
+                            Text(loc("network.addrLabel \(index + 1)"))
+                            Spacer()
+                            CopyableValue(text: addr)
+                        }
                     }
                 } else { Text("—") }
             }
             Section("network.managedRoutes") {
                 if let routes = snapshot?.routes, !routes.isEmpty {
-                    ForEach(routes, id: \.self) { Text($0).font(.system(.body, design: .monospaced)) }
+                    ForEach(Array(routes.enumerated()), id: \.element) { index, route in
+                        row(loc("network.routeLabel \(index + 1)"), route)
+                    }
                 } else { Text("—") }
             }
             Section {
