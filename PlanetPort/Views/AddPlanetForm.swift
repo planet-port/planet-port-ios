@@ -11,8 +11,6 @@ struct AddPlanetForm: View {
     let colorHex: String
     let onImported: (PlanetProfile) -> Void
 
-    @EnvironmentObject private var app: AppState
-
     @State private var url = ""
     @State private var showFilePicker = false
     @State private var downloading = false

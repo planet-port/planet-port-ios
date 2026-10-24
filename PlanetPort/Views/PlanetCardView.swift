@@ -54,7 +54,7 @@ struct PlanetCardView: View {
         app.moonCounts[planet.id] ?? 0
     }
 
-    /// ID 等宽 tertiary(16pt);moon>0 时以间隔号「·」(U+00B7)跟随「卫星 x n」。
+    /// ID 等宽 secondary(16pt);moon>0 时以间隔号「·」(U+00B7)跟随「卫星 x n」。
     /// 点击 ID 复制(热区外扩),无常驻复制图标,成功瞬间短暂显示对勾。
     private var idLine: some View {
         let nodeId = app.planetNodeIds[planet.id] ?? "-"
