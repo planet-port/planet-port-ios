@@ -68,8 +68,9 @@ VPN 长期空跑。
 | 文件 | 改动 |
 |---|---|
 | PlanetPort/AppState.swift | 30s 计时器、超时关闭流程、online/vpnRunning 边沿监听、前台补偿 |
-| PlanetPort/Views/NetworkCardView.swift | REQUESTING_CONFIGURATION 按 online/耗时拆分展示分支 |
-| Shared/Models.swift | `lastConflict` 展示映射支持 `"timeout"` |
+| PlanetPort/Views/NetworkCardView.swift | REQUESTING_CONFIGURATION 按 online/耗时拆分展示分支（分段文案供详情页共用） |
+| PlanetPort/Views/NetworkDetailView.swift | 详情页状态行与卡片分段文案保持一致 |
+| Shared/Models.swift | `ConflictCode` 常量（含新增 `"timeout"` 原始码） |
 | Shared/Localization/Localizable.xcstrings | 新增 3 键 |
 
 Extension（PlanetPortTunnel）不改动。

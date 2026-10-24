@@ -53,6 +53,14 @@ enum ZTNetworkStatus: Int, Codable {
     }
 }
 
+/// lastConflict 原始码（跨进程/UI 契约）：address=地址冲突 / subnet=网段冲突 /
+/// timeout=连接服务器超时（App 侧判定自动断开时记录）。
+enum ConflictCode {
+    static let address = "address"
+    static let subnet = "subnet"
+    static let timeout = "timeout"
+}
+
 /// 一套可独立切换的 Planet 配置。Network 与 Moon 均通过 planetId 归属于它。
 struct PlanetProfile: Codable, Identifiable, Equatable {
     static let officialId = "official"
@@ -88,8 +96,8 @@ struct NetworkEntry: Codable, Identifiable, Equatable {
     var customDns: [String]
     /// nil 仅用于兼容升级前的数据，首次读取时会迁移到当时选中的 Planet。
     var planetId: String? = nil
-    /// 最近一次冲突原因原始码（"address"/"subnet"）：冲突自动断开时记录，
-    /// 卡片显示「地址/网段冲突,断开」；再次手动开启时清除。nil = 无冲突记录。
+    /// 最近一次断开原因原始码（"address"/"subnet"/"timeout"，见 ConflictCode）：
+    /// 冲突或连接超时自动断开时记录，卡片显示对应原因；再次手动开启时清除。
     var lastConflict: String? = nil
 }
 

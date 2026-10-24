@@ -7,6 +7,10 @@ import UIKit
 /// 数据源：App Group 共享文件/UserDefaults + StatusStore Darwin 通知 + 定时查询
 @MainActor
 final class AppState: ObservableObject {
+    /// "连接服务器"阶段（核心连行星根服务器）的超时阈值：到点仍未 online
+    /// 判定物理网络故障，全部启用网络自动断开。
+    static let connectTimeout: TimeInterval = 30
+
     @Published var planets: [PlanetProfile] = []
     @Published var selectedPlanetId: String = PlanetProfile.officialId
     @Published var activePlanetId: String = PlanetProfile.officialId
@@ -31,6 +35,11 @@ final class AppState: ObservableObject {
     @Published var networkConflicts: [String: String] = [:]
     @Published var networkConfigs: [String: NetworkConfigSnapshot] = [:]
     @Published var vpnRunning: Bool = false
+    /// VPN 起跑（观察到 vpnRunning 且未 online）的时刻，卡片"连接服务器"
+    /// 分段展示与超时判定的共同起点；online 达成或 VPN 停止时清空。
+    @Published private(set) var connectStartedAt: Date?
+    /// 连接超时任务（App 侧计时；后台挂起冻结，回前台经 evaluateConnectTimer 补触发）。
+    private var connectTimeoutTask: Task<Void, Never>?
     /// 首页自定义背景图（nil = 未设置，页面用纯底色）
     @Published var backgroundImage: UIImage? = BackgroundImageStore.load()
 
@@ -141,6 +150,10 @@ final class AppState: ObservableObject {
             online = false
             networkStatuses = [:]
             networkConfigs = [:]
+            // 核心随行星切换重启，连接超时窗口重新起算
+            connectTimeoutTask?.cancel()
+            connectTimeoutTask = nil
+            connectStartedAt = nil
         }
         VPNManager.shared.connectionStatus { status in
             let running = status == .connected || status == .connecting || status == .reasserting
@@ -162,7 +175,55 @@ final class AppState: ObservableObject {
         networkStatuses = StatusStore.networkStatusesTyped
         networkConflicts = StatusStore.networkConflicts
         autoDisconnectConflictedNetworks()
+        evaluateConnectTimer()
         if !nodeId.isEmpty { cacheNodeId(nodeId) }
+    }
+
+    /// 连接计时的起止与补偿判定：vpnRunning 且未 online 且有启用网络时起算；
+    /// online 达成或 VPN 停止即取消。App 后台挂起时计时任务冻结，回前台后的
+    /// 状态刷新走"已超期"分支补触发，不依赖计时器本身到点。
+    private func evaluateConnectTimer() {
+        if vpnRunning, !online,
+           AppConfigStore.readActiveNetworks().contains(where: { $0.lastActivated }) {
+            if let start = connectStartedAt {
+                // 补触发：后台冻结错过到点，按已耗时直接判超时
+                if Date().timeIntervalSince(start) >= Self.connectTimeout {
+                    disconnectOnConnectTimeout()
+                }
+            } else {
+                connectStartedAt = Date()
+                connectTimeoutTask = Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: UInt64(Self.connectTimeout * 1_000_000_000))
+                    guard !Task.isCancelled else { return }
+                    disconnectOnConnectTimeout()
+                }
+            }
+        } else {
+            connectTimeoutTask?.cancel()
+            connectTimeoutTask = nil
+            connectStartedAt = nil
+        }
+    }
+
+    /// 连接超时自动断开：核心起跑超过 connectTimeout 仍未连通行星根服务器，
+    /// 判定物理网络故障，当前行星全部启用网络关闭并记录原因（服务器连不上是
+    /// 共享故障，单关一个无意义），Extension 随配置通知 leave；无剩余启用网络
+    /// 则停 VPN。与冲突自动断开（autoDisconnectConflictedNetworks）同构。
+    private func disconnectOnConnectTimeout() {
+        guard vpnRunning, !online else { return }
+        connectTimeoutTask?.cancel()
+        connectTimeoutTask = nil
+        connectStartedAt = nil
+        let planetId = activePlanetId
+        var updated = AppConfigStore.readNetworks(planetId: planetId)
+        guard updated.contains(where: \.lastActivated) else { return }
+        for index in updated.indices where updated[index].lastActivated {
+            updated[index].lastActivated = false
+            updated[index].lastConflict = ConflictCode.timeout
+        }
+        AppConfigStore.writeNetworks(updated, planetId: planetId)
+        reloadConfig()
+        stopVPNIfNoActiveNetworks()
     }
 
     /// 冲突自动断开：Extension 检出地址/网段冲突（原始码经 StatusStore 透出）后，
@@ -213,6 +274,7 @@ final class AppState: ObservableObject {
             Task { @MainActor in
                 guard let self else { return }
                 self.vpnRunning = (status == .connected || status == .connecting || status == .reasserting)
+                self.evaluateConnectTimer()
                 if self.vpnRunning {
                     VPNManager.shared.query(ProviderRequest(type: "status", nwid: nil)) { reply in
                         Task { @MainActor in
@@ -222,6 +284,7 @@ final class AppState: ObservableObject {
                                 self.cacheNodeId(id)
                             }
                             if let on = reply.online { self.online = on }
+                            self.evaluateConnectTimer()
                             if let v = reply.coreVersion, !v.isEmpty { self.coreVersion = v }
                             if !self.networkStatuses.isEmpty || self.networks.contains(where: { $0.lastActivated }) {
                                 self.networkStatuses = StatusStore.networkStatusesTyped
