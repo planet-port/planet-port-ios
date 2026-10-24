@@ -9,7 +9,7 @@ import UIKit
 final class AppState: ObservableObject {
     /// "连接服务器"阶段（核心连行星根服务器）的超时阈值：到点仍未 online
     /// 判定物理网络故障，全部启用网络自动断开。
-    static let connectTimeout: TimeInterval = 30
+    static let connectTimeout: TimeInterval = 360
 
     @Published var planets: [PlanetProfile] = []
     @Published var selectedPlanetId: String = PlanetProfile.officialId
