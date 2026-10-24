@@ -2800,19 +2800,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "When enabled, this network's default route goes through ZeroTier, effective immediately"
+            "value": "When enabled, this network's default route goes through ZeroTier. Unavailable while multiple networks are connected"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "开启后该网络的默认路由经 ZeroTier，立即生效"
+            "value": "开启后网络的默认路由经 ZeroTier。多网络同时连接时不可用。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "開啟後該網路的預設路由經 ZeroTier，立即生效"
+            "value": "開啟後網路的預設路由經 ZeroTier。多網路同時連線時不可用。"
           }
         }
       }
