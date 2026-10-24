@@ -1,0 +1,52 @@
+# git-cliff 配置：解析 Conventional Commits，生成中文更新日志。
+# 版本号规则（SemVer）：feat!/BREAKING CHANGE → MAJOR，feat → MINOR，其余 → PATCH。
+
+[changelog]
+header = """
+# 更新日志
+
+所有显著变更均记录于此。版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。\n
+"""
+body = """
+{% if version %}\
+## {{ version }}（{{ timestamp | date(format="%Y-%m-%d") }}）
+{% else %}\
+## 未发布
+{% endif %}\
+{% for group, commits in commits | group_by(attribute="group") %}\
+### {{ group | upper_first }}
+
+{% for commit in commits %}\
+- {% if commit.scope %}**{{ commit.scope }}：**{% endif %}{{ commit.message | split(pat="\n") | first | trim }}
+{% endfor %}\
+
+{% endfor %}\
+"""
+trim = true
+footer = ""
+
+[git]
+conventional_commits = true
+filter_unconventional = true
+split_commits = false
+protect_breaking_commits = true
+tag_pattern = "v[0-9].*"
+sort_commits = "oldest"
+commit_parsers = [
+    { message = "^feat", group = "新增" },
+    { message = "^fix", group = "修复" },
+    { message = "^perf", group = "性能" },
+    { message = "^refactor", group = "重构" },
+    { message = "^docs", group = "文档" },
+    { message = "^style", group = "样式" },
+    { message = "^test", group = "测试" },
+    { message = "^build", group = "构建" },
+    { message = "^ci", group = "CI" },
+    { message = "^revert", group = "回滚" },
+    { message = "^chore\\(release\\)", skip = true },
+    { message = "^chore", skip = true },
+    # 历史提交曾用中文类型前缀（修复/隧道/配色等），归入对应组或"其他"
+    { message = "^修复", group = "修复" },
+    { message = ".*", group = "其他" },
+]
+filter_commits = true
