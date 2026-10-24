@@ -5,13 +5,13 @@
 
 ## 背景与目标
 
-- 图标体系从 SF Symbol 换为 92 个动物图标（SVG 原稿在 `docs/design/animals/` ），白色矢量、随机底色，名称随机建议复用动物本地化名。
+- 图标体系从 SF Symbol 换为 92 个动物图标（SVG 原稿在 `../Resources/ios/design/animals/` ，已移出仓库），白色矢量、随机底色，名称随机建议复用动物本地化名。
 - 新增行星页身份区重构：图标在上、名称行内编辑在下、随机按钮重掷图形+底色。
 - 全局补齐复制交互（ID/MAC/IP/节点 ID）、网络 ID 二维码分享、planet 文件系统分享。
 
 ## 一、图标资产管线
 
-1. 转换脚本（一次性工具，放 `docs/design/animals/convert-to-pdf.sh`）：`fill="currentColor"` 替换为 `#FFFFFF`，`rsvg-convert -f pdf` 输出矢量 PDF（工具链：`brew install librsvg`）。
+1. 转换脚本（一次性工具，放 `../Resources/ios/design/animals/convert-to-pdf.sh`（与源图同目录））：`fill="currentColor"` 替换为 `#FFFFFF`，`rsvg-convert -f pdf` 输出矢量 PDF（工具链：`brew install librsvg`）。
 2. 生成 92 个 imageset：命名 `animal-<key>`（key 即文件名去扩展名，如 `animal-cat`），single scale、Preserve Vector Data。白色直接烧进 PDF（非 template 渲染；若日后需动态换色再改 template）。
 3. 动物名本地化：`Localizable.xcstrings` 新增 `animal.<key>` × 92 × 3 语言（zh-Hans / zh-Hant / en）。选择器展示与随机命名共用同一 key。翻译须准确（如 anteater=食蚁兽/食蟻獸/Anteater）。
 
@@ -22,7 +22,7 @@
 - `PlanetProfile.icon: String?` 语义变更：存动物 key（如 `"cat"`）。有有效动物 key（用户主动设置过）→ 永远使用该值，不再走任何自动。解码兼容：nil 或旧值不在动物表（SF Symbol 名）→ 视为未设置，按**名称**哈希确定性选一个动物（名称不变则动物不变；同名行星得到同一动物）。无需迁移脚本。
 - 新增 `PlanetProfile.iconColor: String?`（hex，如 `"#D44037"`）。nil → 回退 ThemeManager tint 按 id 哈希（已存在行星外观不变）。Codable 可选新字段，老数据解码正常。
 - 随机底色：随机 HSL，饱和度 0.45–0.85、亮度 0.32–0.55，转 hex 存储；白图形对比度有保证。
-- `PlanetIcon.catalog` 换为 92 个动物 key；`symbol(for:)` 更名/改返回动物 key，回退哈希源为名称；底色回退哈希源保持 id（老行星颜色不变）；官方行星整块磁贴资产不变。
+- `PlanetIcon.catalog` 换为 92 个动物 key；`symbol(for:)` 更名/改返回动物 key，回退哈希源为名称；底色回退哈希源保持 id（老行星颜色不变）；官方行星与私有行星同规则（名称哈希回退、底色 id 哈希），无特判（原官方磁贴方案已废弃丢弃）。
 
 ## 三、新增行星页面（AddPlanetPage / AddPlanetForm）
 
@@ -55,7 +55,7 @@ planet 为二进制（几百字节～数 KB），QR 二进制上限 2953B；接�
 - 动物 key 解析失败/资产缺失：回退哈希动物（保证有图可渲染）。
 - `iconColor` hex 解析失败：回退 tint 哈希色。
 - ShareLink 的 planet 文件位于 App Group `datastore/planets/`，分享面板直接读该 URL；文件被删（并发删除）时图标隐藏。
-- 官方行星（kind == .official）不走动物体系，磁贴与只读逻辑不变。
+- 官方行星（kind == .official）图标/底色与私有行星同规则；其只读与不可删除逻辑不变。
 
 ## 验证方式
 
