@@ -121,7 +121,7 @@ struct PlanetSettingsView: View {
     private var infoSection: some View {
         Section {
             row("World ID", app.planetWorldIds[planetId] ?? "—")
-            row(loc("planet.info.nodeId"), nodeIDText)
+            CopyableRow(title: loc("planet.info.nodeId"), text: nodeIDText, showsIcon: false)
             if let planet {
                 row(loc("common.type"),
                     isOfficial ? loc("planet.info.officialKind")
@@ -131,7 +131,7 @@ struct PlanetSettingsView: View {
                 //     row("文件", fileName)
                 // }
                 if let info = PlanetImporter.inspectPlanetFile(planet) {
-                    row(loc("planet.info.fileSize"), locFileSize(info.fileSize))
+                    fileSizeRow(info)
                     row(loc("planet.info.revision"), Self.timestampText(info.timestamp))
                 }
             }
@@ -144,6 +144,35 @@ struct PlanetSettingsView: View {
         // 当前激活行星优先显示实时值，其余/离线回退到缓存。
         if planetId == app.activePlanetId, !app.nodeId.isEmpty { return app.nodeId }
         return app.planetNodeIds[planetId] ?? "—"
+    }
+
+    /// 文件大小行:值后附分享按钮(系统分享面板,可保存到"文件"/隔空投送等)。
+    /// 文件不存在(并发删除)时不显示按钮。
+    @ViewBuilder
+    private func fileSizeRow(_ info: (worldId: UInt64, timestamp: UInt64, fileSize: Int)) -> some View {
+        HStack {
+            Text(loc("planet.info.fileSize"))
+            Spacer()
+            Text(locFileSize(info.fileSize))
+                .foregroundStyle(.secondary)
+                .font(.system(.body, design: .monospaced))
+            if let url = planetFileURL {
+                ShareLink(item: url, preview: SharePreview(url.lastPathComponent)) {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(Color(uiColor: .tertiaryLabel))
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.borderless)
+                .accessibilityLabel(Text("common.share"))
+            }
+        }
+    }
+
+    private var planetFileURL: URL? {
+        guard let fileName = planet?.fileName else { return nil }
+        let url = AppGroup.planetsDir.appendingPathComponent(fileName)
+        return FileManager.default.fileExists(atPath: url.path) ? url : nil
     }
 
     private static func timestampText(_ ts: UInt64) -> String {
