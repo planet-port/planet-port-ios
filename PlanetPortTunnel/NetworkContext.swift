@@ -74,6 +74,18 @@ final class NetworkContext {
     var statArpReply = 0   // 收到 ARP 应答
     var statInV4 = 0       // 收到核心 IPv4 包
     var statKeepalive = 0  // 保活帧已发
+    // 多网络故障定位（双网时仅后加入网络可用）：应答时间线、入站请求、核心收包结果
+    var statArpInReq = 0           // 收到远端 ARP 请求
+    var statArpInReqHit = 0        // 其中问的是本网络地址（已应答）
+    var statArpReplyNoPending = 0  // 收到应答但无对应待决（迟到/串网/保活探测回包）
+    var statCoreReject = 0         // processVirtualNetworkFrame 返回非 OK
+    var lastCoreRejectCode = 0     // 最近一次非 OK 返回码（ZT_ResultCode）
+    var lastArpReplyAt: Date?      // 最近一次收到 ARP 应答的时刻
+    var pendingSince: [UInt32: Date] = [:]  // 待决目标首包时刻（诊断老化时长）
+    var statSrcMismatch = 0        // 出站包源 IP 不属于本网络（源地址选错的直接证据）
+    var lastSrcMismatch: UInt32 = 0  // 最近一次源不符的源 IP
+    var statNatOut = 0             // 出站源地址已改写（NAT）
+    var statNatIn = 0              // 入站目的地址已回写（NAT）
 
     init(nwid: UInt64, mac: UInt64, ipv4Strings: [String], ipv6Strings: [String], routes: [String]) {
         self.nwid = nwid

@@ -435,6 +435,13 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         trace.append("快照 networkConfigs=\(networkConfigs.keys.map { String(format: "%016llx", $0) }.sorted())")
         trace.append("includedV4=" + v4Routes.map { "\($0.destinationAddress)/\($0.destinationSubnetMask)" }.joined(separator: ", "))
         trace.append("includedV6=" + v6Routes.map { "\($0.destinationAddress)/\($0.destinationNetworkPrefixLength)" }.joined(separator: ", "))
+        // 核心侧 peer 可达性摘要（与数据面计数同屏对照：ARP 无回应时先看对端路径是否还活着）
+        let peers = (bridge?.peers() ?? [])
+        let leafs = peers.filter { $0.role == 0 }
+        let leafLine = leafs.prefix(10)
+            .map { String(format: "%010llx", $0.address) + "(\($0.latency)ms,\($0.path.isEmpty ? "relay" : $0.path))" }
+            .joined(separator: " ")
+        trace.append("peers leaf=\(leafs.count) moon=\(peers.filter { $0.role == 1 }.count) planet=\(peers.filter { $0.role == 2 }.count) [\(leafLine)]")
         if let sum = converter?.debugSummary() { trace.append(sum) }
         StatusStore.applyTrace = trace.joined(separator: "\n")
         NSLog("[PlanetPort] applyTrace\n%@", StatusStore.applyTrace)
