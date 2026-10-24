@@ -4,8 +4,11 @@ import UniformTypeIdentifiers
 /// 内嵌在首页网络列表位置的添加 Planet 表单（右划到末位占位页时显示）。
 /// 卡片预览与表单实时同步；文件/URL 先就绪，再点"添加"落库。
 struct AddPlanetForm: View {
-    /// 与首页 Pager 的预览卡片共享的名称。
+    /// 与首页 Pager 的预览卡片共享的名称(编辑已移至预览身份区,此处只读)。
     @Binding var name: String
+    /// 身份(由预览区持有,添加时随名称一并落库)。
+    let animal: String
+    let colorHex: String
     let onImported: (PlanetProfile) -> Void
 
     @EnvironmentObject private var app: AppState
@@ -58,21 +61,6 @@ struct AddPlanetForm: View {
             //     Text("添加私有行星")
             //         .font(.system(size: 16, weight: .semibold))
             // }
-
-            // 名称 + 随机换名
-            HStack(spacing: 10) {
-                field($name, placeholder: loc("addplanet.namePlaceholder"))
-                Button {
-                    name = PlanetNameSuggest.random(excluding: Set(app.planets.map(\.name)))
-                } label: {
-                    Image(systemName: "arrow.triangle.2.circlepath")
-                        .font(.body.weight(.medium))
-                        .frame(width: 42, height: 42)
-                        .background(.quaternary, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(Text("addplanet.randomName"))
-            }
 
             // 选择文件独占一行：padding/背景放进 label，整块组件（含背景）都是点击热区。
             Button {
@@ -179,7 +167,8 @@ struct AddPlanetForm: View {
             return
         }
         do {
-            let profile = try PlanetImporter.importPlanetData(data, name: trimmedName)
+            let profile = try PlanetImporter.importPlanetData(data, name: trimmedName,
+                                                              icon: animal, iconColor: colorHex)
             pendingData = nil
             url = ""
             onImported(profile)
@@ -206,19 +195,5 @@ struct AddPlanetForm: View {
                 }
             }
         }
-    }
-}
-
-/// 随机 Planet 命名：知名星球（太阳系 + 星战等流行文化），生成时与现有名称去重。
-enum PlanetNameSuggest {
-    private static let names = [
-        "Mars", "Venus", "Jupiter", "Saturn", "Mercury", "Neptune", "Uranus",
-        "Tatooine", "Hoth", "Endor", "Naboo", "Coruscant", "Alderaan", "Bespin", "Dagobah",
-        "Pandora", "Vulcan", "Krypton", "Asgard", "Arrakis", "Cybertron", "Gallifrey",
-    ]
-
-    static func random(excluding used: Set<String> = []) -> String {
-        let candidates = names.filter { !used.contains($0) }
-        return (candidates.isEmpty ? names : candidates).randomElement() ?? "Mars"
     }
 }

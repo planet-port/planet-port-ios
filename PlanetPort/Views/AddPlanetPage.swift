@@ -1,34 +1,37 @@
 import SwiftUI
 
-/// 末位"添加"页：虚线预览身份区（占位语义）+ 大标题 + 内嵌表单，
-/// 与行星页的布局语言刻意区分，一眼可辨"这是创建流程"。
-/// 预览名称与 HomeView 共享（Binding）：由本页生成/去重，父级无需参与。
+/// 末位"添加"页:身份预览区(图标 + 行内名称编辑 + 随机按钮)+ 大标题 + 内嵌表单,
+/// 与行星页的布局语言刻意区分,一眼可辨"这是创建流程"。
+/// 预览名称与 HomeView 共享(Binding):由本页生成/去重,父级无需参与。
 struct AddPlanetPage: View {
     @EnvironmentObject private var app: AppState
     @Binding var previewName: String
-    /// 是否停在本页（HomeView 传入 pagerSelection == addTag，与 FAB 隐藏同源）。
-    /// 跟手滑入在快滑时事件粒度不足会闪烁，改为落位驱动的固定入场动画：
-    /// 到达本页时表单从下方弹簧滑入一次，离开时跟随页面整体滑走。
+    /// 是否停在本页(HomeView 传入 pagerSelection == addTag,与 FAB 隐藏同源)。
     let isCurrentPage: Bool
-    /// 表单入场动画状态（false=下方 120pt 待入场）。
+    /// 表单入场动画状态(false=下方 120pt 待入场)。
     @State private var formShown = false
+
+    /// 身份状态:动物 key + 底色 hex。名称未被用户手动编辑前跟随动物本地化名。
+    @State private var animal = PlanetIcon.randomAnimal()
+    @State private var colorHex = PlanetIcon.randomColorHex()
+    @State private var nameEditedByUser = false
+    @State private var showIconSettings = false
 
     var body: some View {
         ScrollView {
             VStack(spacing: 14) {
-                previewCard
+                previewIdentity
                     .padding(.horizontal, 20)
                     .padding(.top, 4)
                 header
                     .padding(.horizontal, 20)
-                AddPlanetForm(name: $previewName) { profile in
+                AddPlanetForm(name: $previewName, animal: animal, colorHex: colorHex) { profile in
                     app.reloadConfig()
                     app.selectPlanet(profile)
-                    // 添加成功后换一个新的随机名，避免与刚添加的行星重名。
-                    previewName = PlanetNameSuggest.random(excluding: Set(app.planets.map(\.name)))
+                    // 添加成功后重掷身份,避免与刚添加的行星同名/同图。
+                    rollIdentity()
                 }
                 .padding(.horizontal, 20)
-                // 落位入场：到达本页时弹簧上滑，离开时随页面滑走（无独立退出动画）。
                 .offset(y: formShown ? 0 : 120)
                 .opacity(formShown ? 1 : 0)
             }
@@ -36,16 +39,10 @@ struct AddPlanetPage: View {
             .padding(.bottom, 96)
         }
         .scrollDismissesKeyboard(.immediately)
-        // 与行星分页一致：忽略底安全区，页面铺到物理屏幕底。
         .ignoresSafeArea(edges: .bottom)
         .onAppear {
-            if previewName.isEmpty {
-                previewName = PlanetNameSuggest.random(excluding: Set(app.planets.map(\.name)))
-            }
+            if previewName.isEmpty { rollIdentity() }
         }
-        // 落位驱动：selection 在滑动过半时即翻转，若立刻播动画，快甩时页面
-        // 迅速就位而表单动画已跑了一半，观感即"从中间冒出"。延迟 0.15s 让
-        // 表单在页面落位后才开始；取消翻回时复位（延迟期内表单本就未显示）。
         .onChange(of: isCurrentPage) { current in
             if current {
                 withAnimation(.spring(response: 0.4, dampingFraction: 0.85).delay(0.15)) {
@@ -55,19 +52,74 @@ struct AddPlanetPage: View {
                 formShown = false
             }
         }
+        .sheet(isPresented: $showIconSettings) {
+            IconPickerSheet(animal: animal, color: colorHex) { newAnimal, newColor in
+                animal = newAnimal
+                colorHex = newColor
+                syncNameWithAnimal()
+            }
+        }
     }
 
-    /// 预览身份区：虚线边框占位形态，信息随表单实时同步。
-    private var previewCard: some View {
-        let displayName = previewName.trimmingCharacters(in: .whitespacesAndNewlines)
-        let profile = PlanetProfile(id: "preview-\(displayName.isEmpty ? "planet" : displayName)",
-                                    name: displayName.isEmpty ? loc("addplanet.previewName") : displayName,
-                                    kind: .custom, fileName: nil)
-        return PlanetCardView(planet: profile, activePlanetName: "", isActive: false,
-                              app: app, isPreview: true)
+    /// 身份预览区:72pt 图标(点击弹图标设置)+ 行内名称编辑 + 随机按钮(重掷
+    /// 图形+底色)。虚线边框沿用原预览语义:"尚未创建"的占位形态。
+    private var previewIdentity: some View {
+        VStack(spacing: 12) {
+            Button {
+                showIconSettings = true
+            } label: {
+                Image("animal-\(animal)")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 38, height: 38)
+                    .frame(width: 72, height: 72)
+                    .background(Color(hex: colorHex) ?? .gray,
+                                in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(Text("common.icon"))
+
+            HStack(spacing: 8) {
+                TextField(loc("addplanet.namePlaceholder"), text: $previewName)
+                    .font(.system(size: 15, weight: .semibold))
+                    .multilineTextAlignment(.center)
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
+                    .submitLabel(.done)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 9)
+                    .background(.quaternary, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .onChange(of: previewName) { newValue in
+                        if newValue != PlanetIcon.localizedName(animal) {
+                            nameEditedByUser = true
+                        }
+                    }
+                Button {
+                    rollIdentity()
+                } label: {
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                        .font(.body.weight(.medium))
+                        .frame(width: 38, height: 38)
+                        .background(.quaternary, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Text("addplanet.randomIcon"))
+            }
+            .frame(maxWidth: 260)
+        }
+        .padding(14)
+        .background {
+            ZStack {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color(uiColor: .secondarySystemGroupedBackground).opacity(0.5))
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(Color.secondary.opacity(0.35),
+                                  style: StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
+            }
+        }
     }
 
-    /// 标题：headline 主标题 + footnote 副指引，与行星页的低调计数行拉开层级。
+    /// 标题:headline 主标题 + footnote 副指引,与行星页的低调计数行拉开层级。
     private var header: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("planet.add.title")
@@ -78,5 +130,20 @@ struct AddPlanetPage: View {
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// 重掷身份:随机动物(本地化名与现有行星去重)+ 随机底色;名称未手动
+    /// 编辑过则跟随动物本地化名。
+    private func rollIdentity() {
+        animal = PlanetIcon.randomAnimal(excludingNames: Set(app.planets.map(\.name)))
+        colorHex = PlanetIcon.randomColorHex()
+        nameEditedByUser = false
+        previewName = PlanetIcon.localizedName(animal)
+    }
+
+    /// 手动选图形后:名称未手动编辑过则跟随(不去重,名称冲突由用户改名)。
+    private func syncNameWithAnimal() {
+        guard !nameEditedByUser else { return }
+        previewName = PlanetIcon.localizedName(animal)
     }
 }

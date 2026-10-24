@@ -2,14 +2,12 @@ import SwiftUI
 
 /// 首页 Planet 身份区(纵向居中):大图标(实色 tint 底 + 白符号,右上角状态角标)
 /// + 名称 + ID 行(moon>0 时以间隔号跟随「卫星 x n」)。无 chevron,
-/// 按压缩放 ≈0.97 为唯一可点暗示;预览形态外包虚线边框表达"占位/未创建"。
+/// 按压缩放 ≈0.97 为唯一可点暗示。
 struct PlanetCardView: View {
     let planet: PlanetProfile
     let activePlanetName: String
     let isActive: Bool
     @ObservedObject var app: AppState
-    /// 添加页的实时预览:状态固定为"待添加",无角标、无按压反馈。
-    var isPreview = false
     @State private var pressed = false
     /// ID 行复制反馈:图标短暂变对勾。
     @State private var copied = false
@@ -23,25 +21,10 @@ struct PlanetCardView: View {
             idLine
         }
         .frame(maxWidth: .infinity)
-        .padding(.horizontal, isPreview ? 14 : 0)
-        .padding(.vertical, isPreview ? 14 : 0)
-        // 预览形态:虚线边框 + 淡底,明确"尚未创建"的占位语义。
-        .background {
-            if isPreview {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(Color(uiColor: .secondarySystemGroupedBackground).opacity(0.5))
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .strokeBorder(Color.secondary.opacity(0.35),
-                                      style: StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
-                }
-            }
-        }
         // 按压缩放反馈:去 chevron 后的唯一可点暗示(点击导航仍在 HomeView 的 onTapGesture)。
         .scaleEffect(pressed ? 0.97 : 1)
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: pressed)
         .onLongPressGesture(minimumDuration: .infinity, pressing: { pressing in
-            guard !isPreview else { return }
             pressed = pressing
         }, perform: {})
     }
@@ -62,12 +45,10 @@ struct PlanetCardView: View {
             }
             // 右下角灰色齿轮：贴角放置，圆角外扩会把它完全挤出图标外，向内收 4pt。
             .overlay(alignment: .bottomTrailing) {
-                if !isPreview {
-                    Image(systemName: "gearshape.fill")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(Color(uiColor: .systemGray))
-                        .offset(x: 1, y: 1)
-                }
+                Image(systemName: "gearshape.fill")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(Color(uiColor: .systemGray))
+                    .offset(x: 1, y: 1)
             }
     }
 
@@ -99,7 +80,7 @@ struct PlanetCardView: View {
         }
         .contentShape(Rectangle())
         .onTapGesture {
-            guard nodeId != "-", !isPreview else { return }
+            guard nodeId != "-" else { return }
             UIPasteboard.general.string = nodeId
             withAnimation(.easeOut(duration: 0.15)) { copied = true }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
@@ -127,7 +108,6 @@ struct PlanetCardView: View {
     // MARK: - 连接状态(由原首页节点状态卡迁移,按 Planet 维度判断;状态行暂时隐藏)
 
     private var statusText: String {
-        if isPreview { return loc("status.pendingAdd") }
         if isActive && app.vpnRunning {
             return app.online ? loc("status.connected") : loc("status.connecting")
         }
@@ -135,7 +115,6 @@ struct PlanetCardView: View {
     }
 
     private var statusColor: Color {
-        if isPreview { return .secondary }
         if isActive && app.vpnRunning {
             return app.online ? ThemeManager.shared.success : .orange
         }
