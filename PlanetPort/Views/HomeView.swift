@@ -7,6 +7,21 @@ private enum HomeRoute: Hashable {
     case planetSettings(String)
 }
 
+/// 跨行星切换弹窗的阶段：确认（用户选择）→ 断开中（等待旧 VPN 确认断开）。
+/// 用自定义弹窗而非系统 alert：alert 点按钮即自动关闭，无法在断开过程中
+/// 保持展示并告知用户当前状态。
+private enum SwitchPlanetPhase {
+    case confirm(NetworkEntry)
+    case disconnecting(NetworkEntry)
+
+    /// 阶段持有的目标网络（两阶段都需要）。
+    var target: NetworkEntry {
+        switch self {
+        case .confirm(let e), .disconnecting(let e): return e
+        }
+    }
+}
+
 /// 首页：固定毛玻璃区（标题 + 分页圆点）+ 整页 TabView 横向分页（相册式平移）。
 /// 每个 Planet 一页：卡片 + 计数行 + 网络列表；末位是"添加"页。
 /// 横滑翻页、轴锁、跟手阻尼、边缘回弹全部交给 TabView 原生分页；
@@ -23,8 +38,8 @@ struct HomeView: View {
     @State private var pendingNetworks: Set<String> = []
     /// 超出并发上限的确认弹窗（软上限：多开增加耗电，可强制开启）。
     @State private var limitConfirmTarget: NetworkEntry?
-    /// 跨行星开启确认目标（当前行星隧道在跑时，开启他行星网络需先确认切换）。
-    @State private var switchConfirmTarget: NetworkEntry?
+    /// 跨行星切换弹窗阶段（当前行星隧道在跑时，开启他行星网络需先确认切换）。
+    @State private var switchPhase: SwitchPlanetPhase?
     /// 无线数据权限被拒提示（2 小时限流）。
     @State private var permissionDenied = false
     @State private var permissionChecker: CellularPermissionChecker?
@@ -120,15 +135,9 @@ struct HomeView: View {
                 } message: {
                     Text("home.alert.limitConfirm \(displayName(limitConfirmTarget))")
                 }
-            // 跨行星切换确认（行星互斥：切换会断开当前行星的全部连接）
-            .alert("home.alert.switchPlanet", isPresented: Binding(
-                get: { switchConfirmTarget != nil },
-                set: { if !$0 { switchConfirmTarget = nil } })) {
-                    Button("home.alert.openAnyway", role: .destructive) { confirmSwitchPlanet() }
-                    Button("common.cancel", role: .cancel) {}
-                } message: {
-                    Text("home.alert.switchPlanetMessage")
-                }
+            // 跨行星切换弹窗（行星互斥：切换会断开当前行星的全部连接）。
+            // 自定义弹窗承载两个阶段：确认 → 断开中，见 SwitchPlanetPhase。
+            .overlay { switchPlanetDialog }
             // 无线数据权限被拒提示
             .alert("home.alert.noNetworkAccess", isPresented: $permissionDenied) {
                 Button("home.alert.goSettings") { CellularPermissionChecker.openSettings() }
@@ -478,7 +487,7 @@ struct HomeView: View {
         // 跨行星开启：行星互斥，当前行星隧道在跑时切换会断开其全部连接，
         // 先确认再走启动流程。
         if planetId != app.activePlanetId, app.vpnRunning {
-            switchConfirmTarget = entry
+            switchPhase = .confirm(entry)
             return
         }
         // 软上限：新开网络会超出上限时先确认耗电（可强制开启）。
@@ -498,15 +507,124 @@ struct HomeView: View {
         performNetworkActivate(target)
     }
 
-    /// 确认跨行星切换开启（断开当前行星连接后切换）。
+    /// 确认跨行星切换：先断开当前 VPN（弹窗保持展示状态），确认断开后
+    /// 关闭弹窗，稍作稳定等待再启动新行星。直接 stopVPNTunnel 后立刻启动
+    /// 会让旧会话的拆除与新启动竞争，新连接可能被旧拆除打断。
     private func confirmSwitchPlanet() {
-        guard let target = switchConfirmTarget else { return }
-        performNetworkActivate(target)
+        guard let phase = switchPhase else { return }
+        let target = phase.target
+        Self.netLog.info("确认切换行星：目标网络 \(target.networkId, privacy: .public)，开始断开当前 VPN")
+        switchPhase = .disconnecting(target)
+        VPNManager.shared.stopAndWait { confirmed in
+            Task { @MainActor in
+                Self.netLog.info("当前 VPN 断开\(confirmed ? "已确认" : "等待超时")，关闭弹窗并启动新行星")
+                // 弹窗关闭与启动之间留一个短暂稳定窗口（50~150ms 量级），
+                // 让系统完成旧会话资源回收。
+                withAnimation(.easeInOut(duration: 0.15)) { switchPhase = nil }
+                try? await Task.sleep(nanoseconds: 100_000_000)
+                performNetworkActivate(target)
+            }
+        }
+    }
+
+    /// 跨行星切换弹窗：确认阶段（标题 + 说明 + 双按钮）→ 断开阶段（转圈 + 状态）。
+    @ViewBuilder
+    private var switchPlanetDialog: some View {
+        if let phase = switchPhase {
+            ZStack {
+                Color.black.opacity(0.35)
+                    .ignoresSafeArea()
+                    .transition(.opacity)
+                switch phase {
+                case .confirm(let target):
+                    dialogCard {
+                        // 标题与说明：左对齐（系统 alert 同款左对齐排版）。
+                        // 说明里的目标/当前网络名用 markdown 加粗（SwiftUI Text
+                        // 对 LocalizedStringKey 内联渲染 **bold**）。
+                        VStack(spacing: 6) {
+                            Text("home.alert.switchPlanet")
+                                .font(.headline)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            Text("home.alert.switchPlanetMessage \(displayName(target)) \(currentPlanetName)")
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.leading)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    } footer: {
+                        // 系统 alert 同款按钮行：纯文字、平分宽度、细分隔线，
+                        // 取消常规字重、确认加粗 + 主配色（tint）
+                        HStack(spacing: 0) {
+                            Button {
+                                withAnimation(.easeInOut(duration: 0.15)) { switchPhase = nil }
+                            } label: {
+                                Text("common.cancel")
+                                    .font(.body)
+                                    .frame(maxWidth: .infinity, minHeight: 44)
+                            }
+                            .buttonStyle(.plain)
+                            .foregroundStyle(Color.secondary)
+                            Rectangle()
+                                .fill(Color.primary.opacity(0.15))
+                                .frame(width: 0.5, height: 44)
+                            Button {
+                                confirmSwitchPlanet()
+                            } label: {
+                                Text("home.alert.openAnyway")
+                                    .font(.body.weight(.semibold))
+                                    .frame(maxWidth: .infinity, minHeight: 44)
+                            }
+                            .buttonStyle(.plain)
+                            .foregroundStyle(Color.accentColor)
+                        }
+                    }
+                case .disconnecting:
+                    dialogCard {
+                        ProgressView()
+                            .controlSize(.large)
+                        Text("home.switch.disconnecting")
+                            .font(.subheadline.weight(.medium))
+                            .multilineTextAlignment(.center)
+                    }
+                }
+            }
+        }
+    }
+
+    /// 弹窗内容统一容器（宽度、留白与系统 alert 观感对齐）。
+    /// footer（按钮行）通栏贴卡片底边，上方以分隔线隔开——系统 alert 的
+    /// 按钮区就是这种全出血排版，不随内容区留白。
+    @ViewBuilder
+    private func dialogCard<Content: View, Footer: View>(
+        @ViewBuilder content: () -> Content,
+        @ViewBuilder footer: () -> Footer = { EmptyView() }
+    ) -> some View {
+        VStack(spacing: 0) {
+            VStack(spacing: 14) {
+                content()
+            }
+            .padding(20)
+            .frame(maxWidth: .infinity)
+            if Footer.self != EmptyView.self {
+                Divider()
+                footer()
+            }
+        }
+        .frame(maxWidth: 300)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .shadow(color: .black.opacity(0.15), radius: 12, y: 4)
+        .padding(.horizontal, 40)
+        .transition(.scale(scale: 0.95).combined(with: .opacity))
     }
 
     private func displayName(_ entry: NetworkEntry?) -> String {
         guard let entry else { return "" }
         return entry.networkName.isEmpty ? entry.networkId : entry.networkName
+    }
+
+    /// 当前活跃行星展示名（切换弹窗提示用；官方行星走本地化名）。
+    private var currentPlanetName: String {
+        app.planets.first(where: { $0.id == app.activePlanetId })?.displayName ?? ""
     }
 
     /// 启动时检测"无线数据"权限：被拒则提示（2 小时内不重复提醒）。

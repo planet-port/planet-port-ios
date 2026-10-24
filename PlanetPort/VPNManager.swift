@@ -93,6 +93,52 @@ final class VPNManager {
         }
     }
 
+    /// 行星切换专用：停隧道并等待系统确认已断开。
+    /// stopVPNTunnel 是异步生效的，盲等固定时长就启动新隧道，旧会话的拆除
+    /// 可能晚于新启动落地、把新会话打断（切换"连一半被掐断"的根因）。
+    /// 回调参数表示是否确认断开（超时则 false，调用方仍可继续切换）。
+    func stopAndWait(timeout: TimeInterval = 8, completion: @escaping (Bool) -> Void) {
+        loadManager { [weak self] manager, _ in
+            let status = manager.connection.status
+            guard status == .connected || status == .connecting || status == .reasserting else {
+                Self.log.info("stopAndWait：隧道未运行（\(String(describing: status), privacy: .public)），直接视为已断开")
+                completion(true)
+                return
+            }
+            // 与 stop() 相同：先摘 on-demand，避免 Connect 规则把隧道立刻拉回。
+            let doStop = {
+                Self.log.info("stopAndWait stopVPNTunnel（状态 \(String(describing: status), privacy: .public)）")
+                manager.connection.stopVPNTunnel()
+                self?.waitDisconnected(timeout: timeout, completion: completion)
+            }
+            if manager.isOnDemandEnabled {
+                manager.isOnDemandEnabled = false
+                manager.saveToPreferences { _ in doStop() }
+            } else {
+                doStop()
+            }
+        }
+    }
+
+    /// 每 100ms 轮询隧道状态直至断开；超时放弃等待（调用方继续走启动流程）。
+    private func waitDisconnected(timeout: TimeInterval, completion: @escaping (Bool) -> Void) {
+        let deadline = Date().addingTimeInterval(timeout)
+        func check() {
+            connectionStatus { status in
+                if status == .disconnected || status == .invalid {
+                    Self.log.info("stopAndWait：已确认断开")
+                    completion(true)
+                } else if Date() > deadline {
+                    Self.log.error("stopAndWait 超时：隧道仍 \(String(describing: status), privacy: .public)，放弃等待")
+                    completion(false)
+                } else {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: check)
+                }
+            }
+        }
+        check()
+    }
+
     /// planet 开关等需要重启隧道生效
     func restart(completion: ((Bool, String?) -> Void)? = nil) {
         loadManager { [weak self] manager, _ in

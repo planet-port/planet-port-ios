@@ -3880,24 +3880,24 @@
         }
       }
     },
-    "home.alert.switchPlanetMessage" : {
+    "home.alert.switchPlanetMessage %@ %@" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The current planet is connected. Enabling this network will disconnect it and switch planets. Enable anyway?"
+            "value" : "Switching to **%@** will automatically disconnect the connected **%@** network."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "当前行星正在连接中。开启此网络将断开现有连接并切换到该网络所属的行星，仍要开启？"
+            "value" : "切换到 **%@** 网络将自动断开已连接的 **%@** 网络。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "目前行星正在連線中。開啟此網路將中斷現有連線並切換到該網路所屬的行星，仍要開啟？"
+            "value" : "切換到 **%@** 網路將自動中斷已連線的 **%@** 網路。"
           }
         }
       }
@@ -4126,6 +4126,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "網路 · %lld"
+          }
+        }
+      }
+    },
+    "home.switch.disconnecting" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disconnecting current planet…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在断开当前行星连接…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在中斷目前行星連線…"
           }
         }
       }
