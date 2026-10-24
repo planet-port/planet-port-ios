@@ -324,7 +324,7 @@ struct HomeView: View {
                 Rectangle()
                     .fill(.quaternary)
                     .frame(height: 0.5)
-                networkHeader(count: networks.count)
+                networkHeader(count: networks.count, planet: planet)
             }
             .padding(.horizontal, 20)
 
@@ -334,7 +334,7 @@ struct HomeView: View {
                         emptyState
                     } else {
                         ForEach(networks) { entry in
-                            networkCard(entry)
+                            networkCard(entry, planet: planet)
                         }
                     }
                 }
@@ -384,10 +384,11 @@ struct HomeView: View {
     }
 
     /// 计数行：网络区头部，紧贴细分隔线下方。多网络连接中追加已连接数。
-    private func networkHeader(count: Int) -> some View {
+    /// 已连接数取本页行星自己的网络（planetNetworks），不用全局选中页数据。
+    private func networkHeader(count: Int, planet: PlanetProfile) -> some View {
         var text = loc("home.network.header \(count)")
-        if app.selectedPlanetId == app.activePlanetId && app.vpnRunning {
-            let connected = app.networks.filter {
+        if planet.id == app.activePlanetId && app.vpnRunning {
+            let connected = (app.planetNetworks[planet.id] ?? []).filter {
                 $0.lastActivated && app.networkConflicts[$0.networkId] == nil
             }.count
             if connected > 1 {
@@ -420,39 +421,42 @@ struct HomeView: View {
         .onTapGesture { showJoin = true }
     }
 
-    private func networkCard(_ entry: NetworkEntry) -> some View {
-        NetworkCardView(
+    private func networkCard(_ entry: NetworkEntry, planet: PlanetProfile) -> some View {
+        // 卡片显示值（开关、状态、地址）锚定卡片自己的行星而非全局选中页：
+        // 滑页过半时 selection 先行变化，全局判断会让仍可见的旁页卡片
+        // 瞬时翻成开启（被掩蔽的 lastActivated 露出）。
+        let isActivePlanet = planet.id == app.activePlanetId
+        return NetworkCardView(
             entry: entry,
-            cardStatus: NetworkCardStatus(entry: entry, app: app),
+            cardStatus: NetworkCardStatus(entry: entry, app: app, isActivePlanet: isActivePlanet),
             isPending: pendingNetworks.contains(entry.networkId),
-            appearsActive: networkAppearsActive(entry),
-            addresses: app.selectedPlanetId == app.activePlanetId
+            appearsActive: isActivePlanet && entry.lastActivated,
+            addresses: isActivePlanet
                 ? app.networkConfigs[entry.networkId]?.assignedAddrs.map { String($0.split(separator: "/").first ?? Substring($0)) } : nil,
             onToggle: { setNetworkActive(entry, active: $0) },
             onTap: { path.append(.network(entry.networkId)) })
     }
 
-    /// 非当前隧道 Planet 的网络统一显示为关闭，用户可直接打开以完成切换。
-    private func networkAppearsActive(_ entry: NetworkEntry) -> Bool {
-        app.selectedPlanetId == app.activePlanetId && entry.lastActivated
-    }
-
     private func setNetworkActive(_ entry: NetworkEntry, active: Bool) {
+        // 读写一律锚定网络归属的行星（entry.planetId），不依赖全局选中页：
+        // 滑页过半时选中态先行变化，按选中页读写会改错/漏改旁页网络。
+        let planetId = entry.planetId ?? app.selectedPlanetId
         guard active else {
-            var networks = app.networks
+            var networks = AppConfigStore.readNetworks(planetId: planetId)
             guard let index = networks.firstIndex(where: { $0.networkId == entry.networkId }) else { return }
             networks[index].lastActivated = false
-            AppConfigStore.writeNetworks(networks)
+            AppConfigStore.writeNetworks(networks, planetId: planetId)
             app.reloadConfig()
             // 关闭后若该行星下已无启用中的网络，同时停掉 VPN。
-            if app.selectedPlanetId == app.activePlanetId,
+            if planetId == app.activePlanetId,
                !networks.contains(where: { $0.lastActivated }) {
                 VPNManager.shared.stop()
             }
             return
         }
         // 软上限：新开网络会超出上限时先确认耗电（可强制开启）。
-        let activeCount = app.networks.filter { $0.lastActivated && $0.networkId != entry.networkId }.count
+        let activeCount = AppConfigStore.readNetworks(planetId: planetId)
+            .filter { $0.lastActivated && $0.networkId != entry.networkId }.count
         let limit = max(2, AppGroup.defaults.integer(forKey: AppGroup.prefMultiConnectLimit))
         if activeCount >= limit {
             limitConfirmTarget = entry
@@ -483,7 +487,9 @@ struct HomeView: View {
     }
 
     private func performNetworkActivate(_ entry: NetworkEntry) {
-        var networks = app.networks
+        // 同 setNetworkActive：按网络归属行星读写，多网络联动也限制在该行星内。
+        let planetId = entry.planetId ?? app.selectedPlanetId
+        var networks = AppConfigStore.readNetworks(planetId: planetId)
         guard let index = networks.firstIndex(where: { $0.networkId == entry.networkId }) else { return }
         networks[index].lastActivated = true
         // 重新手动开启视为用户已知冲突，清除上次的冲突断开记录
@@ -496,16 +502,16 @@ struct HomeView: View {
                 routeViaTurnedOff = true
             }
         }
-        AppConfigStore.writeNetworks(networks)
+        AppConfigStore.writeNetworks(networks, planetId: planetId)
         app.reloadConfig()
         if routeViaTurnedOff {
             errorTitle = loc("home.error.multiNetworkTitle")
             errorAlert = loc("home.error.multiNetworkMessage")
         }
 
-        // 快速路径：同行星且隧道在跑——writeNetworks 已发配置变更通知，
-        // extension 自动增量 join/leave（不重启核心/VPN），无需再走 VPN 启动流程。
-        if app.selectedPlanetId == app.activePlanetId && app.vpnRunning {
+        // 快速路径：网络所属行星就是隧道行星且隧道在跑——writeNetworks 已发配置
+        // 变更通知，extension 自动增量 join/leave（不重启核心/VPN），无需再走 VPN 启动流程。
+        if planetId == app.activePlanetId && app.vpnRunning {
             pendingNetworks.insert(entry.networkId)
             Task { @MainActor in
                 // 给 extension 一个响应窗口，避免开关上的加载圈一闪而过
@@ -521,7 +527,7 @@ struct HomeView: View {
         }
 
         pendingNetworks.insert(entry.networkId)
-        app.applySelectedPlanetAndStartVPN { ok, error in
+        app.applyPlanetAndStartVPN(planetId) { ok, error in
             Task { @MainActor in
                 pendingNetworks.remove(entry.networkId)
                 app.reloadConfig()

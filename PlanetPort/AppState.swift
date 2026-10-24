@@ -131,9 +131,10 @@ final class AppState: ObservableObject {
         reloadConfig()
     }
 
-    /// 用户主动打开网络时才应用所选 Planet；跨 Planet 时需要重启 Core。
-    func applySelectedPlanetAndStartVPN(completion: @escaping (Bool, String?) -> Void) {
-        let planetChanged = AppConfigStore.activatePlanet(selectedPlanetId)
+    /// 用户主动打开网络时才应用 Planet（取网络归属的行星，而非当前浏览页，
+    /// 避免滑页过程中的选中态错位导致激活错行星）；跨 Planet 时需要重启 Core。
+    func applyPlanetAndStartVPN(_ planetId: String, completion: @escaping (Bool, String?) -> Void) {
+        let planetChanged = AppConfigStore.activatePlanet(planetId)
         activePlanetId = AppConfigStore.activePlanetId
         if planetChanged {
             online = false
@@ -180,7 +181,17 @@ final class AppState: ObservableObject {
             }
             AppConfigStore.writeNetworks(updated, planetId: planetId)
         }
-        if changed { reloadConfig() }
+        if changed {
+            reloadConfig()
+            stopVPNIfNoActiveNetworks()
+        }
+    }
+
+    /// 网络断开/删除后的收敛检查：活跃行星下已无启用网络时自动停掉 VPN，
+    /// 避免隧道无网络空跑（冲突自动断开、删除网络等路径统一走这里）。
+    func stopVPNIfNoActiveNetworks() {
+        guard !AppConfigStore.readActiveNetworks().contains(where: { $0.lastActivated }) else { return }
+        VPNManager.shared.stop()
     }
 
     /// 行星节点 ID 缓存：隧道在跑时读到即持久化到对应行星，离线后仍可显示。

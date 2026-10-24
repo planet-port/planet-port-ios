@@ -96,8 +96,10 @@ struct NetworkDetailView: View {
         }
     }
 
+    /// 详情页数据的查找锚定网络归属的行星（entry.planetId），不依赖全局选中页。
     private var currentEntry: NetworkEntry {
-        app.networks.first { $0.networkId == entry.networkId } ?? entry
+        let list = entry.planetId.flatMap { app.planetNetworks[$0] } ?? []
+        return list.first { $0.networkId == entry.networkId } ?? entry
     }
 
     /// 网络 ID 行:点击复制(无常驻图标,仅二维码入口,避免双图标)。
@@ -139,9 +141,11 @@ struct NetworkDetailView: View {
     }
 
     /// 多网络同时连接时默认路由的唯一性无解，锁定开关（控制面与数据面双侧拦截）。
+    /// 判断锚定本网络所属行星：只有隧道行星下才存在"同时连接"的其他网络。
     private var routeViaLocked: Bool {
-        app.selectedPlanetId == app.activePlanetId
-            && app.networks.contains { $0.networkId != entry.networkId && $0.lastActivated }
+        guard entry.planetId == app.activePlanetId else { return false }
+        let list = entry.planetId.flatMap { app.planetNetworks[$0] } ?? []
+        return list.contains { $0.networkId != entry.networkId && $0.lastActivated }
     }
 
     /// 编辑中的 DNS 与已保存配置是否存在差异（决定"应用"按钮是否出现）。
@@ -151,6 +155,12 @@ struct NetworkDetailView: View {
     }
 
     private func refresh() {
+        // 实时快照只对隧道行星的网络有意义；不同行星可能加入同 ID 的网络，
+        // 非隧道行星不查询，避免拿到隧道行星同名网络的配置（数据串台）。
+        guard entry.planetId == app.activePlanetId else {
+            snapshot = nil
+            return
+        }
         VPNManager.shared.query(ProviderRequest(type: "networkConfig", nwid: entry.networkId)) { reply in
             Task { @MainActor in
                 snapshot = reply?.networkConfig
@@ -158,30 +168,35 @@ struct NetworkDetailView: View {
         }
     }
 
-    /// 热重配路径：写配置文件 + Darwin 通知隧道重读。
+    /// 热重配路径：写配置文件 + Darwin 通知隧道重读。写回网络归属的行星。
     private func applyDNS() {
-        var networks = app.networks
+        let planetId = entry.planetId ?? app.selectedPlanetId
+        var networks = AppConfigStore.readNetworks(planetId: planetId)
         guard let idx = networks.firstIndex(where: { $0.networkId == entry.networkId }) else { return }
         networks[idx].dnsMode = dns.mode
         networks[idx].customDns = dns.mode == .custom ? dns.customServers : []
-        AppConfigStore.writeNetworks(networks)
+        AppConfigStore.writeNetworks(networks, planetId: planetId)
         app.reloadConfig()
     }
 
-    /// 写库 + 通知隧道重配
+    /// 写库 + 通知隧道重配。写回网络归属的行星。
     private func updateRouteViaZeroTier(_ on: Bool) {
-        var networks = app.networks
+        let planetId = entry.planetId ?? app.selectedPlanetId
+        var networks = AppConfigStore.readNetworks(planetId: planetId)
         guard let idx = networks.firstIndex(where: { $0.networkId == entry.networkId }) else { return }
         networks[idx].routeViaZeroTier = on
-        AppConfigStore.writeNetworks(networks)
+        AppConfigStore.writeNetworks(networks, planetId: planetId)
         app.reloadConfig()
     }
 
     private func deleteNetwork() {
-        var networks = app.networks
+        let planetId = entry.planetId ?? app.selectedPlanetId
+        var networks = AppConfigStore.readNetworks(planetId: planetId)
         networks.removeAll { $0.networkId == entry.networkId }
-        AppConfigStore.writeNetworks(networks)
+        AppConfigStore.writeNetworks(networks, planetId: planetId)
         app.reloadConfig()
+        // 删掉的是最后一个启用的网络时，VPN 随之关闭，不空跑。
+        app.stopVPNIfNoActiveNetworks()
         dismiss()
     }
 

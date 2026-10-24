@@ -40,6 +40,9 @@ final class VPNManager {
         loadManager { [weak self] manager, created in
             guard let self else { return }
             if created {
+                // 按需规则必须随首次保存一起持久化；放在保存后重载再设置的话，
+                // 后续 start 不会触发 save，规则只留在内存里，断开后不生效。
+                self.applyOnDemand(manager)
                 // 首次创建：保存后必须丢弃内存对象、从偏好重载才能拿到可启动的
                 // session，未重载的对象直接 startVPNTunnel 会报 configurationInvalid。
                 manager.saveToPreferences { [weak self] error in
@@ -50,7 +53,6 @@ final class VPNManager {
                     }
                     self.manager = nil
                     self.loadManager { m, _ in
-                        self.applyOnDemand(m)
                         self.start(m, completion: completion)
                     }
                 }
@@ -66,6 +68,10 @@ final class VPNManager {
 
     func stop() {
         loadManager { manager, _ in
+            // 未在运行的隧道跳过：stop 用于"无网络时空跑"等自动收敛场景，
+            // 可能被反复调用，保持幂等安全。
+            let status = manager.connection.status
+            guard status == .connected || status == .connecting || status == .reasserting else { return }
             manager.connection.stopVPNTunnel()
         }
     }

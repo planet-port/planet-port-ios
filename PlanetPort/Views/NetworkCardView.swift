@@ -9,10 +9,14 @@ struct NetworkCardStatus {
     let text: String
     let color: Color
 
-    init(entry: NetworkEntry, app: AppState) {
+    init(entry: NetworkEntry, app: AppState, isActivePlanet: Bool) {
         // 状态只有：未连接 / 建立隧道 / 待授权 / 核心实时状态（正在初始化、在线等）。
-        // 非当前隧道行星的网络也显示"未连接"——开关为关，打开即切换行星，无需中间状态。
-        if !app.vpnRunning {
+        // 非当前隧道行星的网络一律显示"未连接"——开关为关，打开即切换行星，无需中间状态。
+        // 判断锚定卡片自己的行星而非全局选中页：滑页过程中 selection 先行变化，
+        // 全局判断会让旁页卡片瞬时取错显示值。
+        if !isActivePlanet {
+            self.init(text: loc("status.disconnected"), color: .secondary)
+        } else if !app.vpnRunning {
             self.init(text: entry.lastActivated ? loc("status.establishing")
                                                 : loc("status.disconnected"),
                       color: entry.lastActivated ? .orange : .secondary)
