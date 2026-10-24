@@ -41,7 +41,7 @@ struct PlanetSettingsView: View {
         .onAppear { name = planet?.name ?? "" }
         .sheet(isPresented: $showIconPicker) {
             IconPickerSheet(animal: PlanetIcon.animalKey(for: planet ?? .official),
-                            color: planet?.iconColor) { animal, color in
+                            color: PlanetIcon.effectiveColorHex(for: planet)) { animal, color in
                 do {
                     try PlanetImporter.updateIcon(planet ?? .official, icon: animal, color: color)
                     app.reloadConfig()

@@ -41,6 +41,20 @@ enum PlanetIcon {
         return tints[djb2(of: planet.id) % tints.count]
     }
 
+    /// 算法回退底色 hex(按 id 哈希取当前色表,与 tint(for:) 同链路),
+    /// 供图标选择器等需要 hex 形态的场合。
+    static func fallbackColorHex(for planet: PlanetProfile) -> String {
+        let tints = ThemeManager.shared.planetTints
+        return String(format: "#%06x", ThemeManager.hex(of: tints[djb2(of: planet.id) % tints.count]))
+    }
+
+    /// 有效底色 hex:自定义优先(解析成功),否则算法回退色;planet 为 nil 时 nil。
+    static func effectiveColorHex(for planet: PlanetProfile?) -> String? {
+        guard let planet else { return nil }
+        if let hex = planet.iconColor, Color(hex: hex) != nil { return hex }
+        return fallbackColorHex(for: planet)
+    }
+
     /// 随机底色 hex:随机色相 + 中低亮度域(饱和度 0.45–0.85、亮度 0.32–0.55),
     /// 白色图形对比度有保证。
     static func randomColorHex() -> String {

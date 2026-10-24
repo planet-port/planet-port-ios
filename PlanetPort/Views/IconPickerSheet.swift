@@ -76,13 +76,13 @@ struct IconPickerSheet: View {
                     selectedAnimal = key
                 } label: {
                     VStack(spacing: 6) {
-                        // 白色 PDF 需深色底才可见:统一中性深灰磁贴。
+                        // 白色 PDF 需深色底才可见:磁贴用当前选中底色。
                         Image("animal-\(key)")
                             .resizable()
                             .scaledToFit()
                             .frame(width: 26, height: 26)
                             .frame(width: 48, height: 48)
-                            .background(Color(white: 0.35),
+                            .background(Color(hex: selectedColor) ?? .gray,
                                         in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                         Text(PlanetIcon.localizedName(key))
                             .font(.caption2)
