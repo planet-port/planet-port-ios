@@ -25,7 +25,8 @@ enum PlanetImporter {
     // }
 
     @discardableResult
-    static func importPlanetData(_ data: Data, name: String) throws -> PlanetProfile {
+    static func importPlanetData(_ data: Data, name: String,
+                                 icon: String? = nil, iconColor: String? = nil) throws -> PlanetProfile {
         guard data.first == 0x01 else { throw ImportError.badHeader }
         let normalizedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalizedName.isEmpty else { throw ImportError.emptyName }
@@ -37,7 +38,8 @@ enum PlanetImporter {
                                                 withIntermediateDirectories: true)
         try data.write(to: AppGroup.planetsDir.appendingPathComponent(fileName), options: .atomic)
 
-        let profile = PlanetProfile(id: id, name: normalizedName, kind: .custom, fileName: fileName)
+        let profile = PlanetProfile(id: id, name: normalizedName, kind: .custom,
+                                    fileName: fileName, icon: icon, iconColor: iconColor)
         var profiles = AppConfigStore.readPlanets()
         profiles.append(profile)
         AppConfigStore.writePlanets(profiles)
@@ -112,11 +114,12 @@ enum PlanetImporter {
         return ids
     }
 
-    /// 更新自定义图标；nil 表示恢复自动生成。
-    static func updateIcon(_ profile: PlanetProfile, to symbol: String?) throws {
+    /// 更新自定义图标(动物 key)与底色 hex;icon 传 nil 表示未设置(按名称哈希回退)。
+    static func updateIcon(_ profile: PlanetProfile, icon: String?, color: String?) throws {
         var profiles = AppConfigStore.readPlanets()
         guard let index = profiles.firstIndex(where: { $0.id == profile.id }) else { return }
-        profiles[index].icon = symbol
+        profiles[index].icon = icon
+        profiles[index].iconColor = color
         AppConfigStore.writePlanets(profiles)
     }
 

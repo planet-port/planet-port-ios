@@ -42,7 +42,8 @@ struct PlanetSettingsView: View {
         .sheet(isPresented: $showIconPicker) {
             IconPickerSheet(current: planet?.icon ?? "") { symbol in
                 do {
-                    try PlanetImporter.updateIcon(planet ?? .official, to: symbol)
+                    try PlanetImporter.updateIcon(planet ?? .official, icon: symbol,
+                                                  color: planet?.iconColor)
                     app.reloadConfig()
                 } catch {
                     alert = error.localizedDescription
@@ -92,8 +93,13 @@ struct PlanetSettingsView: View {
                     Text("common.icon")
                     Spacer()
                     if let planet {
-                        Image(systemName: PlanetIcon.symbol(for: planet))
-                            .foregroundStyle(PlanetIcon.tint(for: planet))
+                        Image(PlanetIcon.assetName(for: planet))
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 14, height: 14)
+                            .frame(width: 24, height: 24)
+                            .background(PlanetIcon.tint(for: planet),
+                                        in: RoundedRectangle(cornerRadius: 7, style: .continuous))
                     }
                     if !isOfficial {
                         Image(systemName: "chevron.right")

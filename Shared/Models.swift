@@ -64,8 +64,11 @@ struct PlanetProfile: Codable, Identifiable, Equatable {
     var kind: PlanetKind
     /// 私有 Planet 在 datastore/planets 下的文件名；官方 Planet 使用 Core 内置文件。
     var fileName: String?
-    /// 自定义 SF Symbol 图标名；nil 时按 id 哈希自动生成。
+    /// 自定义图标名。语义:动物 key(如 "cat",对应 Assets 的 animal-cat.imageset);
+    /// 有效 key 永久生效,未设置/旧值无效时按名称哈希回退(见 PlanetIcon)。
     var icon: String? = nil
+    /// 自定义图标底色(#RRGGBB hex);nil 时按 id 哈希回退 ThemeManager tint。
+    var iconColor: String? = nil
     /// 该行星下本机节点 ID 的缓存（隧道运行时回读并持久化，离线可显示）。
     var lastNodeId: String? = nil
 

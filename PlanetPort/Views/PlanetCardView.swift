@@ -50,12 +50,13 @@ struct PlanetCardView: View {
 
     /// 72pt 实色图标 + 右上角骑缝状态角标 + 右下角灰色齿轮（暗示整卡可点进设置）。
     private var iconWithBadge: some View {
-        let tint = PlanetIcon.tint(for: planet)
-        return Image(systemName: PlanetIcon.symbol(for: planet))
-            .font(.system(size: 30, weight: .semibold))
-            .foregroundStyle(.white)
+        Image(PlanetIcon.assetName(for: planet))
+            .resizable()
+            .scaledToFit()
+            .frame(width: 38, height: 38)
             .frame(width: 72, height: 72)
-            .background(tint, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+            .background(PlanetIcon.tint(for: planet),
+                        in: RoundedRectangle(cornerRadius: 20, style: .continuous))
             .overlay(alignment: .topTrailing) {
                 if isActive && app.hasActivatedPlanet { statusBadge }
             }
