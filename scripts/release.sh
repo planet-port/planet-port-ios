@@ -10,9 +10,9 @@ command -v git-cliff >/dev/null 2>&1 || {
     exit 1
 }
 
-# 工作区必须干净，避免把无关改动卷进发版提交
-[ -z "$(git status --porcelain)" ] || {
-    echo "错误：工作区不干净，请先提交或暂存改动" >&2
+# 已跟踪文件必须无改动，避免把无关改动卷进发版提交（未跟踪文件不阻塞）
+git diff --quiet && git diff --cached --quiet || {
+    echo "错误：已跟踪文件有未提交改动，请先提交或暂存" >&2
     exit 1
 }
 
@@ -22,6 +22,13 @@ case "$NEXT" in
     v*.*) NEXT=${NEXT#v} ;;
     *) echo "错误：无法计算下一版本（自上次 tag 后可能没有新提交）" >&2; exit 1 ;;
 esac
+
+# 无新提交时 git-cliff 会原样返回当前版本，防重复发版
+LATEST=$(git describe --tags --abbrev=0 | tr -d '[:space:]' | sed 's/^v//')
+if [ "$NEXT" = "$LATEST" ]; then
+    echo "错误：自 v$LATEST 后没有可触发版本变动的提交" >&2
+    exit 1
+fi
 
 echo "下一版本：v$NEXT"
 
