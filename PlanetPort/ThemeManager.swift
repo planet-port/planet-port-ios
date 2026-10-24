@@ -105,11 +105,11 @@ final class ThemeManager {
         return (channel(r) << 16) | (channel(g) << 8) | channel(b)
     }
 
-    // MARK: - 色彩数学（HSL）
+    // MARK: - 色彩数学（HSL，设置页取色器复用故为 internal）
 
-    private struct HSL { var h: Double; var s: Double; var l: Double }  // h: 0..<360
+    struct HSL { var h: Double; var s: Double; var l: Double }  // h: 0..<360
 
-    private static func color(_ hsl: HSL) -> Color {
+    static func color(_ hsl: HSL) -> Color {
         let rgb = hslToRgb(hsl)
         return Color(red: rgb.0, green: rgb.1, blue: rgb.2)
     }
@@ -121,7 +121,7 @@ final class ThemeManager {
         })
     }
 
-    private static func hsl(_ hex: UInt32) -> HSL {
+    static func hsl(_ hex: UInt32) -> HSL {
         let r = Double((hex >> 16) & 0xFF) / 255
         let g = Double((hex >> 8) & 0xFF) / 255
         let b = Double(hex & 0xFF) / 255

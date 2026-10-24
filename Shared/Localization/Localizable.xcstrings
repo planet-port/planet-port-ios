@@ -3746,19 +3746,19 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "When enabled, the system brings up the VPN automatically whenever the network is available; which planet is used is still decided by the network switches."
+            "value": "When enabled, the VPN stays persistently connected, which increases your phone's power usage. Turn it off when not in use to save battery."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "开启后系统在网络可用时自动建立 VPN；实际使用哪个行星仍由网络开关决定。"
+            "value": "开启后 VPN 将保持持久在线，这将增加手机的耗电。不用时请及时关闭连接以节省能耗。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "開啟後系統在網路可用時自動建立 VPN；實際使用哪個行星仍由網路開關決定。"
+            "value": "開啟後 VPN 將保持持久在線，這將增加手機的耗電。不用時請及時關閉連線以節省能耗。"
           }
         }
       }
@@ -3829,28 +3829,6 @@
         }
       }
     },
-    "prefs.theme.custom": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Custom Color"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "自定义主色"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "自訂主色"
-          }
-        }
-      }
-    },
     "prefs.theme.deriveStatus": {
       "localizations": {
         "en": {
@@ -3891,6 +3869,28 @@
           "stringUnit": {
             "state": "translated",
             "value": "主色決定按鈕、指示器與行星裝飾色，深淺模式自動適配；狀態色預設保持綠/橙/紅語義，打開開關後成功色隨主色三角派生。"
+          }
+        }
+      }
+    },
+    "prefs.theme.wheel": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Color Picker"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "色盘"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "色盤"
           }
         }
       }
