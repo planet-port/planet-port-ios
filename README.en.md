@@ -20,7 +20,7 @@ English | [中文](README.md)
 
 ## Getting Started
 
-1. **Install**: clone the repo → `xcodegen generate` → select your own development team in Xcode (for both the main target and the tunnel extension) → Cmd+R on device. A personal (free) Apple developer account is enough.
+1. **Install**: clone the repo → `./scripts/bootstrap.sh` (fetches the ZeroTier core sources and generates the Xcode project) → select your own development team in Xcode (for both the main target and the tunnel extension) → Cmd+R on device. A personal (free) Apple developer account is enough.
 2. **Join a network**: add a Planet on the home page (or use the official one) → enter the 16-digit network ID → authorize the new node at [ZeroTier Central](https://my.zerotier.com) → the status turns "online" and you're connected.
 3. **Switch Planets**: import a private Planet file/URL → swipe between planets on the home page → flip on one of its networks to switch the tunnel.
 4. **On demand**: enable Connect On Demand in Settings; connections survive network changes.
@@ -29,9 +29,20 @@ English | [中文](README.md)
 
 ```bash
 brew install xcodegen   # first time
-xcodegen generate
+./scripts/bootstrap.sh
 open PlanetPort.xcodeproj
 ```
+
+`bootstrap.sh` downloads the ZeroTier core sources (pinned tag, SHA256-verified) from the official repository into `Core/` (gitignored, never committed), cached under `~/Library/Caches/PlanetPort/` — reruns are instant. If the download fails:
+
+```bash
+# use a mirror
+ZT_TARBALL_URL=<mirror-url> ./scripts/bootstrap.sh
+# or download the tarball manually into the cache directory and rerun (works offline once verified)
+cp ZeroTierOne-1.16.2.tar.gz ~/Library/Caches/PlanetPort/
+```
+
+To upgrade the ZeroTier version: update `ZT_VERSION` and `ZT_SHA256` in `scripts/bootstrap.sh` and rerun.
 
 ## Screenshots
 
@@ -57,7 +68,7 @@ open PlanetPort.xcodeproj
 
 ### Layout
 
-- `Core/` — ZeroTier 1.16.2 core sources (MPL-2.0, see `Core/LICENSE-MPL-2.0.txt`)
+- `Core/` — ZeroTier 1.16.2 core sources (fetched at build time from the official tag by `scripts/bootstrap.sh`, not committed; MPL-2.0, see `docs/licenses/ZeroTierOne-MPL-2.0.txt`)
 - `ZTBridge/` — OC++ bridging layer (C API ↔ Swift)
 - `PlanetPortTunnel/` — tunnel extension (frame conversion, UDP, background task driving)
 - `Shared/` — shared between App/Extension (App Group, config storage, IPC models, status)
@@ -66,7 +77,7 @@ open PlanetPort.xcodeproj
 ## License
 
 - This project's own code is released under the [MIT License](LICENSE): free to use; attribution is required when borrowing or referencing; no other restrictions
-- The ZeroTier core sources under `Core/` are third-party code under their original [MPL-2.0](Core/LICENSE-MPL-2.0.txt); copyright ZeroTier, Inc.
+- The ZeroTier core sources under `Core/` (fetched at build time from the official tag) are third-party code under their original [MPL-2.0](docs/licenses/ZeroTierOne-MPL-2.0.txt); copyright ZeroTier, Inc.
 
 ### Acknowledgements
 

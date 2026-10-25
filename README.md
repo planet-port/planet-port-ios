@@ -20,7 +20,7 @@
 
 ## 核心用法
 
-1. **安装**：克隆仓库 → `xcodegen generate` → Xcode 选择自己的开发团队（主 target 与 tunnel extension 都要设）→ 真机 Cmd+R。个人（免费）Apple 开发者账号即可。
+1. **安装**：克隆仓库 → `./scripts/bootstrap.sh`（自动拉取 ZeroTier 核心源码并生成 Xcode 工程）→ Xcode 选择自己的开发团队（主 target 与 tunnel extension 都要设）→ 真机 Cmd+R。个人（免费）Apple 开发者账号即可。
 2. **加入网络**：首页添加行星（或使用官方 Planet）→ 输入 16 位网络 ID → 到 [ZeroTier Central](https://my.zerotier.com) 授权新节点 → 状态变「在线」即互通。
 3. **切换 Planet**：导入私有 Planet 文件/URL → 首页左右翻页切换行星 → 打开其下网络开关即切换隧道。
 4. **按需连接**：设置页开启 Connect On Demand，网络变化自动恢复连接。
@@ -29,9 +29,20 @@
 
 ```bash
 brew install xcodegen   # 首次
-xcodegen generate
+./scripts/bootstrap.sh
 open PlanetPort.xcodeproj
 ```
+
+`bootstrap.sh` 会按固定 tag（含 SHA256 校验）从 ZeroTier 官方仓库下载核心源码到 `Core/`（已 gitignore，不入库），缓存于 `~/Library/Caches/PlanetPort/`，重跑秒过。下载失败时：
+
+```bash
+# 换镜像
+ZT_TARBALL_URL=<镜像地址> ./scripts/bootstrap.sh
+# 或浏览器手动下载 tarball 放到缓存目录后重跑（校验通过即离线使用）
+cp ZeroTierOne-1.16.2.tar.gz ~/Library/Caches/PlanetPort/
+```
+
+升级 ZeroTier 版本：修改 `scripts/bootstrap.sh` 中的 `ZT_VERSION` 与 `ZT_SHA256` 后重跑。
 
 ## 截图
 
@@ -57,7 +68,7 @@ open PlanetPort.xcodeproj
 
 ### 目录
 
-- `Core/` — ZeroTier 1.16.2 核心源码（MPL-2.0，见 `Core/LICENSE-MPL-2.0.txt`）
+- `Core/` — ZeroTier 1.16.2 核心源码（构建时由 `scripts/bootstrap.sh` 按官方 tag 拉取，不入库；MPL-2.0，见 `docs/licenses/ZeroTierOne-MPL-2.0.txt`）
 - `ZTBridge/` — OC++ 桥接层（C API ↔ Swift）
 - `PlanetPortTunnel/` — 隧道 extension（帧转换、UDP、后台任务驱动）
 - `Shared/` — App/Extension 共用（App Group、配置存储、IPC 模型、状态）
@@ -66,7 +77,7 @@ open PlanetPort.xcodeproj
 ## 协议
 
 - 本项目自有代码以 [MIT](LICENSE) 发布：免费使用，借用或引用请署名，再无其它限制
-- `Core/` 内 ZeroTier 核心源码为第三方代码，保持其原始 [MPL-2.0](Core/LICENSE-MPL-2.0.txt) 协议，版权归 ZeroTier, Inc. 所有
+- `Core/` 内 ZeroTier 核心源码（构建时按官方 tag 拉取）为第三方代码，保持其原始 [MPL-2.0](docs/licenses/ZeroTierOne-MPL-2.0.txt) 协议，版权归 ZeroTier, Inc. 所有
 
 ### 致谢
 
