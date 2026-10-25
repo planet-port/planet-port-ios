@@ -26,7 +26,7 @@
 		<true/>
 	</dict>
 	<key>NSCameraUsageDescription</key>
-	<string>用于扫描二维码以识别并填入网络 ID</string>
+	<string>用于扫描二维码识别网络 ID 或导入行星文件地址</string>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>UISupportedInterfaceOrientations</key>

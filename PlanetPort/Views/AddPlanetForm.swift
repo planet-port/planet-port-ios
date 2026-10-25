@@ -13,6 +13,7 @@ struct AddPlanetForm: View {
 
     @State private var url = ""
     @State private var showFilePicker = false
+    @State private var showScanner = false
     @State private var downloading = false
     /// 已就绪、等待"添加"的 Planet 文件内容。
     @State private var pendingData: Data?
@@ -45,6 +46,14 @@ struct AddPlanetForm: View {
             } message: {
                 Text(alert ?? "")
             }
+        .sheet(isPresented: $showScanner) {
+            QRScannerView(extract: QRScannerView.extractHttpUrl) { scanned in
+                // 关扫码层 → 回填 URL → 直接下载导入。
+                showScanner = false
+                url = scanned
+                importFromURL()
+            }
+        }
     }
 
     // MARK: - 表单卡片（信息录入）
@@ -83,6 +92,19 @@ struct AddPlanetForm: View {
                 .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
             .buttonStyle(.plain)
+
+            // 扫码导入：与"导入"按钮同款视觉，扫到 http(s) 链接后回填并直接下载。
+            Button {
+                showScanner = true
+            } label: {
+                Text("addplanet.scanUrl")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 42)
+                    .background(.quaternary, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .disabled(downloading)
 
             // URL：输入框左，导入按钮右（按钮高度与输入框一致）
             HStack(spacing: 10) {

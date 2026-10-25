@@ -1,10 +1,13 @@
 import SwiftUI
 import AVFoundation
 
-/// 扫码页：AVFoundation 实时识别二维码，识别到 16 位 hex 网络 ID 后回调关闭。
+/// 扫码页：AVFoundation 实时识别二维码，提取成功后回调关闭。
+/// 提取器可定制（默认网络 ID，URL 导入场景传 extractHttpUrl）。
 /// 相机权限被拒时给出引导提示。
 struct QRScannerView: View {
-    /// 识别成功回调（已提取的 16 位十六进制，小写）。
+    /// 扫码结果提取器：返回 nil 表示不是目标内容，继续扫。
+    var extract: (String) -> String? = QRScannerView.extractNetworkId
+    /// 识别成功回调（已提取的值）。
     var onScanned: (String) -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var authorized = false
@@ -14,7 +17,7 @@ struct QRScannerView: View {
         NavigationStack {
             ZStack {
                 if authorized {
-                    QRScannerRepresentable(onScanned: onScanned)
+                    QRScannerRepresentable(extract: extract, onScanned: onScanned)
                         .ignoresSafeArea()
                 } else if denied {
                     VStack(spacing: 12) {
@@ -59,25 +62,8 @@ struct QRScannerView: View {
             denied = true
         }
     }
-}
 
-/// AVCaptureSession 扫码封装：metadata 输出限 qr，识别一次即停（避免连续回调）。
-private struct QRScannerRepresentable: UIViewControllerRepresentable {
-    var onScanned: (String) -> Void
-
-    func makeUIViewController(context: Context) -> ScannerViewController {
-        let vc = ScannerViewController()
-        vc.onScanned = { value in
-            guard let id = Self.extractNetworkId(from: value) else { return }
-            vc.stopScanning()
-            Task { @MainActor in onScanned(id) }
-        }
-        return vc
-    }
-
-    func updateUIViewController(_ uiViewController: ScannerViewController, context: Context) {}
-
-    /// 从扫码结果提取 16 位十六进制网络 ID：内容本身合法直接用，
+    /// 提取 16 位十六进制网络 ID：内容本身合法直接用，
     /// 否则找子串（二维码里常是 "https://join.zerotier.com/xxxxxxxxxxxxxxxx" 之类）。
     static func extractNetworkId(from value: String) -> String? {
         let lowered = value.lowercased()
@@ -90,6 +76,33 @@ private struct QRScannerRepresentable: UIViewControllerRepresentable {
         }
         return String(lowered[range])
     }
+
+    /// URL 模式提取：内容必须是 http(s) 链接，去空白后原样返回。
+    static func extractHttpUrl(from value: String) -> String? {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let url = URL(string: trimmed),
+              let scheme = url.scheme?.lowercased(),
+              scheme == "http" || scheme == "https" else { return nil }
+        return trimmed
+    }
+}
+
+/// AVCaptureSession 扫码封装：metadata 输出限 qr，识别一次即停（避免连续回调）。
+private struct QRScannerRepresentable: UIViewControllerRepresentable {
+    var extract: (String) -> String?
+    var onScanned: (String) -> Void
+
+    func makeUIViewController(context: Context) -> ScannerViewController {
+        let vc = ScannerViewController()
+        vc.onScanned = { value in
+            guard let extracted = extract(value) else { return }
+            vc.stopScanning()
+            Task { @MainActor in onScanned(extracted) }
+        }
+        return vc
+    }
+
+    func updateUIViewController(_ uiViewController: ScannerViewController, context: Context) {}
 }
 
 /// 承载 AVCaptureSession 的控制器：预览层 + metadata 输出。

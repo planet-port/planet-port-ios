@@ -217,24 +217,46 @@
         }
       }
     },
-    "addplanet.subtitle" : {
+    "addplanet.scanUrl" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Import a planet file, or enter a download URL"
+            "value" : "Or scan a URL QR code"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "导入 planet 文件，或输入下载地址"
+            "value" : "或扫描URL二维码导入"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "匯入 planet 檔案，或輸入下載地址"
+            "value" : "或掃描URL二維碼匯入"
+          }
+        }
+      }
+    },
+    "addplanet.subtitle" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Import a planet file via file, URL, or QR code"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "可通过文件、URL 或二维码导入行星文件"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "可透過檔案、URL 或二維碼匯入行星檔案"
           }
         }
       }

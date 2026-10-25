@@ -78,11 +78,12 @@ struct PrefsView: View {
                             .foregroundStyle(.primary)
                         Spacer()
                         if let image = app.backgroundImage {
+                            // 28pt 缩略图：与 Form 默认行高一致，不撑开选项高度。
                             Image(uiImage: image)
                                 .resizable()
                                 .scaledToFill()
-                                .frame(width: 44, height: 44)
-                                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                                .frame(width: 28, height: 28)
+                                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                         } else {
                             Text("common.notSet")
                                 .foregroundStyle(.secondary)

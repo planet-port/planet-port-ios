@@ -33,7 +33,13 @@ targets:
         com.apple.security.application-groups:
           - group.cn.imgozi.i.PlanetPort
         com.apple.developer.networking.networkextension:
+          - dns-proxy
+          - url-filter-provider
+          - content-filter-provider
           - packet-tunnel-provider
+          - relay
+          - dns-settings
+          - app-proxy-provider
     info:
       path: PlanetPort/Info.plist
       properties:
@@ -43,7 +49,7 @@ targets:
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true
-        NSCameraUsageDescription: 用于扫描二维码以识别并填入网络 ID
+        NSCameraUsageDescription: 用于扫描二维码识别网络 ID 或导入行星文件地址
   PlanetPortTunnel:
     type: app-extension
     platform: iOS

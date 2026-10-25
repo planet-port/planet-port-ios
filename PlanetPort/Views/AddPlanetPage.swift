@@ -41,7 +41,8 @@ struct AddPlanetPage: View {
         .scrollDismissesKeyboard(.immediately)
         .ignoresSafeArea(edges: .bottom)
         .onAppear {
-            if previewName.isEmpty { rollIdentity() }
+            // 每次进入都重掷身份：未添加就离开视为放弃，下次进来重新随机。
+            rollIdentity()
         }
         .onChange(of: isCurrentPage) { current in
             if current {
