@@ -386,16 +386,16 @@ struct HomeView: View {
     }
 
     private func planetCard(_ planet: PlanetProfile) -> some View {
-        PlanetCardView(planet: planet,
-                       activePlanetName: app.activePlanet.name,
-                       isActive: planet.id == app.activePlanetId,
-                       app: app)
-            // 整行热区（含空白处）：身份区点击进入行星设置。
-            .contentShape(Rectangle())
-            .onTapGesture {
-                app.selectPlanet(planet)
-                path.append(.planetSettings(planet.id))
-            }
+        Button {
+            app.selectPlanet(planet)
+            path.append(.planetSettings(planet.id))
+        } label: {
+            PlanetCardView(planet: planet,
+                           activePlanetName: app.activePlanet.name,
+                           isActive: planet.id == app.activePlanetId,
+                           app: app)
+        }
+        .buttonStyle(PressScaleButtonStyle())
     }
 
     // MARK: - 网络

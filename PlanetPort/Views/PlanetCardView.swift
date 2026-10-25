@@ -8,7 +8,6 @@ struct PlanetCardView: View {
     let activePlanetName: String
     let isActive: Bool
     @ObservedObject var app: AppState
-    @State private var pressed = false
 
     var body: some View {
         VStack(spacing: 8) {
@@ -19,12 +18,6 @@ struct PlanetCardView: View {
             idLine
         }
         .frame(maxWidth: .infinity)
-        // 按压缩放反馈:去 chevron 后的唯一可点暗示(点击导航仍在 HomeView 的 onTapGesture)。
-        .scaleEffect(pressed ? 0.97 : 1)
-        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: pressed)
-        .onLongPressGesture(minimumDuration: .infinity, pressing: { pressing in
-            pressed = pressing
-        }, perform: {})
     }
 
     // MARK: - 子视图
@@ -104,5 +97,20 @@ struct PlanetCardView: View {
             return app.online ? ThemeManager.shared.success : .orange
         }
         return .secondary
+    }
+}
+
+/// 按压缩放按钮样式（≈0.97 弹簧回弹）。
+/// 替代 onLongPressGesture(minimumDuration: .infinity) + onTapGesture 组合：
+/// 无限时长长按手势在 iOS 16 上永不 fail，会阻塞外层 tap 的识别
+/// （iOS 17 改了手势优先级不复现）；Button 的 isPressed 原生提供按压态，
+/// 点击与缩放共存，16/17 行为一致。
+struct PressScaleButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .contentShape(Rectangle())
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .animation(.spring(response: 0.3, dampingFraction: 0.8),
+                       value: configuration.isPressed)
     }
 }
