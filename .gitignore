@@ -1,6 +1,8 @@
 .DS_Store
 build/
 DerivedData/
+# ZeroTier 核心源码由 scripts/bootstrap.sh 构建前拉取，不入库
+/Core/
 *.xcodeproj
 xcuserdata/
 .workbuddy/
