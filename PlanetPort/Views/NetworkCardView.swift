@@ -98,6 +98,8 @@ struct NetworkCardView: View {
     let onTap: () -> Void
     /// 复制反馈：图标短暂变对勾。
     @State private var copied = false
+    /// 对勾成功色随主题派生开关变化。
+    @ObservedObject private var theme = ThemeManager.shared
 
     var body: some View {
         HStack(spacing: 12) {

@@ -6,6 +6,9 @@ struct PlanetSettingsView: View {
     let planetId: String
 
     @EnvironmentObject private var app: AppState
+    // 图标底色与时间戳格式化随主题/语言即时刷新。
+    @ObservedObject private var theme = ThemeManager.shared
+    @ObservedObject private var language = LanguageManager.shared
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
     @FocusState private var nameFocused: Bool

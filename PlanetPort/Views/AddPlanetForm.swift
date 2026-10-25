@@ -11,6 +11,7 @@ struct AddPlanetForm: View {
     let colorHex: String
     let onImported: (PlanetProfile) -> Void
 
+    @ObservedObject private var theme = ThemeManager.shared
     @State private var url = ""
     @State private var showFilePicker = false
     @State private var showScanner = false

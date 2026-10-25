@@ -3,7 +3,7 @@ options:
   bundleIdPrefix: com.zivyuan
   developmentLanguage: zh-Hans
   deploymentTarget:
-    iOS: "17.0"
+    iOS: "16.0"
   createIntermediateGroups: true
 settings:
   base:

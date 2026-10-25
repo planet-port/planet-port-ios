@@ -3,6 +3,7 @@ import SwiftUI
 /// Moon 管理页
 struct MoonView: View {
     @EnvironmentObject var app: AppState
+    @ObservedObject private var theme = ThemeManager.shared
     @State private var showAdd = false
     @State private var showFilePicker = false
     @State private var errorAlert: String?

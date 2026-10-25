@@ -1,5 +1,4 @@
 import Foundation
-import Observation
 
 /// 应用语言：默认跟随系统，用户在设置页指定后全局覆盖（App 与 Tunnel 共读）。
 enum AppLanguage: String, CaseIterable, Identifiable {
@@ -21,12 +20,11 @@ enum AppLanguage: String, CaseIterable, Identifiable {
     }
 }
 
-/// 全局语言状态：视图在 body 内访问 locale 即建立观察，切换即时生效。
-@Observable
-final class LanguageManager {
+/// 全局语言状态：视图以 @ObservedObject 持有 shared 后读取 locale，切换即时生效。
+final class LanguageManager: ObservableObject {
     static let shared = LanguageManager()
 
-    private(set) var current: AppLanguage
+    @Published private(set) var current: AppLanguage
 
     private init() {
         current = AppLanguage(rawValue: AppGroup.defaults.string(forKey: AppGroup.prefLanguage) ?? "")

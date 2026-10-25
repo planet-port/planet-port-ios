@@ -1,9 +1,8 @@
 import SwiftUI
 
 /// 全局主题：用户只设一个主色，明暗变体、状态色派生、行星装饰盘全部运行时计算。
-/// 视图在 body 内访问本类属性即建立观察（@Observable 动态追踪），改色即时生效。
-@Observable
-final class ThemeManager {
+/// 视图以 @ObservedObject 持有 shared 后读取派生色，改色即时生效。
+final class ThemeManager: ObservableObject {
     static let shared = ThemeManager()
 
     /// 预设主色板：默认红（三角配色定稿 #D44037）+ 7 个国画经典色。
@@ -34,8 +33,8 @@ final class ThemeManager {
     private static let keyMain = "theme.mainColorHex"
     private static let keyDerive = "theme.deriveStatusColor"
 
-    private(set) var mainHex: UInt32
-    private(set) var deriveStatusColor: Bool
+    @Published private(set) var mainHex: UInt32
+    @Published private(set) var deriveStatusColor: Bool
 
     private init() {
         let defaults = UserDefaults.standard

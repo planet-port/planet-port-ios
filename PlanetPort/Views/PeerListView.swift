@@ -5,6 +5,7 @@ import SwiftUI
 /// 中转连接用橙色胶囊标识，查询/隧道未运行/空三种状态复用空态卡。
 struct PeerListView: View {
     @EnvironmentObject private var app: AppState
+    @ObservedObject private var theme = ThemeManager.shared
     @State private var peers: [PeerEntry] = []
     @State private var loaded = false
 

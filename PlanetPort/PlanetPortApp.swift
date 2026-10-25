@@ -2,6 +2,10 @@ import SwiftUI
 
 @main
 struct PlanetPortApp: App {
+    // 单例引用上建立观察：主题/语言变更时驱使整个 WindowGroup 重算。
+    @ObservedObject private var theme = ThemeManager.shared
+    @ObservedObject private var language = LanguageManager.shared
+
     init() {
         // 偏好默认值：未写入过时按"允许移动数据"处理（HomeView 的 bool 判断与
         // PrefsView 的 AppStorage 均依赖此处注册）。
