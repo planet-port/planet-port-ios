@@ -97,9 +97,11 @@ struct AddPlanetForm: View {
             Button {
                 showScanner = true
             } label: {
-                Text("addplanet.scanUrl")
+                Label("addplanet.scanUrl", systemImage: "qrcode")
                     .font(.subheadline.weight(.semibold))
-                    .frame(maxWidth: .infinity)
+                    // 左对齐 + 12 水平内距：与"选择行星文件"行的文字起点一致。
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.leading, 12)
                     .frame(height: 42)
                     .background(.quaternary, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
