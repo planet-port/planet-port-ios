@@ -168,11 +168,16 @@ struct AddPlanetForm: View {
 
     private func field(_ binding: Binding<String>, placeholder: String,
                        keyboard: UIKeyboardType = .default) -> some View {
-        TextField(placeholder, text: binding)
-            .keyboardType(keyboard)
-            .autocorrectionDisabled()
-            .textInputAutocapitalization(.never)
-            .padding(.horizontal, 12)
+        HStack(spacing: 8) {
+            Image(systemName: "link")
+                .font(.subheadline)
+                .foregroundStyle(.primary)
+            TextField(placeholder, text: binding)
+                .keyboardType(keyboard)
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+        }
+        .padding(.horizontal, 12)
             .padding(.vertical, 11)
             .background(.quaternary, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
