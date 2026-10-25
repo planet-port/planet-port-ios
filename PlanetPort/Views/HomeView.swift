@@ -266,8 +266,9 @@ struct HomeView: View {
         .padding(.top, 6)
         .padding(.bottom, 12)
         .background {
+            // 标题与状态栏下方区域全透明：保留结构与渐变遮罩，仅把填充置空。
             Rectangle()
-                .fill(.ultraThinMaterial)
+                .fill(.clear)
                 .mask(LinearGradient(
                     stops: [
                         .init(color: .white, location: 0),
