@@ -6391,13 +6391,13 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "按需连接（Connect On Demand）"
+            "value" : "按需连接"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "按需連線（Connect On Demand）"
+            "value" : "按需連線"
           }
         }
       }
