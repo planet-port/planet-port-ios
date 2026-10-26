@@ -6108,6 +6108,29 @@
         }
       }
     },
+    "prefs.about.buildTime" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Build Time"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "构建时间"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "建置時間"
+          }
+        }
+      }
+    },
     "prefs.about.version" : {
       "extractionState" : "stale",
       "localizations" : {

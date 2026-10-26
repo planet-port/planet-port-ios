@@ -23,6 +23,15 @@ targets:
     sources:
       - path: PlanetPort
       - path: Shared
+    preBuildScripts:
+      - name: 生成构建信息
+        script: |
+          GEN="$SRCROOT/PlanetPort/Generated/BuildInfo.swift"
+          mkdir -p "$(dirname "$GEN")"
+          # tag 优先（git describe），无 tag 回退短 hash；dirty 标记未提交改动
+          rev=$(git -C "$SRCROOT" describe --tags --always --dirty=+dirty 2>/dev/null || echo unknown)
+          now=$(date "+%Y-%m-%d %H:%M:%S")
+          printf '// 构建脚本自动生成，勿手改（project.yml preBuildScripts「生成构建信息」）。\nenum BuildInfo {\n    static let time = "%s"\n    static let revision = "%s"\n}\n' "$now" "$rev" > "$GEN"
     dependencies:
       - target: PlanetPortTunnel
         embed: true
