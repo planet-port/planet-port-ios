@@ -7,12 +7,15 @@
 # 网络不畅时：
 #   1. 换镜像：ZT_TARBALL_URL=<镜像地址> ./scripts/bootstrap.sh
 #   2. 完全手动：浏览器下载 tarball 放到缓存目录（默认 ~/Library/Caches/PlanetPort/
-#      ZeroTierOne-<版本>.tar.gz）后重跑本脚本，校验通过则离线使用。
+#      ZeroTierOne-<版本>.tar.gz，可用 ZT_CACHE_DIR 改位置）后重跑本脚本，
+#      校验通过则离线使用。
 #
 # 升级 ZeroTier 版本：修改下方 ZT_VERSION 与 ZT_SHA256 两个变量后重跑。
+# 注意：codeload 自动生成的 tarball 字节不承诺长期稳定（GitHub 曾调整过压缩参数），
+# 若某天官方 URL 校验失败，人工核对上游内容后再更新 ZT_SHA256。
 set -euo pipefail
 
-cd "$(git rev-parse --show-toplevel)"
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 ZT_VERSION=1.16.2
 ZT_SHA256=2c607f573c6e38815433af289d364a689a203b18b51125f06c4472014d0657f0
@@ -43,7 +46,7 @@ else
 
     if [[ ! -s "$TARBALL" ]]; then
         echo "下载 ZeroTierOne ${ZT_VERSION} ..."
-        curl -fL --retry 3 -o "$TARBALL" "${ZT_TARBALL_URL:-$ZT_URL}" || {
+        curl -fL --retry 3 --connect-timeout 10 -o "$TARBALL" "${ZT_TARBALL_URL:-$ZT_URL}" || {
             rm -f "$TARBALL"
             err "下载失败。可用镜像：ZT_TARBALL_URL=<镜像地址> ./scripts/bootstrap.sh；或手动下载 tarball 放到 ${TARBALL} 后重跑"
         }
