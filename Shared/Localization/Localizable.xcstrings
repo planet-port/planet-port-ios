@@ -1,18 +1,10 @@
 {
   "sourceLanguage" : "zh-Hans",
   "strings" : {
-    "-" : {
-
-    },
-    "·" : {
-
-    },
-    "%@ ms" : {
-
-    },
-    "🔗" : {
-
-    },
+    "-" : {},
+    "·" : {},
+    "%@ ms" : {},
+    "🔗" : {},
     "addplanet.action" : {
       "localizations" : {
         "en" : {
@@ -3217,9 +3209,7 @@
         }
       }
     },
-    "DNS" : {
-
-    },
+    "DNS" : {},
     "dns.invalid" : {
       "localizations" : {
         "en" : {
@@ -3920,52 +3910,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "切換到 **%@** 網路將自動中斷已連線的 **%@** 網路。"
-          }
-        }
-      }
-    },
-    "home.error.cellularMessage" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Currently on cellular data, which is not allowed in Settings"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "当前使用移动数据，未在设置中允许移动数据"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "目前使用行動數據，未在設定中允許行動數據"
-          }
-        }
-      }
-    },
-    "home.error.cellularTitle" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cellular Data Not Enabled"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "移动数据未开启"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "行動數據未開啟"
           }
         }
       }
@@ -5602,9 +5546,7 @@
         }
       }
     },
-    "Planet Port" : {
-
-    },
+    "Planet Port" : {},
     "planet.add.title" : {
       "localizations" : {
         "en" : {
@@ -6059,9 +6001,7 @@
         }
       }
     },
-    "planetcard.moonCount %@" : {
-
-    },
+    "planetcard.moonCount %@" : {},
     "planetcard.moonCount %lld" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -6114,19 +6054,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Build Time"
+            "value" : "Build"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "构建时间"
+            "value" : "构建"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "建置時間"
+            "value" : "構建"
           }
         }
       }
@@ -6289,29 +6229,6 @@
         }
       }
     },
-    "prefs.network.allowCellular" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Allow Cellular Data"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "允许移动数据"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "允許行動數據"
-          }
-        }
-      }
-    },
     "prefs.network.disableIPv6" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -6408,19 +6325,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Connect On Demand"
+            "value" : "Stay Connected"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "按需连接"
+            "value" : "保持在线"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "按需連線"
+            "value" : "保持連線"
           }
         }
       }
@@ -6693,9 +6610,7 @@
         }
       }
     },
-    "seed %@" : {
-
-    },
+    "seed %@" : {},
     "status.connected" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -7385,9 +7300,7 @@
         }
       }
     },
-    "v%@" : {
-
-    },
+    "v%@" : {},
     "vpn.error.save %@" : {
       "extractionState" : "stale",
       "localizations" : {

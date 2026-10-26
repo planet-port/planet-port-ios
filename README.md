@@ -2,30 +2,26 @@
 
 [English](README.en.md) | 中文
 
-**Planet Port** 是一个建立在 [ZeroTier](https://www.zerotier.com) 之上的 iOS 网络连接管理层：不自己发明网络，而是把 ZeroTier 的连接能力包装成好用、可控、可定制的 App——多份根服务器（Planet）随身切换、多网络同时连接、Moon 节点、按需连接，以及完整的主题定制。免费开源，基于 2024 年底重新开源的 ZeroTier 1.16 核心（MPL-2.0）。
+**Planet Port** 是一个开源 iOS ZeroTier 客户端，基于开源的 ZeroTier 1.16 核心（MPL-2.0）开发。
 
 > 非官方客户端，与 ZeroTier, Inc. 无隶属关系。
 
 ## 特色
 
-- **多 Planet 管理**：官方与多份私有 Planet 并存，文件/URL 导入、重命名、删除；切换 Planet 即切换整套网络列表与核心缓存，根服务器随身携带
-- **多网络同时连接**：软上限（默认 2，可调 2–6）带确认放行；地址/网段冲突自动检测并断开，卡片上直接给出冲突原因
-- **完整网络管理**：加入/退出网络，实时状态中文提示（在线、待授权、拒绝访问等），managed IP 一键复制
+- **多 Planet 管理**：官方与多份私有 Planet 并存。可通过文件/URL，二维码方式导入
+- **多网络同时连接**：软上限（默认 2，可调 2–6）带确认放行；地址/网段冲突自动检测并断开
+- **完整网络管理**：加入/退出网络，实时状态提示，managed IP 一键复制
 - **默认路由与 DNS 三模式**：经 ZT 路由开关、DNS 网络下发/自定义/不使用，全部隧道内热重配，无需重连
-- **Moon 节点**：.moon 文件导入、手动 orbit、缓存管理
-- **按需连接（Connect On Demand）**：锁屏、切网自动重连；允许移动数据、禁用 IPv6 细粒度控制
-- **Peers 实时列表**：角色/版本/延迟/物理路径，延迟分级着色
 - **主题定制**：预设国画经典色板（藤黄、竹青、石绿、群青、花青、黛、胭脂）+ 自定义拾色器，主色派生全局视觉（含行星装饰盘与状态色）
-- **原生 SwiftUI**，界面纯中文，无任何遥测
 
 ## 核心用法
 
 1. **安装**：克隆仓库 → `./scripts/bootstrap.sh`（自动拉取 ZeroTier 核心源码并生成 Xcode 工程）→ Xcode 选择自己的开发团队（主 target 与 tunnel extension 都要设）→ 真机 Cmd+R。个人（免费）Apple 开发者账号即可。
 2. **加入网络**：首页添加行星（或使用官方 Planet）→ 输入 16 位网络 ID → 到 [ZeroTier Central](https://my.zerotier.com) 授权新节点 → 状态变「在线」即互通。
 3. **切换 Planet**：导入私有 Planet 文件/URL → 首页左右翻页切换行星 → 打开其下网络开关即切换隧道。
-4. **按需连接**：设置页开启 Connect On Demand，网络变化自动恢复连接。
+4. **保持在线**：设置页开启"保持在线"，网络变化自动恢复连接。
 
-### 命令行构建
+### 快速开始
 
 ```bash
 brew install xcodegen   # 首次
@@ -97,9 +93,3 @@ cp ZeroTierOne-1.16.2.tar.gz ~/Library/Caches/PlanetPort/
 - **BTC**：`TODO_钱包地址`
 - **ETH**：`TODO_钱包地址`
 - **爱发电**：[TODO_主页链接](https://afdian.com)
-
-## 已知限制
-
-- 未导入已有 ZeroTier 身份（新节点需在 ZeroTier Central 重新授权）
-- 蜂窝网络提示为固定占位（未实时判断当前链路类型）
-- App Store 未上架，需自行源码构建安装

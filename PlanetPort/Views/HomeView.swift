@@ -673,11 +673,6 @@ struct HomeView: View {
             return
         }
 
-        if !AppGroup.defaults.bool(forKey: AppGroup.prefAllowCellular), isCellular() {
-            errorTitle = loc("home.error.cellularTitle")
-            errorAlert = loc("home.error.cellularMessage")
-        }
-
         pendingNetworks.insert(entry.networkId)
         app.applyPlanetAndStartVPN(planetId) { ok, error in
             Task { @MainActor in
@@ -689,11 +684,6 @@ struct HomeView: View {
                 }
             }
         }
-    }
-
-    private func isCellular() -> Bool {
-        // 现阶段为固定占位；后续可用 NWPathMonitor 接入真实链路判断。
-        false
     }
 }
 

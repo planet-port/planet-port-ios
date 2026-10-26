@@ -13,7 +13,7 @@ English | [中文](README.md)
 - **Full network management** — join/leave networks with live Chinese-language status (online, pending authorization, access denied…), one-tap managed-IP copy
 - **Default route & DNS modes** — route-through-ZT toggle and three DNS modes (network-provided / custom / none), all hot-reconfigured inside the tunnel, no reconnect needed
 - **Moon nodes** — .moon file import, manual orbit, cache management
-- **Connect On Demand** — auto-reconnect on lock screen or network change; fine-grained cellular and IPv6 controls
+- **Stay Connected** — auto-reconnect on lock screen or network change; fine-grained cellular and IPv6 controls
 - **Live Peers list** — role/version/latency/physical path, latency-graded coloring
 - **Theming** — presets drawn from classical Chinese painting pigments (gamboge, bamboo green, malachite, ultramarine, indigo, dai, carmine) plus a custom color picker; the whole visual system (including planet decorations and status colors) derives from your main color
 - **Native SwiftUI**, fully Chinese UI, zero telemetry
@@ -23,7 +23,7 @@ English | [中文](README.md)
 1. **Install**: clone the repo → `./scripts/bootstrap.sh` (fetches the ZeroTier core sources and generates the Xcode project) → select your own development team in Xcode (for both the main target and the tunnel extension) → Cmd+R on device. A personal (free) Apple developer account is enough.
 2. **Join a network**: add a Planet on the home page (or use the official one) → enter the 16-digit network ID → authorize the new node at [ZeroTier Central](https://my.zerotier.com) → the status turns "online" and you're connected.
 3. **Switch Planets**: import a private Planet file/URL → swipe between planets on the home page → flip on one of its networks to switch the tunnel.
-4. **On demand**: enable Connect On Demand in Settings; connections survive network changes.
+4. **Stay connected**: enable Stay Connected in Settings; connections survive network changes.
 
 ### Building from the command line
 
@@ -97,9 +97,3 @@ If Planet Port helps you, consider buying the author a coffee ☕
 - **BTC**: `TODO_address`
 - **ETH**: `TODO_address`
 - **afdian.com**: [TODO_profile_link](https://afdian.com)
-
-## Known Limitations
-
-- Existing ZeroTier identities cannot be imported (new nodes must be re-authorized in ZeroTier Central)
-- The cellular hint is a fixed placeholder (current link type is not detected in real time)
-- Not on the App Store; build and install from source

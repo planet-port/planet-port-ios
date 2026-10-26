@@ -31,7 +31,6 @@ enum AppGroup {
     static let prefActivePlanetId = "planet_active_id"
     /// 当前私有 Planet 文件名，供 Objective-C++ DataStore hook 直接读取。
     static let prefActivePlanetFile = "planet_active_file"
-    static let prefAllowCellular = "network_use_cellular_data"
     static let prefDisableIPv6 = "network_disable_ipv6"
     /// 同时连接网络数软上限（超出弹耗电确认，可强制开启）。
     static let prefMultiConnectLimit = "network_multi_connect_limit"
