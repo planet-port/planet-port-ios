@@ -39,6 +39,7 @@ open PlanetPort.xcodeproj
 # use a mirror
 ZT_TARBALL_URL=<mirror-url> ./scripts/bootstrap.sh
 # or download the tarball manually into the cache directory and rerun (works offline once verified)
+mkdir -p ~/Library/Caches/PlanetPort
 cp ZeroTierOne-1.16.2.tar.gz ~/Library/Caches/PlanetPort/
 ```
 

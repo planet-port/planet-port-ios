@@ -77,8 +77,10 @@ targets:
     preBuildScripts:
       - name: 检查 ZeroTier 核心源码
         script: |
-          if [[ ! -f "$SRCROOT/Core/.fetched-tag" ]]; then
-            echo "error: 缺少 ZeroTier 核心源码（Core/ 不在仓库内，构建前需拉取）。请先在仓库根目录执行：./scripts/bootstrap.sh"
+          want=$(sed -n 's/^ZT_VERSION=//p' "$SRCROOT/scripts/bootstrap.sh")
+          got=$(cat "$SRCROOT/Core/.fetched-tag" 2>/dev/null)
+          if [ "$got" != "$want" ]; then
+            echo "error: 缺少 ZeroTier 核心源码或版本不匹配（需要 ${want}，当前 ${got:-无}）。请先在仓库根目录执行：./scripts/bootstrap.sh"
             exit 1
           fi
     entitlements:
