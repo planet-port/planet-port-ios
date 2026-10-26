@@ -7,6 +7,8 @@ struct NetworkDetailView: View {
 
     @State private var snapshot: NetworkConfigSnapshot?
     @State private var showQR = false
+    /// 已切到 via 网关视图的路由下标（点击行首标签外的值区域切换）
+    @State private var viaExpandedRoutes: Set<Int> = []
     @State private var showDelete = false
     @State private var dns = DNSConfig()
     @Environment(\.dismiss) private var dismiss
@@ -45,8 +47,19 @@ struct NetworkDetailView: View {
             }
             Section("network.managedRoutes") {
                 if let routes = snapshot?.routes, !routes.isEmpty {
-                    ForEach(Array(routes.enumerated()), id: \.element) { index, route in
-                        row(loc("network.routeLabel \(index + 1)"), route)
+                    // id 用 offset：路由字符串可能重复，且展开状态按下标追踪
+                    ForEach(Array(routes.enumerated()), id: \.offset) { index, route in
+                        RouteRow(
+                            index: index,
+                            route: route,
+                            viaExpanded: viaExpandedRoutes.contains(index)
+                        ) {
+                            if viaExpandedRoutes.contains(index) {
+                                viaExpandedRoutes.remove(index)
+                            } else {
+                                viaExpandedRoutes.insert(index)
+                            }
+                        }
                     }
                 } else { row(loc("network.route"), "—") }
             }
@@ -218,6 +231,53 @@ struct NetworkDetailView: View {
             Text(value)
                 .foregroundStyle(.secondary)
                 .font(.system(.body, design: .monospaced))
+        }
+    }
+}
+
+/// 路由行：路由串较长（`目标 via 网关`），默认只显示目标网段，
+/// 点击值区域切换为 via 网关；直连路由（无 via）不可切换、不显示图标。
+private struct RouteRow: View {
+    let index: Int
+    let route: String
+    let viaExpanded: Bool
+    let toggle: () -> Void
+
+    /// "192.168.8.0/24 via 152.124.13.2" → "192.168.8.0/24"
+    private var target: String {
+        route.components(separatedBy: " via ").first ?? route
+    }
+
+    /// via 网关；nil = 直连路由
+    private var via: String? {
+        let parts = route.components(separatedBy: " via ")
+        return parts.count > 1 ? parts[1] : nil
+    }
+
+    var body: some View {
+        HStack {
+            Text(loc("network.routeLabel \(index + 1)"))
+            Spacer()
+            if let via {
+                // 不用 Button：Button label 会被全局 tint 染成主色，这里值要跟其他行一致（.secondary）。
+                // 与 CopyableValue 相同方案：contentShape + onTapGesture 承接点击。
+                HStack(spacing: 4) {
+                    Text(viaExpanded ? "via \(via)" : target)
+                        .foregroundStyle(.secondary)
+                        .font(.system(.body, design: .monospaced))
+                    Image(systemName: "arrow.left.arrow.right")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+                .contentShape(Rectangle())
+                .onTapGesture(perform: toggle)
+                .accessibilityLabel(Text("network.managedRoutes"))
+                .accessibilityValue(Text(route))
+            } else {
+                Text(target)
+                    .foregroundStyle(.secondary)
+                    .font(.system(.body, design: .monospaced))
+            }
         }
     }
 }
