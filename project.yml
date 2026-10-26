@@ -74,6 +74,13 @@ targets:
           - $(SRCROOT)/Core/ext/prometheus-cpp-lite-1.0/simpleapi
         SWIFT_OBJC_BRIDGING_HEADER: ZTBridge/PlanetPortTunnel-Bridging-Header.h
         GCC_PRECOMPILE_PREFIX_HEADER: NO
+    preBuildScripts:
+      - name: 检查 ZeroTier 核心源码
+        script: |
+          if [[ ! -f "$SRCROOT/Core/.fetched-tag" ]]; then
+            echo "error: 缺少 ZeroTier 核心源码（Core/ 不在仓库内，构建前需拉取）。请先在仓库根目录执行：./scripts/bootstrap.sh"
+            exit 1
+          fi
     entitlements:
       path: PlanetPortTunnel/PlanetPortTunnel.entitlements
       properties:
