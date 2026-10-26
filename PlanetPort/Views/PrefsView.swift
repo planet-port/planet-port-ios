@@ -4,7 +4,6 @@ import PhotosUI
 /// 全局设置。Planet 的管理在首页卡片与其设置页中完成。
 struct PrefsView: View {
     @EnvironmentObject private var app: AppState
-    @AppStorage(AppGroup.prefAllowCellular, store: AppGroup.defaults) private var allowCellular = true
     @AppStorage(AppGroup.prefDisableIPv6, store: AppGroup.defaults) private var disableIPv6 = false
     @AppStorage(AppGroup.prefMultiConnectLimit, store: AppGroup.defaults) private var multiConnectLimit = 2
     @AppStorage(AppGroup.prefConnectOnDemand, store: AppGroup.defaults) private var connectOnDemand = false
@@ -15,11 +14,12 @@ struct PrefsView: View {
     @ObservedObject private var language = LanguageManager.shared
     @State private var showBackgroundPicker = false
     @State private var showThemePicker = false
+    /// 构建信息行当前显示 hash（false 显示时间）
+    @State private var buildInfoShowsHash = false
 
     var body: some View {
         Form {
             Section {
-                Toggle("prefs.network.allowCellular", isOn: $allowCellular)
                 Toggle("prefs.network.disableIPv6", isOn: Binding(
                     get: { disableIPv6 },
                     set: { on in
@@ -162,21 +162,25 @@ struct PrefsView: View {
         return build.isEmpty ? short : "\(short) (\(build))"
     }
 
-    /// 构建信息行：上行构建时间、下行 git tag/短 hash（dirty 标记未提交改动）。
+    /// 构建信息行：默认显示构建时间，点击切换为 git hash（dirty 标记未提交改动）。
+    /// 点击用手势而非 Button：Button label 会被全局 tint 染色。
     private var buildInfoRow: some View {
-        HStack(alignment: .firstTextBaseline) {
+        HStack {
             Text(loc("prefs.about.buildTime"))
             Spacer()
-            VStack(alignment: .trailing, spacing: 2) {
-                Text(BuildInfo.time)
-                Text(BuildInfo.revision)
-            }
-            .foregroundStyle(.secondary)
-            .font(.system(.body, design: .monospaced))
-            .textSelection(.enabled)
-            .lineLimit(1)
-            .truncationMode(.middle)
+            Text(buildInfoShowsHash ? Self.buildHashText : BuildInfo.time)
+                .foregroundStyle(.secondary)
+                .font(.system(.body, design: .monospaced))
+                .textSelection(.enabled)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .contentShape(Rectangle())
+                .onTapGesture { buildInfoShowsHash.toggle() }
         }
+    }
+
+    private static var buildHashText: String {
+        BuildInfo.hash + (BuildInfo.dirty ? " [dirty]" : "")
     }
 
     private func aboutRow(_ title: String, _ value: String) -> some View {

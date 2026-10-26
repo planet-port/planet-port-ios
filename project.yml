@@ -28,10 +28,10 @@ targets:
         script: |
           GEN="$SRCROOT/PlanetPort/Generated/BuildInfo.swift"
           mkdir -p "$(dirname "$GEN")"
-          # tag 优先（git describe），无 tag 回退短 hash；dirty 标记未提交改动
-          rev=$(git -C "$SRCROOT" describe --tags --always --dirty=+dirty 2>/dev/null || echo unknown)
-          now=$(date "+%Y-%m-%d %H:%M:%S")
-          printf '// 构建脚本自动生成，勿手改（project.yml preBuildScripts「生成构建信息」）。\nenum BuildInfo {\n    static let time = "%s"\n    static let revision = "%s"\n}\n' "$now" "$rev" > "$GEN"
+          h=$(git -C "$SRCROOT" rev-parse --short=8 HEAD 2>/dev/null || echo unknown)
+          if [ -n "$(git -C "$SRCROOT" status --porcelain 2>/dev/null)" ]; then d=true; else d=false; fi
+          now=$(date "+%Y-%m-%d %H:%M")
+          printf '// 构建脚本自动生成，勿手改（project.yml preBuildScripts「生成构建信息」）。\nenum BuildInfo {\n    static let time = "%s"\n    static let hash = "%s"\n    static let dirty = %s\n}\n' "$now" "$h" "$d" > "$GEN"
     dependencies:
       - target: PlanetPortTunnel
         embed: true
