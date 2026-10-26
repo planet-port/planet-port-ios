@@ -33,6 +33,19 @@ struct PlanetSettingsView: View {
                 Section {
                     Button(role: .destructive) { showDelete = true } label: {
                         Text("planet.delete")
+                            .frame(maxWidth: .infinity)
+                    }
+                    // borderless：默认样式在 Form 内接管行布局，外部/内部对齐修饰全部失效；
+                    // borderless 尊重 label 的 frame，destructive 红色保持
+                    .buttonStyle(.borderless)
+                    // 弹窗挂按钮本身：挂 Form 层时锚点偏离按钮，弹出位置跑偏
+                    .confirmationDialog("planet.delete.confirmTitle",
+                                        isPresented: $showDelete,
+                                        titleVisibility: .visible) {
+                        Button("planet.delete.confirmAction", role: .destructive) { deletePlanet() }
+                        Button("common.cancel", role: .cancel) {}
+                    } message: {
+                        Text("common.irreversible")
                     }
                 } footer: {
                     Text("planet.delete.footer")
@@ -52,12 +65,6 @@ struct PlanetSettingsView: View {
                     alert = error.localizedDescription
                 }
             }
-        }
-        .confirmationDialog("planet.delete.confirmTitle", isPresented: $showDelete, titleVisibility: .visible) {
-            Button("planet.delete.confirmAction", role: .destructive) { deletePlanet() }
-            Button("common.cancel", role: .cancel) {}
-        } message: {
-            Text("common.irreversible")
         }
         .alert(loc("common.notice"), isPresented: Binding(
             get: { alert != nil },

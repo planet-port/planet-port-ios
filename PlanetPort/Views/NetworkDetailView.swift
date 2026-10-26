@@ -101,6 +101,8 @@ struct NetworkDetailView: View {
             Section {
                 Button(role: .destructive) { showDelete = true } label: {
                     Text("network.delete")
+                        // iOS 26 List 内 Section 按钮默认渲染为居中，此处按系统设置页惯例左对齐
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
         }
