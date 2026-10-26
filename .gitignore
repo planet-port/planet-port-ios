@@ -5,5 +5,7 @@ DerivedData/
 /Core/
 *.xcodeproj
 xcuserdata/
+# 构建信息由 preBuildScripts 生成，不入库
+/PlanetPort/Generated/
 .workbuddy/
 .superpowers/

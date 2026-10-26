@@ -110,6 +110,8 @@ struct PrefsView: View {
             Section("prefs.about.sectionHeader") {
                 aboutRow("ZeroTier Core", app.coreVersion.isEmpty ? loc("common.unknown") : app.coreVersion)
                 aboutRow(loc("prefs.about.version"), Self.appVersion)
+                // 构建时间 + git tag/短hash（preBuildScripts 生成）：用于确认手机上装的版本
+                buildInfoRow
             }
 
             // 支持区暂隐藏（内容待补充），代码保留。
@@ -158,6 +160,23 @@ struct PrefsView: View {
         let short = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—"
         let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? ""
         return build.isEmpty ? short : "\(short) (\(build))"
+    }
+
+    /// 构建信息行：上行构建时间、下行 git tag/短 hash（dirty 标记未提交改动）。
+    private var buildInfoRow: some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(loc("prefs.about.buildTime"))
+            Spacer()
+            VStack(alignment: .trailing, spacing: 2) {
+                Text(BuildInfo.time)
+                Text(BuildInfo.revision)
+            }
+            .foregroundStyle(.secondary)
+            .font(.system(.body, design: .monospaced))
+            .textSelection(.enabled)
+            .lineLimit(1)
+            .truncationMode(.middle)
+        }
     }
 
     private func aboutRow(_ title: String, _ value: String) -> some View {
