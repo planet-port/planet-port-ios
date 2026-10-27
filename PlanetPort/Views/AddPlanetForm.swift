@@ -15,6 +15,7 @@ struct AddPlanetForm: View {
     @State private var url = ""
     @State private var showFilePicker = false
     @State private var showScanner = false
+    @State private var showPlanetReceiver = false
     @State private var downloading = false
     /// 已就绪、等待"添加"的 Planet 文件内容。
     @State private var pendingData: Data?
@@ -55,6 +56,17 @@ struct AddPlanetForm: View {
                 importFromURL()
             }
         }
+        .sheet(isPresented: $showPlanetReceiver) {
+            QRReceiveView { data in
+                showPlanetReceiver = false
+                do {
+                    try validate(data)
+                    pendingData = data
+                } catch {
+                    alert = error.localizedDescription
+                }
+            }
+        }
     }
 
     // MARK: - 表单卡片（信息录入）
@@ -93,6 +105,20 @@ struct AddPlanetForm: View {
                 .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
             .buttonStyle(.plain)
+
+            // 动态二维码导入（模块 QRTransfer）：连续扫分片，收齐即回填 pendingData，
+            // 复用与文件/URL 相同的"命名 + 添加 + 查重"后续流程。
+            Button {
+                showPlanetReceiver = true
+            } label: {
+                Label("addplanet.scanPlanetQr", systemImage: "qrcode.viewfinder")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.leading, 12)
+                    .frame(height: 42)
+                    .background(.quaternary, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .disabled(downloading)
 
             // 扫码导入：与"导入"按钮同款视觉，扫到 http(s) 链接后回填并直接下载。
             Button {
