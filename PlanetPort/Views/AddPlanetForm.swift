@@ -9,15 +9,22 @@ struct AddPlanetForm: View {
     /// 身份(由预览区持有,添加时随名称一并落库)。
     let animal: String
     let colorHex: String
+    /// 是否停在本页（HomeView pagerSelection 同源）：离开计时，超时清空表单。
+    var isCurrentPage: Bool = true
     let onImported: (PlanetProfile) -> Void
 
     @State private var url = ""
     @State private var showFilePicker = false
     @State private var showScanner = false
+    @State private var showPlanetReceiver = false
     @State private var downloading = false
     /// 已就绪、等待"添加"的 Planet 文件内容。
     @State private var pendingData: Data?
     @State private var alert: String?
+    /// 离开新增页的时间；离开超过 5 分钟后回来视为放弃，清空表单。
+    @State private var leftAt: Date?
+
+    private static let keepFormInterval: TimeInterval = 5 * 60
 
     var body: some View {
         VStack(spacing: 16) {
@@ -52,6 +59,31 @@ struct AddPlanetForm: View {
                 showScanner = false
                 url = scanned
                 importFromURL()
+            }
+        }
+        .sheet(isPresented: $showPlanetReceiver) {
+            QRReceiveView { data in
+                showPlanetReceiver = false
+                do {
+                    try validate(data)
+                    pendingData = data
+                } catch {
+                    alert = error.localizedDescription
+                }
+            }
+        }
+        .onChange(of: isCurrentPage) { current in
+            if current {
+                // 回来时才判断：离开超过 5 分钟清空 URL 与已就绪文件
+                // （时间戳判墙钟，App 挂起期间同样计时）。
+                if let leftAt,
+                   Date().timeIntervalSince(leftAt) > Self.keepFormInterval {
+                    url = ""
+                    pendingData = nil
+                }
+                self.leftAt = nil
+            } else {
+                leftAt = Date()
             }
         }
     }
@@ -92,6 +124,20 @@ struct AddPlanetForm: View {
                 .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
             .buttonStyle(.plain)
+
+            // 动态二维码导入（模块 QRTransfer）：连续扫分片，收齐即回填 pendingData，
+            // 复用与文件/URL 相同的"命名 + 添加 + 查重"后续流程。
+            Button {
+                showPlanetReceiver = true
+            } label: {
+                Label("addplanet.scanPlanetQr", systemImage: "qrcode.viewfinder")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.leading, 12)
+                    .frame(height: 42)
+                    .background(.quaternary, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .disabled(downloading)
 
             // 扫码导入：与"导入"按钮同款视觉，扫到 http(s) 链接后回填并直接下载。
             Button {

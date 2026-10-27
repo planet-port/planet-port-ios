@@ -1,0 +1,118 @@
+{
+  "sourceLanguage" : "zh-Hans",
+  "strings" : {
+    "qrtransfer.cancel" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Cancel" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "取消" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "取消" } }
+      }
+    },
+    "qrtransfer.cameraDenied" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Camera access denied" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "相机权限被拒" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "相機權限被拒" } }
+      }
+    },
+    "qrtransfer.cameraDenied.hint" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Allow camera access in Settings, then try again." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "请在系统设置中允许访问相机后重试。" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "請在系統設定中允許存取相機後重試。" } }
+      }
+    },
+    "qrtransfer.corrupt" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Checksum failed, please rescan" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "数据校验失败，请重新扫描" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "資料校驗失敗，請重新掃描" } }
+      }
+    },
+    "qrtransfer.done" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Done" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "完成" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "完成" } }
+      }
+    },
+    "qrtransfer.frame %d/%d" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Shard %d of %d" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "分片 %d/%d" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "分片 %d/%d" } }
+      }
+    },
+    "qrtransfer.generating" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Generating QR code…" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在生成二维码…" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "正在生成二維碼…" } }
+      }
+    },
+    "qrtransfer.generating %d/%d" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Generating QR code… %d/%d" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在生成二维码… %d/%d" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "正在生成二維碼… %d/%d" } }
+      }
+    },
+    "qrtransfer.goSettings" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Open Settings" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "去设置" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "去設定" } }
+      }
+    },
+    "qrtransfer.manual" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Manual" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "手动模式" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "手動模式" } }
+      }
+    },
+    "qrtransfer.receiveTitle" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "QR Receive" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "二维码接收" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "二維碼接收" } }
+      }
+    },
+    "qrtransfer.received %d/%d" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Received %d of %d" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已接收 %d/%d" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "已接收 %d/%d" } }
+      }
+    },
+    "qrtransfer.speed" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Speed" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "切换速度" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "切換速度" } }
+      }
+    },
+    "qrtransfer.tooLarge" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Data too large" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "数据过大" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "資料過大" } }
+      }
+    },
+    "qrtransfer.tooLarge.hint" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Exceeds the QR transfer limit. Share via file or URL instead." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "超出二维码传输上限，请改用文件或 URL 分享" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "超出二維碼傳輸上限，請改用檔案或 URL 分享" } }
+      }
+    },
+    "qrtransfer.waiting" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Point at the QR code" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "对准二维码，自动识别分片" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "對準二維碼，自動識別分片" } }
+      }
+    }
+  },
+  "version" : "1.0"
+}

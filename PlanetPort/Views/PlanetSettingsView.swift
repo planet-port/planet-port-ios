@@ -10,6 +10,9 @@ struct PlanetSettingsView: View {
     @State private var name = ""
     @FocusState private var nameFocused: Bool
     @State private var showIconPicker = false
+    @State private var showQRShare = false
+    @State private var qrShareData: Data?
+    @State private var showFileShare = false
     @State private var showDelete = false
     @State private var alert: String?
 
@@ -61,6 +64,17 @@ struct PlanetSettingsView: View {
                 } catch {
                     alert = error.localizedDescription
                 }
+            }
+        }
+        .sheet(isPresented: $showQRShare) {
+            if let qrShareData {
+                QRShareView(title: loc("planet.share.qr.title"), data: qrShareData)
+            }
+        }
+        .sheet(isPresented: $showFileShare) {
+            if let url = planetFileURL {
+                ActivityShareSheet(items: [url])
+                    .ignoresSafeArea()
             }
         }
         .alert(loc("common.notice"), isPresented: Binding(
@@ -143,6 +157,26 @@ struct PlanetSettingsView: View {
                     fileSizeRow(info)
                     row(loc("planet.info.revision"), Self.timestampText(info.timestamp))
                 }
+                if !isOfficial, planetFileURL != nil {
+                    HStack {
+                        Text("common.share")
+                        Spacer()
+                        Button {
+                            showFileShare = true
+                        } label: {
+                            shareLabel("planet.share.file", icon: "doc")
+                        }
+                        .buttonStyle(.plain)
+                        Divider()
+                            .frame(height: 14)
+                        Button {
+                            shareQR()
+                        } label: {
+                            shareLabel("planet.share.qr", icon: "qrcode")
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
             }
         } footer: {
             Text("planet.info.footer")
@@ -155,9 +189,7 @@ struct PlanetSettingsView: View {
         return app.planetNodeIds[planetId] ?? "—"
     }
 
-    /// 文件大小行:值后附分享按钮(系统分享面板,可保存到"文件"/隔空投送等)。
-    /// 文件不存在(并发删除)时不显示按钮。
-    @ViewBuilder
+    /// 文件大小行。分享入口已独立成"分享"行（文件/二维码两个选项）。
     private func fileSizeRow(_ info: (worldId: UInt64, timestamp: UInt64, fileSize: Int)) -> some View {
         HStack {
             Text(loc("planet.info.fileSize"))
@@ -165,16 +197,6 @@ struct PlanetSettingsView: View {
             Text(locFileSize(info.fileSize))
                 .foregroundStyle(.secondary)
                 .font(.system(.body, design: .monospaced))
-            if let url = planetFileURL {
-                ShareLink(item: url, preview: SharePreview(url.lastPathComponent)) {
-                    Image(systemName: "square.and.arrow.up")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(Color(uiColor: .tertiaryLabel))
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.borderless)
-                .accessibilityLabel(Text("common.share"))
-            }
         }
     }
 
@@ -221,6 +243,24 @@ struct PlanetSettingsView: View {
 
     // MARK: - 操作
 
+    /// 分享选项按钮:图标 11pt(与节点 ID 行复制图标同尺寸)、
+    /// 图标文字间距 4pt、颜色跟随正文标签(.primary)。
+    private func shareLabel(_ key: LocalizedStringKey, icon: String) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.system(size: 11))
+            Text(key)
+        }
+        .foregroundStyle(.primary)
+    }
+
+    /// 读取 planet 文件进入二维码分享；读取失败(并发删除)不弹页
+    private func shareQR() {
+        guard let url = planetFileURL else { return }
+        qrShareData = try? Data(contentsOf: url)
+        showQRShare = qrShareData != nil
+    }
+
     private func saveName() {
         guard let planet, name != planet.name else { return }
         do {
@@ -253,4 +293,16 @@ struct PlanetSettingsView: View {
                 .truncationMode(.middle)
         }
     }
+}
+
+/// 系统分享面板（UIActivityViewController）的 SwiftUI 封装。
+/// 行内按钮无法原地触发 ShareLink，改由 sheet 承载。
+struct ActivityShareSheet: UIViewControllerRepresentable {
+    let items: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
