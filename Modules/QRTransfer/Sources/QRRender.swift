@@ -4,6 +4,9 @@ import CoreImage
 /// CIQRCodeGenerator 封装。输出 extent 宽 = 模块数（quiet zone 不计），
 /// 用它做密度约束，不依赖内嵌容量表。
 enum QRRender {
+    /// 复用单例，避免一次 encode 二分探测（10+ 次调用）反复新建
+    private static let context = CIContext()
+
     private static func make(_ text: String) -> CIImage? {
         guard let filter = CIFilter(name: "CIQRCodeGenerator") else { return nil }
         filter.setValue(Data(text.utf8), forKey: "inputMessage")
@@ -16,7 +19,7 @@ enum QRRender {
         guard let output = make(text) else { return nil }
         let transformed = output.transformed(
             by: CGAffineTransform(scaleX: CGFloat(scale), y: CGFloat(scale)))
-        guard let cg = CIContext().createCGImage(transformed, from: transformed.extent) else {
+        guard let cg = context.createCGImage(transformed, from: transformed.extent) else {
             return nil
         }
         return (UIImage(cgImage: cg), Int(output.extent.width))

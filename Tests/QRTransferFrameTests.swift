@@ -34,6 +34,11 @@ final class QRTransferFrameTests: XCTestCase {
             $0.split(separator: "|", maxSplits: 5, omittingEmptySubsequences: false)[5].count
         })
         XCTAssertEqual(chunkLens.count, 1)
+        // 每一帧真实形态都不得超过容量上限（探测失真回归防护）
+        for frame in frames {
+            XCTAssertTrue(QRRender.fits(frame, maxModules: 53),
+                          "帧超出 53 模块：长度 \(frame.count) 字符")
+        }
         // 剥补位后完整还原
         XCTAssertEqual(try QRTransfer.decode(frames.compactMap(QRTransfer.parse)), data)
     }
