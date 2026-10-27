@@ -1,4 +1,5 @@
 import SwiftUI
+import AVFoundation
 
 /// 接收端：连续扫码聚合分片。不区分单帧/多帧——解码任意帧 → 按 index 聚合
 /// → 齐全后整体校验（Base45 → 解压 → CRC）→ 通过即回调一次。
@@ -7,6 +8,8 @@ struct QRReceiveView: View {
     let onComplete: (Data) -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @State private var authorized = false
+    @State private var denied = false
     @State private var total: Int?
     @State private var checksum: UInt32?
     @State private var chunks: [Int: String] = [:]
@@ -16,8 +19,28 @@ struct QRReceiveView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                ContinuousScannerView(onFrame: handle)
-                    .ignoresSafeArea()
+                if authorized {
+                    ContinuousScannerView(onFrame: handle)
+                        .ignoresSafeArea()
+                } else if denied {
+                    VStack(spacing: 12) {
+                        Image(systemName: "camera.on.rectangle")
+                            .font(.system(size: 40))
+                            .foregroundStyle(.secondary)
+                        Text(ql("qrtransfer.cameraDenied"))
+                            .font(.headline)
+                        Text(ql("qrtransfer.cameraDenied.hint"))
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                        Button(ql("qrtransfer.goSettings")) {
+                            if let url = URL(string: UIApplication.openSettingsURLString) {
+                                UIApplication.shared.open(url)
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
+                    .padding()
+                }
                 VStack {
                     Spacer()
                     VStack(spacing: 12) {
@@ -44,6 +67,21 @@ struct QRReceiveView: View {
                     Button(ql("qrtransfer.cancel")) { dismiss() }
                 }
             }
+            .task { await checkPermission() }
+        }
+    }
+
+    /// 相机权限未定则弹系统授权框；拒绝则展示引导页，避免取景器静默黑屏。
+    private func checkPermission() async {
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .authorized:
+            authorized = true
+        case .notDetermined:
+            let granted = await AVCaptureDevice.requestAccess(for: .video)
+            authorized = granted
+            denied = !granted
+        default:
+            denied = true
         }
     }
 

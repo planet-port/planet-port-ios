@@ -17,10 +17,16 @@ final class QRTransferFrameTests: XCTestCase {
         })
     }
 
+    /// 探测串前缀必须携带真实帧头（等形等长），帧格式变更时两者失配会让容量密度保证静默失效
+    func testProbePrefixMatchesHeaderLen() {
+        XCTAssertEqual(ChunkPlanner.probePrefix.count, QRTransfer.headerLen)
+    }
+
     func testSingleFrameRoundTrip() throws {
         let data = sampleData(300)
         let frames = try QRTransfer.encode(data, maxModules: 117)
         XCTAssertEqual(frames.count, 1)
+        XCTAssertTrue(QRRender.fits(frames[0], maxModules: 117))
         XCTAssertEqual(try QRTransfer.decode(frames.compactMap(QRTransfer.parse)), data)
     }
 

@@ -6,7 +6,8 @@ import Foundation
 /// （3.33 bit/字符），导致容量高估近一倍。
 enum ChunkPlanner {
     /// 与真实帧头等形等长（count == QRTransfer.headerLen == 27）
-    private static let probePrefix = "ZTQR1|99|99|ffffffff|00000|"
+    /// internal 而非 private：QRTransferFrameTests 需断言两者长度一致（帧格式失配防护）
+    static let probePrefix = "ZTQR1|99|99|ffffffff|00000|"
 
     static func capacity(payloadCount: Int, headerLen: Int, maxModules: Int) -> Int? {
         var lo = 1
