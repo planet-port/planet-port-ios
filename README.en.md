@@ -28,6 +28,8 @@
 
 ## Getting Started
 
+> **Requirements**: iOS 17 or later. For iOS 16 devices (e.g. iPhone X), build from the [ios16 compatibility branch](https://github.com/planet-port/planet-port-ios/tree/planet-port-ios--ios16) instead — kept feature-parallel.
+
 ```bash
 brew install xcodegen   # first time
 ./scripts/bootstrap.sh

@@ -28,6 +28,8 @@
 
 ## 快速开始
 
+> **系统要求**：iOS 17 及以上。iOS 16 设备（如 iPhone X）请改用 [ios16 兼容分支](https://github.com/planet-port/planet-port-ios/tree/planet-port-ios--ios16) 构建，功能同步维护。
+
 ```bash
 brew install xcodegen   # 首次
 ./scripts/bootstrap.sh
