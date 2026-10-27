@@ -10,6 +10,8 @@ struct PlanetSettingsView: View {
     @State private var name = ""
     @FocusState private var nameFocused: Bool
     @State private var showIconPicker = false
+    @State private var showQRShare = false
+    @State private var qrShareData: Data?
     @State private var showDelete = false
     @State private var alert: String?
 
@@ -61,6 +63,11 @@ struct PlanetSettingsView: View {
                 } catch {
                     alert = error.localizedDescription
                 }
+            }
+        }
+        .sheet(isPresented: $showQRShare) {
+            if let qrShareData {
+                QRShareView(title: planet?.displayName ?? loc("planet.title"), data: qrShareData)
             }
         }
         .alert(loc("common.notice"), isPresented: Binding(
@@ -142,6 +149,21 @@ struct PlanetSettingsView: View {
                 if let info = PlanetImporter.inspectPlanetFile(planet) {
                     fileSizeRow(info)
                     row(loc("planet.info.revision"), Self.timestampText(info.timestamp))
+                }
+                if !isOfficial, let url = planetFileURL {
+                    Button {
+                        qrShareData = try? Data(contentsOf: url)
+                        showQRShare = qrShareData != nil
+                    } label: {
+                        HStack {
+                            Text("planet.share.qr")
+                            Spacer()
+                            Image(systemName: "qrcode")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(Color(uiColor: .tertiaryLabel))
+                        }
+                    }
+                    .buttonStyle(.plain)
                 }
             }
         } footer: {

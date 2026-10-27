@@ -209,6 +209,28 @@
         }
       }
     },
+    "addplanet.scanPlanetQr" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Or import via animated QR code"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "或动态二维码导入"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "或動態二維碼導入"
+          }
+        }
+      }
+    },
     "addplanet.scanUrl" : {
       "localizations" : {
         "en" : {
@@ -5928,6 +5950,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ZeroTier 官方"
+          }
+        }
+      }
+    },
+    "planet.share.qr" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share via QR Code"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "二维码分享"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "二維碼分享"
           }
         }
       }
