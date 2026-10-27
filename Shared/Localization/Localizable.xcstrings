@@ -1,10 +1,21 @@
 {
   "sourceLanguage" : "zh-Hans",
   "strings" : {
-    "-" : {},
-    "·" : {},
-    "%@ ms" : {},
-    "🔗" : {},
+    "-" : {
+
+    },
+    "·" : {
+
+    },
+    "%@" : {
+
+    },
+    "%@ ms" : {
+
+    },
+    "🔗" : {
+
+    },
     "addplanet.action" : {
       "localizations" : {
         "en" : {
@@ -210,6 +221,7 @@
       }
     },
     "addplanet.scanPlanetQr" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -232,6 +244,7 @@
       }
     },
     "addplanet.scanUrl" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2758,7 +2771,6 @@
       }
     },
     "common.cancel" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3231,7 +3243,9 @@
         }
       }
     },
-    "DNS" : {},
+    "DNS" : {
+
+    },
     "dns.invalid" : {
       "localizations" : {
         "en" : {
@@ -3846,7 +3860,6 @@
       }
     },
     "home.alert.openAnyway" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3892,7 +3905,6 @@
       }
     },
     "home.alert.switchPlanet" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5072,7 +5084,6 @@
       }
     },
     "network.managedRoutes" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5568,7 +5579,9 @@
         }
       }
     },
-    "Planet Port" : {},
+    "Planet Port" : {
+
+    },
     "planet.add.title" : {
       "localizations" : {
         "en" : {
@@ -5955,6 +5968,7 @@
       }
     },
     "planet.share.file" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5977,6 +5991,7 @@
       }
     },
     "planet.share.qr" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5999,6 +6014,7 @@
       }
     },
     "planet.share.qr.title" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -6089,7 +6105,9 @@
         }
       }
     },
-    "planetcard.moonCount %@" : {},
+    "planetcard.moonCount %@" : {
+
+    },
     "planetcard.moonCount %lld" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -6113,29 +6131,6 @@
         }
       }
     },
-    "prefs.about.sectionHeader" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "About"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "关于"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "關於"
-          }
-        }
-      }
-    },
     "prefs.about.buildTime" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -6155,6 +6150,29 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "構建"
+          }
+        }
+      }
+    },
+    "prefs.about.sectionHeader" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "About"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关于"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "關於"
           }
         }
       }
@@ -6698,7 +6716,9 @@
         }
       }
     },
-    "seed %@" : {},
+    "seed %@" : {
+
+    },
     "status.connected" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -7388,7 +7408,9 @@
         }
       }
     },
-    "v%@" : {},
+    "v%@" : {
+
+    },
     "vpn.error.save %@" : {
       "extractionState" : "stale",
       "localizations" : {
