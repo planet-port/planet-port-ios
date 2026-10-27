@@ -12,7 +12,6 @@ struct PlanetSettingsView: View {
     @State private var showIconPicker = false
     @State private var showQRShare = false
     @State private var qrShareData: Data?
-    @State private var showShareMenu = false
     @State private var showFileShare = false
     @State private var showDelete = false
     @State private var alert: String?
@@ -69,7 +68,7 @@ struct PlanetSettingsView: View {
         }
         .sheet(isPresented: $showQRShare) {
             if let qrShareData {
-                QRShareView(title: planet?.displayName ?? loc("planet.title"), data: qrShareData)
+                QRShareView(title: loc("planet.share.qr.title"), data: qrShareData)
             }
         }
         .sheet(isPresented: $showFileShare) {
@@ -159,32 +158,23 @@ struct PlanetSettingsView: View {
                     row(loc("planet.info.revision"), Self.timestampText(info.timestamp))
                 }
                 if !isOfficial, planetFileURL != nil {
-                    Button {
-                        showShareMenu = true
-                    } label: {
-                        HStack {
-                            Text("common.share")
-                            Spacer()
-                            Image(systemName: "square.and.arrow.up")
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundStyle(Color(uiColor: .tertiaryLabel))
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .confirmationDialog("common.share",
-                                        isPresented: $showShareMenu,
-                                        titleVisibility: .visible) {
+                    HStack {
+                        Text("common.share")
+                        Spacer()
                         Button {
                             showFileShare = true
                         } label: {
-                            Label("planet.share.file", systemImage: "doc")
+                            shareLabel("planet.share.file", icon: "doc")
                         }
+                        .buttonStyle(.plain)
+                        Divider()
+                            .frame(height: 14)
                         Button {
                             shareQR()
                         } label: {
-                            Label("planet.share.qr", systemImage: "qrcode")
+                            shareLabel("planet.share.qr", icon: "qrcode")
                         }
-                        Button("common.cancel", role: .cancel) {}
+                        .buttonStyle(.plain)
                     }
                 }
             }
@@ -253,6 +243,17 @@ struct PlanetSettingsView: View {
 
     // MARK: - 操作
 
+    /// 分享选项按钮:图标 11pt(与节点 ID 行复制图标同尺寸)、
+    /// 图标文字间距 4pt、颜色跟随正文标签(.primary)。
+    private func shareLabel(_ key: LocalizedStringKey, icon: String) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.system(size: 11))
+            Text(key)
+        }
+        .foregroundStyle(.primary)
+    }
+
     /// 读取 planet 文件进入二维码分享；读取失败(并发删除)不弹页
     private func shareQR() {
         guard let url = planetFileURL else { return }
@@ -295,7 +296,7 @@ struct PlanetSettingsView: View {
 }
 
 /// 系统分享面板（UIActivityViewController）的 SwiftUI 封装。
-/// confirmationDialog 选项选中后无法原地触发 ShareLink，改由 sheet 承载。
+/// 行内按钮无法原地触发 ShareLink，改由 sheet 承载。
 struct ActivityShareSheet: UIViewControllerRepresentable {
     let items: [Any]
 

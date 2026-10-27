@@ -5998,6 +5998,28 @@
         }
       }
     },
+    "planet.share.qr.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "QR Code Sharing"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "二维码分享"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "二維碼分享"
+          }
+        }
+      }
+    },
     "planet.title" : {
       "extractionState" : "stale",
       "localizations" : {
