@@ -23,9 +23,19 @@ struct QRShareView: View {
             VStack(spacing: 18) {
                 if frames.isEmpty {
                     if tooLarge {
-                        ContentUnavailableView {
-                            Label(ql("qrtransfer.tooLarge"), systemImage: "exclamationmark.triangle")
-                        } description: { Text(ql("qrtransfer.tooLarge.hint")) }
+                        // ContentUnavailableView 为 iOS 17+，此分支用等价组合替代
+                        VStack(spacing: 8) {
+                            Image(systemName: "exclamationmark.triangle")
+                                .font(.system(size: 40))
+                                .foregroundStyle(.secondary)
+                            Text(ql("qrtransfer.tooLarge"))
+                                .font(.headline)
+                            Text(ql("qrtransfer.tooLarge.hint"))
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
+                        .padding(.horizontal, 30)
                     } else {
                         ProgressView()
                         Text(ql("qrtransfer.generating"))
