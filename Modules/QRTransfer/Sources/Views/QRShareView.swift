@@ -2,12 +2,14 @@ import SwiftUI
 
 /// 分享端：展示分片二维码序列。单帧退化为静态码（无控件）；
 /// 多帧提供速度四档与手动模式（方块点选跳帧 + 前后按钮）。
+/// 编码与渲染均在后台线程逐张完成，首张就绪即显示，避免长时间空白等待。
 struct QRShareView: View {
     let title: String
     let data: Data
 
     @Environment(\.dismiss) private var dismiss
     @State private var frames: [String] = []
+    @State private var images: [UIImage] = []
     @State private var tooLarge = false
     @State private var index = 0
     @State private var speed: Double = 0.5
@@ -26,17 +28,25 @@ struct QRShareView: View {
                         } description: { Text(ql("qrtransfer.tooLarge.hint")) }
                     } else {
                         ProgressView()
+                        Text(ql("qrtransfer.generating"))
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
                     }
                 } else {
-                    if let render = QRRender.generate(frames[index]) {
-                        Image(uiImage: render.image)
+                    if let image = currentImage {
+                        Image(uiImage: image)
                             .interpolation(.none)
                             .resizable()
                             .scaledToFit()
                             .frame(width: side, height: side)
+                    } else {
+                        ProgressView()
                     }
-                    Text(String(format: ql("qrtransfer.frame %d/%d"),
-                                index + 1, frames.count))
+                    Text(images.count < frames.count
+                         ? String(format: ql("qrtransfer.generating %d/%d"),
+                                  images.count, frames.count)
+                         : String(format: ql("qrtransfer.frame %d/%d"),
+                                  index + 1, frames.count))
                         .font(.subheadline.monospacedDigit())
                         .foregroundStyle(.secondary)
                     if frames.count > 1 {
@@ -58,8 +68,15 @@ struct QRShareView: View {
                 }
             }
         }
-        .task { encode() }
-        .task(id: "\(manual)-\(speed)-\(frames.count)") { await autoplay() }
+        .task { await build() }
+        // 渲染全部就绪（images.count 变化）后才允许自动播放启动
+        .task(id: "\(manual)-\(speed)-\(frames.count)-\(images.count)") { await autoplay() }
+    }
+
+    /// 已渲染图片按 index 取；该帧未就绪时取最后一张已生成的
+    private var currentImage: UIImage? {
+        guard !images.isEmpty else { return nil }
+        return images[min(index, images.count - 1)]
     }
 
     private var controls: some View {
@@ -93,18 +110,33 @@ struct QRShareView: View {
         .padding(.horizontal, 20)
     }
 
-    private func encode() {
+    /// 后台编码分片，再逐张后台渲染、逐张回填主线程显示。
+    private func build() async {
         let maxModules = QRTransfer.recommendedMaxModules(side: side)
+        let payload = data
         do {
-            frames = try QRTransfer.encode(data, maxModules: maxModules)
+            let encoded = try await Task.detached(priority: .userInitiated) {
+                try QRTransfer.encode(payload, maxModules: maxModules)
+            }.value
+            if Task.isCancelled { return }
+            frames = encoded
             index = 0
+            for frame in encoded {
+                if Task.isCancelled { return }
+                let image = await Task.detached(priority: .userInitiated) {
+                    QRRender.generate(frame)?.image
+                }.value
+                if let image {
+                    images.append(image)
+                }
+            }
         } catch {
             tooLarge = true
         }
     }
 
     private func autoplay() async {
-        guard !manual, frames.count > 1 else { return }
+        guard !manual, frames.count > 1, images.count == frames.count else { return }
         while !Task.isCancelled {
             do {
                 try await Task.sleep(nanoseconds: UInt64(speed * 1_000_000_000))

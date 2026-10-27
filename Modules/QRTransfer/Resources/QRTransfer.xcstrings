@@ -43,6 +43,20 @@
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "分片 %d/%d" } }
       }
     },
+    "qrtransfer.generating" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Generating QR code…" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在生成二维码…" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "正在生成二維碼…" } }
+      }
+    },
+    "qrtransfer.generating %d/%d" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Generating QR code… %d/%d" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在生成二维码… %d/%d" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "正在生成二維碼… %d/%d" } }
+      }
+    },
     "qrtransfer.goSettings" : {
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Open Settings" } },
