@@ -27,7 +27,7 @@ struct ShardGridView: View {
         let isMissing = current == nil && !isReceived
         RoundedRectangle(cornerRadius: 6, style: .continuous)
             .fill(isCurrent ? AnyShapeStyle(.tint)
-                  : isReceived ? AnyShapeStyle(Color(uiColor: .systemFill).opacity(0.35))
+                  : isReceived ? AnyShapeStyle(Color.accentColor.opacity(0.35))
                   : AnyShapeStyle(Color(uiColor: .quaternarySystemFill)))
             .overlay {
                 if isMissing {
