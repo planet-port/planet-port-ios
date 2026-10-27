@@ -25,7 +25,8 @@ struct AddPlanetPage: View {
                     .padding(.top, 4)
                 header
                     .padding(.horizontal, 20)
-                AddPlanetForm(name: $previewName, animal: animal, colorHex: colorHex) { profile in
+                AddPlanetForm(name: $previewName, animal: animal, colorHex: colorHex,
+                              isCurrentPage: isCurrentPage) { profile in
                     app.reloadConfig()
                     app.selectPlanet(profile)
                     // 添加成功后重掷身份,避免与刚添加的行星同名/同图。

@@ -9,6 +9,8 @@ struct AddPlanetForm: View {
     /// 身份(由预览区持有,添加时随名称一并落库)。
     let animal: String
     let colorHex: String
+    /// 是否停在本页（HomeView pagerSelection 同源）：离开计时，超时清空表单。
+    var isCurrentPage: Bool = true
     let onImported: (PlanetProfile) -> Void
 
     @ObservedObject private var theme = ThemeManager.shared
@@ -20,6 +22,10 @@ struct AddPlanetForm: View {
     /// 已就绪、等待"添加"的 Planet 文件内容。
     @State private var pendingData: Data?
     @State private var alert: String?
+    /// 离开新增页的时间；离开超过 5 分钟后回来视为放弃，清空表单。
+    @State private var leftAt: Date?
+
+    private static let keepFormInterval: TimeInterval = 5 * 60
 
     var body: some View {
         VStack(spacing: 16) {
@@ -65,6 +71,20 @@ struct AddPlanetForm: View {
                 } catch {
                     alert = error.localizedDescription
                 }
+            }
+        }
+        .onChange(of: isCurrentPage) { current in
+            if current {
+                // 回来时才判断：离开超过 5 分钟清空 URL 与已就绪文件
+                // （时间戳判墙钟，App 挂起期间同样计时）。
+                if let leftAt,
+                   Date().timeIntervalSince(leftAt) > Self.keepFormInterval {
+                    url = ""
+                    pendingData = nil
+                }
+                self.leftAt = nil
+            } else {
+                leftAt = Date()
             }
         }
     }
