@@ -8,6 +8,20 @@
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "取消" } }
       }
     },
+    "qrtransfer.cameraDenied" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Camera access denied" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "相机权限被拒" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "相機權限被拒" } }
+      }
+    },
+    "qrtransfer.cameraDenied.hint" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Allow camera access in Settings, then try again." } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "请在系统设置中允许访问相机后重试。" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "請在系統設定中允許存取相機後重試。" } }
+      }
+    },
     "qrtransfer.corrupt" : {
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Checksum failed, please rescan" } },
@@ -27,6 +41,13 @@
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Shard %d of %d" } },
         "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "分片 %d/%d" } },
         "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "分片 %d/%d" } }
+      }
+    },
+    "qrtransfer.goSettings" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Open Settings" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "去设置" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "去設定" } }
       }
     },
     "qrtransfer.manual" : {

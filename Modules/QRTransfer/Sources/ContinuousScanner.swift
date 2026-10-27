@@ -50,7 +50,10 @@ final class ContinuousScannerController: UIViewController, AVCaptureMetadataOutp
 
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
-        session.stopRunning()
+        // stopRunning 是重操作，与 startRunning 同队列异步执行，避免主线程卡顿
+        DispatchQueue.global(qos: .userInitiated).async { [session] in
+            session.stopRunning()
+        }
     }
 
     func metadataOutput(_ output: AVCaptureMetadataOutput,

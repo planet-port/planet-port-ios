@@ -34,7 +34,6 @@ struct QRShareView: View {
                             .resizable()
                             .scaledToFit()
                             .frame(width: side, height: side)
-                            .animation(.easeInOut(duration: 0.15), value: index)
                     }
                     Text(String(format: ql("qrtransfer.frame %d/%d"),
                                 index + 1, frames.count))
@@ -107,7 +106,11 @@ struct QRShareView: View {
     private func autoplay() async {
         guard !manual, frames.count > 1 else { return }
         while !Task.isCancelled {
-            try? await Task.sleep(nanoseconds: UInt64(speed * 1_000_000_000))
+            do {
+                try await Task.sleep(nanoseconds: UInt64(speed * 1_000_000_000))
+            } catch {
+                return // 任务取消：不再前进
+            }
             index = (index + 1) % frames.count
         }
     }
