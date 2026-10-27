@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// 分享端：展示分片二维码序列。单帧退化为静态码（无控件）；
-/// 多帧提供速度四档与手动模式（方块点选跳帧 + 前后按钮）。
+/// 多帧提供速度四档与手动模式（点方块阵列直接跳帧）。
 /// 编码与渲染均在后台线程逐张完成，首张就绪即显示，避免长时间空白等待。
 struct QRShareView: View {
     let title: String
@@ -42,18 +42,18 @@ struct QRShareView: View {
                     } else {
                         ProgressView()
                     }
-                    Text(images.count < frames.count
-                         ? String(format: ql("qrtransfer.generating %d/%d"),
-                                  images.count, frames.count)
-                         : String(format: ql("qrtransfer.frame %d/%d"),
-                                  index + 1, frames.count))
-                        .font(.subheadline.monospacedDigit())
-                        .foregroundStyle(.secondary)
+                    if images.count < frames.count {
+                        Text(String(format: ql("qrtransfer.generating %d/%d"),
+                                    images.count, frames.count))
+                            .font(.subheadline.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                    }
                     if frames.count > 1 {
-                        controls
+                        // 方块阵列顶替原数字分片提示的位置
                         ShardGridView(total: frames.count, current: index + 1,
                                       onTap: manual ? { jump($0) } : nil)
                             .padding(.horizontal, 20)
+                        controls
                     }
                     Spacer()
                 }
@@ -91,20 +91,6 @@ struct QRShareView: View {
                 }
                 .pickerStyle(.segmented)
                 .frame(maxWidth: 260)
-            } else {
-                HStack(spacing: 28) {
-                    Button {
-                        jump(index)
-                    } label: {
-                        Image(systemName: "chevron.left")
-                    }
-                    Button {
-                        jump(index + 2)
-                    } label: {
-                        Image(systemName: "chevron.right")
-                    }
-                }
-                .buttonStyle(.bordered)
             }
         }
         .padding(.horizontal, 20)
