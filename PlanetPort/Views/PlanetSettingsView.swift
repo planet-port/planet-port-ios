@@ -10,8 +10,7 @@ struct PlanetSettingsView: View {
     @State private var name = ""
     @FocusState private var nameFocused: Bool
     @State private var showIconPicker = false
-    @State private var showQRShare = false
-    @State private var qrShareData: Data?
+    @State private var qrShareSession: QRShareSession?
     @State private var showFileShare = false
     @State private var showDelete = false
     @State private var alert: String?
@@ -66,10 +65,11 @@ struct PlanetSettingsView: View {
                 }
             }
         }
-        .sheet(isPresented: $showQRShare) {
-            if let qrShareData {
-                QRShareView(title: loc("planet.share.qr.title"), data: qrShareData)
-            }
+        // sheet(item:)：内容闭包直接收非可选会话。此前用 isPresented+if let，
+        // 首次呈现事务里闭包读到旧值 nil → 空 sheet 且无重求值火花，空白悬置
+        // 数秒（仅冷启动首次分享可复现）。
+        .sheet(item: $qrShareSession) { session in
+            QRShareView(title: loc("planet.share.qr.title"), session: session)
         }
         .sheet(isPresented: $showFileShare) {
             if let url = planetFileURL {
@@ -254,11 +254,13 @@ struct PlanetSettingsView: View {
         .foregroundStyle(.primary)
     }
 
-    /// 读取 planet 文件进入二维码分享；读取失败(并发删除)不弹页
+    /// 读取 planet 文件进入二维码分享；读取失败(并发删除)不弹页。
+    /// 会话在此创建即开始编码渲染，与 sheet 呈现动画并行，
+    /// 避免 sheet 内容 .task 等动画播完才触发导致首帧迟滞。
     private func shareQR() {
-        guard let url = planetFileURL else { return }
-        qrShareData = try? Data(contentsOf: url)
-        showQRShare = qrShareData != nil
+        guard let url = planetFileURL, let data = try? Data(contentsOf: url) else { return }
+        qrShareSession = QRShareSession(
+            data: data, side: UIScreen.main.bounds.width * 0.72)
     }
 
     private func saveName() {
