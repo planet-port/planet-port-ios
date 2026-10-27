@@ -85,3 +85,17 @@ fi
 # ---- 生成 Xcode 工程 ----
 command -v xcodegen >/dev/null 2>&1 || err "缺少 xcodegen，请先执行 brew install xcodegen"
 xcodegen generate
+
+# xcodegen 会按 project.yml 的占位版本(1.0.0/1)重写 Info.plist，
+# 冲掉 release.sh 写入的发版号——生成后从 git HEAD 恢复，避免重跑 bootstrap 降级版本
+for plist in PlanetPort/Info.plist PlanetPortTunnel/Info.plist; do
+    [[ -f "$plist" ]] || continue
+    tmp="$(mktemp)"
+    if git show "HEAD:$plist" > "$tmp" 2>/dev/null; then
+        ver="$(plutil -extract CFBundleShortVersionString raw -o - "$tmp" 2>/dev/null || true)"
+        build="$(plutil -extract CFBundleVersion raw -o - "$tmp" 2>/dev/null || true)"
+        [[ -n "$ver" ]] && /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $ver" "$plist"
+        [[ -n "$build" ]] && /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $build" "$plist"
+    fi
+    rm -f "$tmp"
+done
