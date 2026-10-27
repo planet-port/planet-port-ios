@@ -23,6 +23,7 @@ targets:
     sources:
       - path: PlanetPort
       - path: Shared
+      - path: Modules/QRTransfer
     preBuildScripts:
       - name: 生成构建信息
         script: |
@@ -107,8 +108,23 @@ targets:
         NSExtension:
           NSExtensionPointIdentifier: com.apple.networkextension.packet-tunnel
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).PacketTunnelProvider
+  PlanetPortTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: Tests
+      - path: Modules/QRTransfer/Sources
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: PlanetPort
 schemes:
   PlanetPort:
     build:
       targets:
         PlanetPort: all
+    test:
+      targets:
+        - PlanetPortTests
