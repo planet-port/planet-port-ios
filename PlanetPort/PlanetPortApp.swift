@@ -15,6 +15,11 @@ struct PlanetPortApp: App {
         bar.scrollEdgeAppearance = nav
         bar.compactAppearance = nav
         bar.compactScrollEdgeAppearance = nav
+
+        // QR 渲染管线预热：CIQRCodeGenerator/CIContext 进程内首次调用有
+        // 数百毫秒一次性初始化（着色器编译等），启动时后台付掉这笔代价，
+        // 避免冷启动后首次分享的编码/渲染被拖慢。
+        Task.detached(priority: .utility) { _ = QRRender.generate("warmup") }
     }
 
     var body: some Scene {
