@@ -214,19 +214,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Or import via animated QR code"
+            "value" : "Or scan animated QR code to import"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "或动态二维码导入"
+            "value" : "或扫描动态二维码导入"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "或動態二維碼導入"
+            "value" : "或掃描動態二維碼導入"
           }
         }
       }
