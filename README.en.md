@@ -1,12 +1,12 @@
 <p align="center">
-  <img src="docs/logo.webp" width="120" alt="Planet Port" />
+  <img src="docs/logo.webp" width="120" alt="Planet Port - iOS" />
 </p>
 
-# Planet Port 🪐
+# Planet Port - iOS 🪐
 
 [简体中文](README.md) | [繁體中文](README.zh-Hant.md) | English
 
-**Planet Port** is an open-source ZeroTier client for iOS, built on the official ZeroTier 1.16 core. It brings overlay networking to your iPhone / iPad: run multiple Planets side by side (official + self-hosted private Planets), connect to several networks at once, and take full control of the default route and DNS. Native SwiftUI, free and open source — an advanced alternative to the official ZeroTier One app.
+**Planet Port - iOS** is an open-source ZeroTier client for iOS, built on the official ZeroTier 1.16 core. It brings overlay networking to your iPhone / iPad: run multiple Planets side by side (official + self-hosted private Planets), connect to several networks at once, and take full control of the default route and DNS. Native SwiftUI, free and open source — an advanced alternative to the official ZeroTier One app.
 
 > Unofficial client. Not affiliated with ZeroTier, Inc.
 
@@ -59,7 +59,7 @@ To upgrade the ZeroTier version: update `ZT_VERSION` and `ZT_SHA256` in `scripts
 
 ```mermaid
 flowchart LR
-    subgraph App["App (Planet Port)"]
+    subgraph App["App (Planet Port - iOS)"]
         UI["SwiftUI UI (Home / NetworkDetail / Peers / Moon / Prefs / Importers)"]
         VM["VPNManager (NETunnelProviderManager)"]
     end
@@ -91,12 +91,12 @@ flowchart LR
 
 ## Acknowledgements
 
-- [ZeroTier](https://github.com/zerotier/ZeroTier) — the network core
+- [ZeroTier](https://github.com/zerotier/ZeroTierOne) — the network core
 - Some animal icons are from [Material Design Icons](https://pictogrammers.com/) (Pictogrammers Free License) and [Font Awesome Free](https://fontawesome.com/) (CC BY 4.0; Icons by Font Awesome).
 
 ## Donate
 
-If Planet Port helps you, consider buying the author a coffee ☕
+If Planet Port - iOS helps you, consider buying the author a coffee ☕
 
 **BTC** (Taproot)
 

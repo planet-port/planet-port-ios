@@ -1,12 +1,12 @@
 <p align="center">
-  <img src="docs/logo.webp" width="120" alt="Planet Port" />
+  <img src="docs/logo.webp" width="120" alt="Planet Port - iOS" />
 </p>
 
-# Planet Port 🪐
+# Planet Port - iOS 🪐
 
 [简体中文](README.md) | 繁體中文 | [English](README.en.md)
 
-**Planet Port** 是一款開源的 iOS ZeroTier 用戶端，基於 ZeroTier 1.16 官方核心打造。它讓你在 iPhone / iPad 上輕鬆完成異地組網與虛擬區域網路管理：多 Planet 並存（官方 + 自建私有 Planet），多網路同時連線，預設路由與 DNS 全自由掌控。原生 SwiftUI 實作，免費開源，是官方 ZeroTier One App 之外的進階之選。
+**Planet Port - iOS** 是一款開源的 iOS ZeroTier 用戶端，基於 ZeroTier 1.16 官方核心打造。它讓你在 iPhone / iPad 上輕鬆完成異地組網與虛擬區域網路管理：多 Planet 並存（官方 + 自建私有 Planet），多網路同時連線，預設路由與 DNS 全自由掌控。原生 SwiftUI 實作，免費開源，是官方 ZeroTier One App 之外的進階之選。
 
 > 非官方用戶端，與 ZeroTier, Inc. 無隸屬關係。
 
@@ -59,7 +59,7 @@ cp ZeroTierOne-1.16.2.tar.gz ~/Library/Caches/PlanetPort/
 
 ```mermaid
 flowchart LR
-    subgraph App["App (Planet Port)"]
+    subgraph App["App (Planet Port - iOS)"]
         UI["SwiftUI UI（Home / NetworkDetail / Peers / Moon / Prefs / 匯入器）"]
         VM["VPNManager (NETunnelProviderManager)"]
     end
@@ -91,12 +91,12 @@ flowchart LR
 
 ## 致謝
 
-- [ZeroTier](https://github.com/zerotier/ZeroTier) — 網路核心
+- [ZeroTier](https://github.com/zerotier/ZeroTierOne) — 網路核心
 - 部分動物圖示來自 [Material Design Icons](https://pictogrammers.com/)（Pictogrammers Free License）與 [Font Awesome Free](https://fontawesome.com/)（CC BY 4.0，Icons by Font Awesome）。
 
 ## 捐贈
 
-如果 Planet Port 幫到了你，歡迎請作者喝杯咖啡 ☕
+如果 Planet Port - iOS 幫到了你，歡迎請作者喝杯咖啡 ☕
 
 **BTC**（Taproot）
 
