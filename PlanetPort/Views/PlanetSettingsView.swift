@@ -254,13 +254,15 @@ struct PlanetSettingsView: View {
         .foregroundStyle(.primary)
     }
 
-    /// 读取 planet 文件进入二维码分享；读取失败(并发删除)不弹页。
-    /// 会话在此创建即开始编码渲染，与 sheet 呈现动画并行，
-    /// 避免 sheet 内容 .task 等动画播完才触发导致首帧迟滞。
+    /// 读取 planet 文件并连同名称/图标/底色组成 ZTP 容器进入二维码分享；
+    /// 读取失败(并发删除)不弹页。会话在此创建即开始编码渲染，与 sheet
+    /// 呈现动画并行，避免 sheet 内容 .task 等动画播完才触发导致首帧迟滞。
     private func shareQR() {
-        guard let url = planetFileURL, let data = try? Data(contentsOf: url) else { return }
+        guard let planet, let url = planetFileURL, let data = try? Data(contentsOf: url) else { return }
+        let container = PlanetPayload.container(planet: data, name: planet.name,
+                                                icon: planet.icon, iconColor: planet.iconColor)
         qrShareSession = QRShareSession(
-            data: data, side: UIScreen.main.bounds.width * 0.72)
+            data: container, side: UIScreen.main.bounds.width * 0.72)
     }
 
     private func saveName() {
