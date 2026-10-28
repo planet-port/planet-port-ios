@@ -707,6 +707,10 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
                     routes: cfg.routes,
                     dns: cfg.dns)
             }
+        case "restartCore":
+            // 连接超时重试：与网络切换重启共用 restartCore（restartQueue 串行，
+            // 避免 stop/start 交错）；应答受理即回，重启结果经状态通知送达
+            restartQueue.async { [weak self] in self?.restartCore() }
         default:
             break
         }

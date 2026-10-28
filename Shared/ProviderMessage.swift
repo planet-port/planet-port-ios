@@ -1,7 +1,7 @@
 import Foundation
 
 struct ProviderRequest: Codable {
-    var type: String              // "peers" | "status" | "networkConfig"
+    var type: String              // "peers" | "status" | "networkConfig" | "restartCore"
     var nwid: String?
 }
 
