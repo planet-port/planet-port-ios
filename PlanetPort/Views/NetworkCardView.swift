@@ -63,6 +63,7 @@ struct NetworkCardStatus {
 
     /// REQUESTING_CONFIGURATION 的分段展示：online 为核心是否已连通行星根服务器
     /// （VPN 级共享状态）。计时起点缺失（如在线后再次掉线）不判超时，仅显示进行中文案。
+    /// 重试周期内（超时确认后等 120s 重启核心）带重试计数。
     private static func connectPhase(app: AppState) -> (text: String, color: Color) {
         if app.online {
             return (loc("network.status.requestingConfig"), .orange)
@@ -70,6 +71,9 @@ struct NetworkCardStatus {
         if let start = app.connectStartedAt,
            Date().timeIntervalSince(start) >= AppState.connectTimeout {
             return (loc("card.timeout.offline"), .red)
+        }
+        if app.connectRetryCount > 0 {
+            return (loc("network.status.connectingRetry \(app.connectRetryCount)"), .orange)
         }
         return (loc("network.status.connectingServer"), .orange)
     }

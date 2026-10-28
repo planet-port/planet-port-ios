@@ -5294,6 +5294,28 @@
         }
       }
     },
+    "network.status.connectingRetry %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connecting to Server (Retry %lld/5)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连接服务器（重试 %lld/5）"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "連線伺服器（重試 %lld/5）"
+          }
+        }
+      }
+    },
     "network.status.connectingServer" : {
       "extractionState" : "stale",
       "localizations" : {
