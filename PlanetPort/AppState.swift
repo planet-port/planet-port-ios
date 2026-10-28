@@ -158,6 +158,7 @@ final class AppState: ObservableObject {
             reloadConfig()
             StatusStore.networkStatuses = [:]
             StatusStore.networkConflicts = [:]
+            StatusStore.networkNames = [:]
             StatusStore.online = false
             StatusStore.postChange()
             online = false
@@ -189,6 +190,7 @@ final class AppState: ObservableObject {
         // networkId 状态天然隔离，不参与本行星的展示与判定
         networkStatuses = StatusStore.networkStatuses(planetId: activePlanetId)
         networkConflicts = StatusStore.networkConflicts(planetId: activePlanetId)
+        syncNetworkNames()
         autoDisconnectConflictedNetworks()
         evaluateConnectTimer()
         if !nodeId.isEmpty { cacheNodeId(nodeId) }
@@ -374,20 +376,46 @@ final class AppState: ObservableObject {
                     // 首次连接拿到名称后写回缓存，之后离线也用缓存名显示。
                     let name = config.name.trimmingCharacters(in: .whitespacesAndNewlines)
                     if !name.isEmpty, name != entry.networkName {
-                        self.cacheNetworkName(entry.networkId, name)
+                        self.cacheNetworkName(entry.networkId, name, planetId: entry.planetId ?? self.activePlanetId)
                     }
                 }
             }
         }
     }
 
+    /// 名称事件回填：Extension 随状态通知透出的控制器名称（见 StatusStore.networkNames）
+    /// 与本地缓存比对，仅差异时落盘——连接/改名后的首个 netconf 回调即刻生效，
+    /// 不等 5s 轮询反查。
+    private func syncNetworkNames() {
+        let names = StatusStore.networkNames(planetId: activePlanetId)
+        guard !names.isEmpty else { return }
+        var updated = AppConfigStore.readNetworks(planetId: activePlanetId)
+        var changed = false
+        for index in updated.indices {
+            guard let name = names[updated[index].networkId],
+                  !name.isEmpty, name != updated[index].networkName else { continue }
+            updated[index].networkName = name
+            changed = true
+        }
+        if changed {
+            AppConfigStore.writeNetworks(updated, planetId: activePlanetId)
+            if activePlanetId == selectedPlanetId { self.networks = updated }
+            self.planetNetworks = AppConfigStore.readNetworksByPlanet()
+        }
+    }
+
     /// 网络名缓存：由连接后的 networkConfig 快照回填并持久化。
-    private func cacheNetworkName(_ nwid: String, _ name: String) {
-        var networks = AppConfigStore.readNetworks()
+    /// 写回网络归属的行星（调用方轮询遍历的是 active 行星网络，缺省 selected
+    /// 行星在滑页场景下错位，firstIndex 落空导致名称永不回填）。
+    private func cacheNetworkName(_ nwid: String, _ name: String, planetId: String) {
+        var networks = AppConfigStore.readNetworks(planetId: planetId)
         guard let index = networks.firstIndex(where: { $0.networkId == nwid }) else { return }
+        // 闭包捕获的 entry 是轮询开始时的快照：事件路径（syncNetworkNames）可能
+        // 已先写盘同名，此处按最新文件内容早退，避免冗余写盘与 Extension 空跑
+        guard networks[index].networkName != name else { return }
         networks[index].networkName = name
-        AppConfigStore.writeNetworks(networks)
-        self.networks = networks
+        AppConfigStore.writeNetworks(networks, planetId: planetId)
+        if planetId == selectedPlanetId { self.networks = networks }
         self.planetNetworks = AppConfigStore.readNetworksByPlanet()
     }
 }
