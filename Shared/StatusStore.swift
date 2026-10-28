@@ -9,6 +9,7 @@ enum StatusStore {
     private static let kTunnelStatus = "status_tunnelStatus"
     private static let kNetworkStatuses = "status_networkStatuses"
     private static let kNetworkConflicts = "status_networkConflicts"
+    private static let kNetworkNames = "status_networkNames"
     private static let kApplyTrace = "status_applyTrace"
     private static let kEventLog = "status_eventLog"
 
@@ -52,6 +53,25 @@ enum StatusStore {
         return networkStatuses.compactMapValues { ZTNetworkStatus(rawValue: $0) }
             .filter { $0.key.hasPrefix(prefix) }
             .reduce(into: [String: ZTNetworkStatus]()) { map, pair in
+                map[String(pair.key.dropFirst(prefix.count))] = pair.value
+            }
+    }
+
+    /// 网络名称（作用域键 → 控制器下发 netconf 的 name）。与 networkStatuses
+    /// 同源同生命周期（同在 netconf 回调写入、隧道停止清空）：首个配置回调即
+    /// 送达 App，名称更新不依赖 5s 轮询反查；App 侧回填 networks.json 后
+    /// 离线也用缓存名显示。
+    static var networkNames: [String: String] {
+        get { AppGroup.defaults.dictionary(forKey: kNetworkNames) as? [String: String] ?? [:] }
+        set { AppGroup.defaults.set(newValue, forKey: kNetworkNames) }
+    }
+
+    /// 按行星取出 nwid → 名称（键剥掉作用域前缀）。
+    static func networkNames(planetId: String) -> [String: String] {
+        let prefix = scopedKey(planetId: planetId, nwid: "")
+        return networkNames
+            .filter { $0.key.hasPrefix(prefix) }
+            .reduce(into: [String: String]()) { map, pair in
                 map[String(pair.key.dropFirst(prefix.count))] = pair.value
             }
     }

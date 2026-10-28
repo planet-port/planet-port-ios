@@ -118,6 +118,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         StatusStore.online = false
         StatusStore.networkStatuses = [:]
         StatusStore.networkConflicts = [:]
+        StatusStore.networkNames = [:]
         StatusStore.postChange()
         completionHandler()
     }
@@ -162,6 +163,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         StatusStore.coreVersion = ZTBridge.coreVersion()
         StatusStore.nodeId = String(format: "%010llx", b.nodeAddress())
         StatusStore.networkConflicts = [:]   // 上次运行若被系统强杀，stopTunnel 不会执行，此处兜底清残留
+        StatusStore.networkNames = [:]       // 同上；重启后首份完整 netconf（磁盘缓存装载）即刻重写
         StatusStore.tunnelStatus = loc("tunnel.status.running")
         StatusStore.postChange()
 
@@ -296,6 +298,15 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         var statuses = StatusStore.networkStatuses
         statuses[StatusStore.scopedKey(planetId: sessionPlanetId, nwid: nwidStr)] = Int(cfg.status)
         StatusStore.networkStatuses = statuses
+        // 名称随状态同一通知透出：App 卡片即刻回填，不等 5s 轮询反查。
+        // DOWN/DESTROY 回调也写（核心缓存名不会比已回填的旧）、key 不删
+        // （残留随 stopTunnel/行星切换清），均属有意行为。
+        let name = cfg.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !name.isEmpty {
+            var names = StatusStore.networkNames
+            names[StatusStore.scopedKey(planetId: sessionPlanetId, nwid: nwidStr)] = name
+            StatusStore.networkNames = names
+        }
         StatusStore.postChange()
 
         // 状态展示所有回调都更新；隧道设置在"带地址的完整配置"时应用。
