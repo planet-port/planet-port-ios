@@ -15,6 +15,8 @@ struct AddPlanetPage: View {
     @State private var animal = PlanetIcon.randomAnimal()
     @State private var colorHex = PlanetIcon.randomColorHex()
     @State private var nameEditedByUser = false
+    /// 扫码预填过身份：滑回不重掷，保留至添加成功或重新扫码。
+    @State private var prefilled = false
     @State private var showIconSettings = false
 
     var body: some View {
@@ -25,10 +27,11 @@ struct AddPlanetPage: View {
                     .padding(.top, 4)
                 header
                     .padding(.horizontal, 20)
-                AddPlanetForm(name: $previewName, animal: animal, colorHex: colorHex,
-                              isCurrentPage: isCurrentPage) { profile in
+                AddPlanetForm(name: $previewName, animal: $animal, colorHex: $colorHex,
+                              isCurrentPage: isCurrentPage, onPrefill: { prefilled = true }) { profile in
                     app.reloadConfig()
                     app.selectPlanet(profile)
+                    prefilled = false
                     // 添加成功后重掷身份,避免与刚添加的行星同名/同图。
                     rollIdentity()
                 }
@@ -42,8 +45,10 @@ struct AddPlanetPage: View {
         .scrollDismissesKeyboard(.immediately)
         .ignoresSafeArea(edges: .bottom)
         .onAppear {
-            // 每次进入都重掷身份：未添加就离开视为放弃，下次进来重新随机。
-            rollIdentity()
+            // 每次进入重掷身份：未添加就离开视为放弃，下次进来重新随机；
+            // 扫码预填的身份例外——保留至添加成功或重新扫码（与
+            // pendingData 的 5 分钟保留语义对齐）。
+            if !prefilled { rollIdentity() }
         }
         .onChange(of: isCurrentPage) { current in
             if current {
