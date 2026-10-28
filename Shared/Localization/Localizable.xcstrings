@@ -130,13 +130,6 @@
         }
       }
     },
-    "addplanet.qrInvalid" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Invalid QR code data" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "二维码数据无效" } },
-        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "二維碼資料無效" } }
-      }
-    },
     "addplanet.previewName" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -158,6 +151,13 @@
             "value" : "新行星"
           }
         }
+      }
+    },
+    "addplanet.qrInvalid" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Invalid QR code data" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "二维码数据无效" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "二維碼資料無效" } }
       }
     },
     "addplanet.randomIcon" : {

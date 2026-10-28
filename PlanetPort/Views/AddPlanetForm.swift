@@ -11,6 +11,10 @@ struct AddPlanetForm: View {
     @Binding var colorHex: String
     /// 是否停在本页（HomeView pagerSelection 同源）：离开计时，超时清空表单。
     var isCurrentPage: Bool = true
+    /// 扫码预填成功时通知父级（父级据此豁免滑页重掷身份）。
+    /// 声明在 onImported 之前：memberwise init 参数随声明序，调用处才能
+    /// 以 onPrefill 标签 + 尾随闭包（onImported）的形式书写。
+    var onPrefill: (() -> Void)? = nil
     let onImported: (PlanetProfile) -> Void
 
     @State private var url = ""
@@ -76,6 +80,7 @@ struct AddPlanetForm: View {
                     if let name = payload.name, !name.isEmpty { self.name = name }
                     if let icon = payload.icon { animal = icon }
                     if let iconColor = payload.iconColor { colorHex = iconColor }
+                    onPrefill?()
                 } catch {
                     alert = error.localizedDescription
                 }

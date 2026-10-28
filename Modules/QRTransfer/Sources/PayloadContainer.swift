@@ -27,11 +27,11 @@ public enum PayloadContainer {
     /// 重复 key 取后出现的值（字典赋值天然覆盖）。
     public static func decode(_ data: Data) -> [UInt8: Data]? {
         let start = data.startIndex
-        guard data.count >= magic.count,
-              String(data: data.subdata(in: start..<data.index(start, offsetBy: magic.count)),
+        guard data.count >= magic.utf8.count,
+              String(data: data.subdata(in: start..<data.index(start, offsetBy: magic.utf8.count)),
                      encoding: .ascii) == magic else { return nil }
         var fields: [UInt8: Data] = [:]
-        var i = data.index(start, offsetBy: magic.count)
+        var i = data.index(start, offsetBy: magic.utf8.count)
         while i < data.endIndex {
             let key = data[i]
             guard key != invalidKey else { return nil }
