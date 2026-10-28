@@ -64,6 +64,7 @@ enum PlanetImporter {
 
     /// 仅下载 Planet 文件内容，不校验、不落库（供"先就绪、后添加"的交互使用）。
     static func downloadPlanetFile(_ urlString: String,
+                                   progress: @escaping (Double?) -> Void = { _ in },
                                    completion: @escaping (Result<Data, Error>) -> Void) {
         guard let url = URL(string: urlString) else {
             completion(.failure(ImportError.downloadFailed))
@@ -72,17 +73,55 @@ enum PlanetImporter {
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 5
         config.timeoutIntervalForResource = 10
-        URLSession(configuration: config).dataTask(with: url) { data, response, error in
-            if let error {
-                completion(.failure(error))
-                return
+        // delegate 会话：边收边报进度（Content-Length 已知时为 0~1，未知回调 nil）
+        final class ProgressDelegate: NSObject, URLSessionDataDelegate {
+            let onProgress: (Double?) -> Void
+            let completion: (Result<Data, Error>) -> Void
+            var data = Data()
+            var expected: Int64 = -1
+            /// 非 200 时先回调失败再取消任务，didComplete 会再触发一次，哨兵防重复
+            var finished = false
+
+            init(onProgress: @escaping (Double?) -> Void,
+                 completion: @escaping (Result<Data, Error>) -> Void) {
+                self.onProgress = onProgress
+                self.completion = completion
             }
-            guard let data, (response as? HTTPURLResponse)?.statusCode == 200 else {
-                completion(.failure(ImportError.downloadFailed))
-                return
+
+            func urlSession(_ session: URLSession, dataTask: URLSessionDataTask,
+                            didReceive response: URLResponse,
+                            completionHandler: @escaping (URLSession.ResponseDisposition) -> Void) {
+                guard (response as? HTTPURLResponse)?.statusCode == 200 else {
+                    finished = true
+                    completion(.failure(ImportError.downloadFailed))
+                    completionHandler(.cancel)
+                    return
+                }
+                expected = response.expectedContentLength
+                completionHandler(.allow)
             }
-            completion(.success(data))
-        }.resume()
+
+            func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+                self.data.append(data)
+                let total = Int64(self.data.count)
+                onProgress(expected > 0 ? min(1, Double(total) / Double(expected)) : nil)
+            }
+
+            func urlSession(_ session: URLSession, task: URLSessionTask,
+                            didCompleteWithError error: Error?) {
+                session.finishTasksAndInvalidate()
+                guard !finished else { return }
+                finished = true
+                if let error {
+                    completion(.failure(error))
+                } else {
+                    completion(.success(data))
+                }
+            }
+        }
+        let delegate = ProgressDelegate(onProgress: progress, completion: completion)
+        URLSession(configuration: config, delegate: delegate, delegateQueue: nil)
+            .dataTask(with: url).resume()
     }
 
     static func rename(_ profile: PlanetProfile, to name: String) throws {

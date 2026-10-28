@@ -12,6 +12,20 @@ struct QRScannerView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var authorized = false
     @State private var denied = false
+    @State private var showAlbumPicker = false
+
+    /// 相册识别失败原因：无码 / 有码但内容不符（下载失败走既有导入失败弹窗）
+    private enum AlbumScanError {
+        case noQr, noUrl
+
+        var message: LocalizedStringKey {
+            switch self {
+            case .noQr: "qr.albumNoQr"
+            case .noUrl: "qr.albumNoUrl"
+            }
+        }
+    }
+    @State private var albumError: AlbumScanError?
 
     var body: some View {
         NavigationStack {
@@ -35,15 +49,60 @@ struct QRScannerView: View {
                             }
                         }
                         .buttonStyle(.borderedProminent)
+                        // 相机被拒时相册识别仍可用，给无相机场景留完整通路
+                        Button {
+                            showAlbumPicker = true
+                        } label: {
+                            Label("qr.album", systemImage: "photo.on.rectangle")
+                        }
+                        .buttonStyle(.bordered)
                     }
                     .padding()
+                }
+                if let albumError {
+                    VStack {
+                        Spacer()
+                        Text(albumError.message)
+                            .font(.footnote)
+                            .foregroundStyle(Color.orange)
+                            .padding(.vertical, 10)
+                            .frame(maxWidth: .infinity)
+                            .background(.ultraThinMaterial)
+                    }
                 }
             }
             .navigationTitle("qr.title")
             .navigationBarTitleDisplayMode(.inline)
+            // 取景器深浅不定，导航栏加材质背景保证标题/按钮始终可读
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("common.cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button {
+                        albumError = nil
+                        showAlbumPicker = true
+                    } label: {
+                        Image(systemName: "photo.on.rectangle")
+                    }
+                    .accessibilityLabel(Text("qr.album"))
+                }
+            }
+            .sheet(isPresented: $showAlbumPicker) {
+                AlbumQRPicker { texts in
+                    // 单帧提取语义：取第一个能通过提取器的码，与相机路径同构。
+                    // 区分无码 / 有码但内容不符，提示才有诊断价值
+                    guard !texts.isEmpty else {
+                        albumError = .noQr
+                        return
+                    }
+                    guard let hit = texts.lazy.compactMap(extract).first else {
+                        albumError = .noUrl
+                        return
+                    }
+                    onScanned(hit)
                 }
             }
             .task { await checkPermission() }

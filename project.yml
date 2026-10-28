@@ -54,7 +54,8 @@ targets:
       path: PlanetPort/Info.plist
       properties:
         CFBundleDisplayName: Planet Port
-        CFBundleShortVersionString: "1.0.0"
+        CFBundleShortVersionString: "1.2.0"
+        CFBundleVersion: "3"
         UILaunchScreen: {}
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         NSAppTransportSecurity:
@@ -104,7 +105,8 @@ targets:
       path: PlanetPortTunnel/Info.plist
       properties:
         CFBundleDisplayName: PlanetPortTunnel
-        CFBundleShortVersionString: "1.0.0"
+        CFBundleShortVersionString: "1.2.0"
+        CFBundleVersion: "3"
         NSExtension:
           NSExtensionPointIdentifier: com.apple.networkextension.packet-tunnel
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).PacketTunnelProvider
