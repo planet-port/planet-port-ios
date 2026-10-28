@@ -23,6 +23,10 @@ struct AddPlanetForm: View {
     @State private var showScanner = false
     @State private var showPlanetReceiver = false
     @State private var downloading = false
+    /// 下载进度 0~1；服务器未给 Content-Length 时为 nil（不确定进度）
+    @State private var downloadProgress: Double?
+    /// 下载/验证失败轻提示（toast）：overlay 展示不受 sheet 收起竞争影响
+    @State private var toast: String?
     /// 已就绪、等待"添加"的 Planet 文件内容。
     @State private var pendingData: Data?
     @State private var alert: String?
@@ -35,6 +39,25 @@ struct AddPlanetForm: View {
         VStack(spacing: 16) {
             formCard
             addButton
+        }
+        // 下载/验证失败 toast：顶部胶囊，自动消失
+        .overlay(alignment: .top) {
+            if let toast {
+                Text(toast)
+                    .font(.footnote.weight(.medium))
+                    .foregroundStyle(.white)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(.black.opacity(0.75), in: Capsule())
+                    .padding(.horizontal, 24)
+                    .padding(.top, 4)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .task(id: toast) {
+                        try? await Task.sleep(nanoseconds: 2_500_000_000)
+                        withAnimation { self.toast = nil }
+                    }
+            }
         }
         .fileImporter(isPresented: $showFilePicker, allowedContentTypes: [.data]) { result in
             guard case .success(let fileURL) = result else {
@@ -58,6 +81,29 @@ struct AddPlanetForm: View {
             } message: {
                 Text(alert ?? "")
             }
+        // 下载中模态锁定：sheet 挡住底下全部交互（含首页 Pager 滑页），
+        // 禁下滑手势关闭，防止误操作提前退出
+        .sheet(isPresented: $downloading) {
+            VStack(spacing: 16) {
+                if let downloadProgress {
+                    ProgressView(value: downloadProgress)
+                        .progressViewStyle(.linear)
+                } else {
+                    ProgressView()
+                }
+                Text("addplanet.downloading")
+                    .font(.subheadline.weight(.medium))
+                Text(url)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(24)
+            .presentationDetents([.height(180)])
+            .interactiveDismissDisabled()
+        }
         .sheet(isPresented: $showScanner) {
             QRScannerView(extract: QRScannerView.extractHttpUrl) { scanned in
                 // 关扫码层 → 回填 URL → 直接下载导入。
@@ -267,7 +313,10 @@ struct AddPlanetForm: View {
 
     private func importFromURL() {
         downloading = true
-        PlanetImporter.downloadPlanetFile(url) { result in
+        downloadProgress = nil
+        PlanetImporter.downloadPlanetFile(url, progress: { fraction in
+            Task { @MainActor in downloadProgress = fraction }
+        }) { result in
             Task { @MainActor in
                 downloading = false
                 switch result {
@@ -276,10 +325,10 @@ struct AddPlanetForm: View {
                         try validate(data)
                         pendingData = data
                     } catch {
-                        alert = error.localizedDescription
+                        withAnimation { toast = error.localizedDescription }
                     }
                 case .failure(let error):
-                    alert = error.localizedDescription
+                    withAnimation { toast = error.localizedDescription }
                 }
             }
         }

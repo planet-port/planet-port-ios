@@ -15,6 +15,21 @@ struct QRReceiveView: View {
     @State private var chunks: [Int: String] = [:]
     @State private var corrupt = false
     @State private var finished = false
+    @State private var showAlbumPicker = false
+    @State private var albumError: AlbumScanError?
+
+    /// 相册识别失败原因：无码 / 序列不完整 / 数据格式不正确
+    private enum AlbumScanError {
+        case noQr, incomplete, invalid
+
+        var message: String {
+            switch self {
+            case .noQr: ql("qrtransfer.albumNoQr")
+            case .incomplete: ql("qrtransfer.albumIncomplete")
+            case .invalid: ql("qrtransfer.albumInvalid")
+            }
+        }
+    }
 
     var body: some View {
         NavigationStack {
@@ -38,6 +53,13 @@ struct QRReceiveView: View {
                             }
                         }
                         .buttonStyle(.borderedProminent)
+                        // 相机被拒时相册识别仍可用，给无相机场景留完整通路
+                        Button {
+                            showAlbumPicker = true
+                        } label: {
+                            Label(ql("qrtransfer.album"), systemImage: "photo.on.rectangle")
+                        }
+                        .buttonStyle(.bordered)
                     }
                     .padding()
                 }
@@ -51,9 +73,15 @@ struct QRReceiveView: View {
                                         chunks.count, total))
                                 .font(.subheadline.monospacedDigit())
                         }
-                        Text(corrupt ? ql("qrtransfer.corrupt") : ql("qrtransfer.waiting"))
-                            .font(.footnote)
-                            .foregroundStyle(corrupt ? Color.red : Color.secondary)
+                        if let albumError {
+                            Text(albumError.message)
+                                .font(.footnote)
+                                .foregroundStyle(Color.orange)
+                        } else {
+                            Text(corrupt ? ql("qrtransfer.corrupt") : ql("qrtransfer.waiting"))
+                                .font(.footnote)
+                                .foregroundStyle(corrupt ? Color.red : Color.secondary)
+                        }
                     }
                     .padding(.vertical, 16)
                     .frame(maxWidth: .infinity)
@@ -62,9 +90,39 @@ struct QRReceiveView: View {
             }
             .navigationTitle(Text(ql("qrtransfer.receiveTitle")))
             .navigationBarTitleDisplayMode(.inline)
+            // 取景器深浅不定，导航栏加材质背景保证标题/按钮始终可读
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(ql("qrtransfer.cancel")) { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button {
+                        albumError = nil
+                        showAlbumPicker = true
+                    } label: {
+                        Image(systemName: "photo.on.rectangle")
+                    }
+                    .accessibilityLabel(Text(ql("qrtransfer.album")))
+                }
+            }
+            .sheet(isPresented: $showAlbumPicker) {
+                AlbumQRPicker { texts in
+                    // 逐帧喂现有聚合：分片/校验/会话切换逻辑与相机路径完全同构
+                    guard !texts.isEmpty else {
+                        albumError = .noQr
+                        return
+                    }
+                    for text in texts { handle(text) }
+                    guard !finished else { return }
+                    // 解码失败（corrupt）→ 格式错误；有协议帧但没凑齐 → 序列不完整；
+                    // 一张协议帧都没有 → 视为格式不正确（有码但不是本协议内容）
+                    if corrupt || chunks.isEmpty {
+                        albumError = .invalid
+                    } else {
+                        albumError = .incomplete
+                    }
                 }
             }
             .task { await checkPermission() }
