@@ -6,9 +6,9 @@ import UniformTypeIdentifiers
 struct AddPlanetForm: View {
     /// 与首页 Pager 的预览卡片共享的名称(编辑已移至预览身份区,此处只读)。
     @Binding var name: String
-    /// 身份(由预览区持有,添加时随名称一并落库)。
-    let animal: String
-    let colorHex: String
+    /// 身份(与首页 Pager 的预览卡片共享,添加时随名称一并落库;扫码导入可直接回填)。
+    @Binding var animal: String
+    @Binding var colorHex: String
     /// 是否停在本页（HomeView pagerSelection 同源）：离开计时，超时清空表单。
     var isCurrentPage: Bool = true
     let onImported: (PlanetProfile) -> Void
@@ -64,9 +64,18 @@ struct AddPlanetForm: View {
         .sheet(isPresented: $showPlanetReceiver) {
             QRReceiveView { data in
                 showPlanetReceiver = false
+                // 解析 ZTP 容器；非法容器（magic/边界不成立、缺 planet 字段）
+                // 或旧版裸 planet 载荷都走统一"数据无效"提示。
+                guard let payload = PlanetPayload.parse(data) else {
+                    alert = loc("addplanet.qrInvalid")
+                    return
+                }
                 do {
-                    try validate(data)
-                    pendingData = data
+                    try validate(payload.planet)
+                    pendingData = payload.planet
+                    if let name = payload.name, !name.isEmpty { self.name = name }
+                    if let icon = payload.icon { animal = icon }
+                    if let iconColor = payload.iconColor { colorHex = iconColor }
                 } catch {
                     alert = error.localizedDescription
                 }

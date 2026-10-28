@@ -25,7 +25,7 @@ struct AddPlanetPage: View {
                     .padding(.top, 4)
                 header
                     .padding(.horizontal, 20)
-                AddPlanetForm(name: $previewName, animal: animal, colorHex: colorHex,
+                AddPlanetForm(name: $previewName, animal: $animal, colorHex: $colorHex,
                               isCurrentPage: isCurrentPage) { profile in
                     app.reloadConfig()
                     app.selectPlanet(profile)
