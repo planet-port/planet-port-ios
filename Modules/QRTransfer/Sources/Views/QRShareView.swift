@@ -21,13 +21,13 @@ struct QRShareView: View {
             VStack(spacing: 18) {
                 if session.frames.isEmpty {
                     if session.tooLarge {
-                        // ContentUnavailableView 为 iOS 17+；16 用等价组合替代，
-                        // 与 ios16 分支共用此文件，避免分叉。
+                        // ContentUnavailableView 为 iOS 17+，17 优先走系统空态；
+                        // 16 等价组合。iOS 16 支持退役时删 iOS16-COMPAT 分支即可。
                         if #available(iOS 17, *) {
                             ContentUnavailableView {
                                 Label(ql("qrtransfer.tooLarge"), systemImage: "exclamationmark.triangle")
                             } description: { Text(ql("qrtransfer.tooLarge.hint")) }
-                        } else {
+                        } else { // iOS16-COMPAT
                             VStack(spacing: 8) {
                                 Image(systemName: "exclamationmark.triangle")
                                     .font(.system(size: 40))
