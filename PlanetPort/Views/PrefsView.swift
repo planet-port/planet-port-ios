@@ -9,6 +9,9 @@ struct PrefsView: View {
     @AppStorage(AppGroup.prefConnectOnDemand, store: AppGroup.defaults) private var connectOnDemand = false
     @AppStorage(AppGroup.prefParallaxEnabled, store: AppGroup.defaults) private var parallaxEnabled = true
     @State private var showDonate = false
+    // 语言切换刷新标题/文案（loc()），主题变更刷新主色圆点。
+    @ObservedObject private var theme = ThemeManager.shared
+    @ObservedObject private var language = LanguageManager.shared
     @State private var showBackgroundPicker = false
     @State private var showThemePicker = false
     /// 构建信息行当前显示 hash（false 显示时间）
@@ -200,6 +203,8 @@ private struct ThemeColorPickerSheet: View {
     /// 叠加在示例色块上的随机小动物（与行星图标同一套 animal-<key> 资源），
     /// 每次打开弹窗随机换一只。
     @State private var animalKey = PlanetIcon.catalog[0]
+    /// 示例色块/色板选中环/派生开关随取色即时变化。
+    @ObservedObject private var theme = ThemeManager.shared
 
     var body: some View {
         NavigationStack {
@@ -279,6 +284,9 @@ private struct ThemeColorPickerSheet: View {
 /// 三个分量合在一个控件内，读写直接走 ThemeManager.mainHex 单一数据源
 /// （预设与色盘自动互相同步）。
 private struct HSLColorPicker: View {
+    /// 游标位置随外部（预设色板）改色同步。
+    @ObservedObject private var theme = ThemeManager.shared
+
     /// 色相条渐变（红→黄→绿→青→蓝→洋红→红）。
     private static let hueStops: [Color] =
         (0...6).map { Color(hue: Double($0) / 6, saturation: 1, brightness: 1) }

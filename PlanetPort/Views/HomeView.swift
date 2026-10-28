@@ -32,6 +32,8 @@ private enum SwitchPlanetPhase {
 /// 设置按钮一侧显示当前行星（🔗 前导），点击快速切回。
 struct HomeView: View {
     @EnvironmentObject private var app: AppState
+    /// 卡片状态色（NetworkCardStatus）在 body 内计算，随主题派生开关变化。
+    @ObservedObject private var theme = ThemeManager.shared
     @State private var showJoin = false
     @State private var errorAlert: String?
     @State private var errorTitle = loc("common.notice")

@@ -2,6 +2,10 @@ import SwiftUI
 
 @main
 struct PlanetPortApp: App {
+    // 单例引用上建立观察：主题/语言变更时驱使整个 WindowGroup 重算。
+    @ObservedObject private var theme = ThemeManager.shared
+    @ObservedObject private var language = LanguageManager.shared
+
     init() {
         // 标题栏全局全透明：无底色无毛玻璃（含滚动边缘态），仅保留标题与返回键。
         let nav = UINavigationBarAppearance()

@@ -8,6 +8,8 @@ struct PlanetCardView: View {
     let activePlanetName: String
     let isActive: Bool
     @ObservedObject var app: AppState
+    /// 图标底色取当前主题色表，改色后即时刷新。
+    @ObservedObject private var theme = ThemeManager.shared
 
     var body: some View {
         VStack(spacing: 8) {

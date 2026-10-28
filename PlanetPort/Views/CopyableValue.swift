@@ -13,6 +13,8 @@ struct CopyableValue: View {
     var iconSize: CGFloat = 11
     /// 复制反馈:图标短暂变对勾。
     @State private var copied = false
+    /// 对勾成功色随主题派生开关变化。
+    @ObservedObject private var theme = ThemeManager.shared
 
     /// 占位值（空 / "—" / "-"，调用方无数据时的显示约定）：不可复制，
     /// 常驻复制图标随之隐藏，避免"看着能点、点了没反应"。
