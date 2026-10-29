@@ -665,16 +665,28 @@ struct HomeView: View {
 
         // 快速路径：网络所属行星就是隧道行星且隧道在跑——writeNetworks 已发配置
         // 变更通知，extension 自动增量 join/leave（不重启核心/VPN），无需再走 VPN 启动流程。
-        if planetId == app.activePlanetId && app.vpnRunning {
-            pendingNetworks.insert(entry.networkId)
+        // 隧道状态实时查询：app.vpnRunning 是 5s 轮询缓存，关网络后立即重开时
+        // 仍是 true，走快速路径会无人拉起 VPN，卡片卡"建立隧道"。
+        guard planetId == app.activePlanetId else {
+            slowPathActivate(entry, planetId: planetId)
+            return
+        }
+        VPNManager.shared.connectionStatus { status in
             Task { @MainActor in
+                guard status == .connected || status == .connecting || status == .reasserting else {
+                    slowPathActivate(entry, planetId: planetId)
+                    return
+                }
+                pendingNetworks.insert(entry.networkId)
                 // 给 extension 一个响应窗口，避免开关上的加载圈一闪而过
                 try? await Task.sleep(nanoseconds: 600_000_000)
                 pendingNetworks.remove(entry.networkId)
             }
-            return
         }
+    }
 
+    /// 完整启动流程（隧道未跑/正在停时）：激活行星并拉起 VPN。
+    private func slowPathActivate(_ entry: NetworkEntry, planetId: String) {
         pendingNetworks.insert(entry.networkId)
         app.applyPlanetAndStartVPN(planetId) { ok, error in
             Task { @MainActor in
