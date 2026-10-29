@@ -18,11 +18,14 @@ struct NetworkDetailView: View {
             Section {
                 networkIdRow
                 row(loc("common.name"), snapshot?.name ?? entry.networkName)
-                // REQUESTING_CONFIGURATION 与卡片一致按 online 分段（连接服务器/请求网络配置/连接超时）
+                // REQUESTING_CONFIGURATION 与卡片一致按 online 分段（连接服务器/请求网络配置/连接超时）；
+                // 物理断网（飞行模式）与卡片一致显示"无网络"（同样以隧道在跑为前提）
                 row(loc("common.status"), snapshot.map {
-                    $0.status == .requestingConfiguration
-                        ? NetworkCardStatus.connectPhaseText(app: app)
-                        : $0.status.displayName
+                    app.vpnRunning && !app.pathSatisfied
+                        ? loc("status.noNetwork")
+                        : $0.status == .requestingConfiguration
+                            ? NetworkCardStatus.connectPhaseText(app: app)
+                            : $0.status.displayName
                 } ?? "—")
                 row(loc("common.type"), snapshot?.type ?? "—")
                 CopyableRow(title: "MAC", text: macText)

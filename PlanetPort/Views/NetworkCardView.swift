@@ -34,6 +34,10 @@ struct NetworkCardStatus {
             }
         } else if !app.vpnRunning {
             self.init(text: loc("status.establishing"), color: .orange)
+        } else if !app.pathSatisfied {
+            // 物理网络不可用（飞行模式/断网）：优先于核心状态展示——核心 netconf
+            // 缓存仍是 .ok 会假亮"在线"。仅改显示，开关与 VPN 状态不动。
+            self.init(text: loc("status.noNetwork"), color: .orange)
         } else if let status = app.networkStatuses[entry.networkId] {
             // 首次加入需控制器授权：统一显示"待授权"。
             if status.isPendingAuthorization {

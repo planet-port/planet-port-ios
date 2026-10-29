@@ -38,6 +38,9 @@ final class AppState: ObservableObject {
     @Published var planetWorldIds: [String: String] = [:]
     @Published var nodeId: String = ""
     @Published var online: Bool = false
+    /// 物理网络可用（隧道 NWPathMonitor 透出）：飞行模式/断网即时为 false，
+    /// 卡片显示"无网络"，不影响开关与 VPN 状态
+    @Published var pathSatisfied: Bool = true
     @Published var coreVersion: String = ""
     @Published var tunnelStatus: String = ""
     @Published var networkStatuses: [String: ZTNetworkStatus] = [:]
@@ -198,6 +201,7 @@ final class AppState: ObservableObject {
     func refreshStatus() {
         nodeId = StatusStore.nodeId
         online = StatusStore.online
+        pathSatisfied = StatusStore.pathSatisfied
         coreVersion = StatusStore.coreVersion
         tunnelStatus = StatusStore.tunnelStatus
         // 状态/冲突按当前活跃行星的作用域读取：其它行星（含旧隧道会话）的同
@@ -391,6 +395,8 @@ final class AppState: ObservableObject {
                             if !self.networkStatuses.isEmpty || self.networks.contains(where: { $0.lastActivated }) {
                                 self.networkStatuses = StatusStore.networkStatuses(planetId: self.activePlanetId)
                             }
+                            // Darwin 通知可能被合并，轮询兜底同步物理路径状态
+                            self.pathSatisfied = StatusStore.pathSatisfied
                         }
                     }
                     self.refreshActiveNetworkConfigs()
