@@ -41,29 +41,44 @@ final class VPNManager {
     private func performStart(completion: @escaping (Bool, String?) -> Void) {
         loadManager { [weak self] manager, created in
             guard let self else { return }
-            if created {
-                // 按需规则必须随首次保存一起持久化；放在保存后重载再设置的话，
-                // 后续 start 不会触发 save，规则只留在内存里，断开后不生效。
-                self.applyOnDemand(manager)
-                // 首次创建：保存后必须丢弃内存对象、从偏好重载才能拿到可启动的
-                // session，未重载的对象直接 startVPNTunnel 会报 configurationInvalid。
-                manager.saveToPreferences { [weak self] error in
-                    guard let self else { return }
-                    if let error {
-                        completion(false, loc("vpn.error.save \(error.localizedDescription)"))
-                        return
-                    }
-                    self.manager = nil
-                    self.loadManager { m, _ in
-                        self.start(m, completion: completion)
-                    }
+            // 上一会话拆除未落地（.disconnecting）就 startVPNTunnel 会被系统静默
+            // 吞掉——不报错也不启动，卡片卡"建立隧道"（关网络后立即重开的根因）。
+            // 先等拆除完成再启动；超时放弃等待、按原流程尽力启动。
+            guard manager.connection.status != .disconnecting else {
+                Self.log.info("start 前等待上一会话拆除完成")
+                self.waitDisconnected(timeout: 5) { _ in
+                    self.performStart(completion: completion)
                 }
-            } else {
-                self.applyOnDemand(manager)
-                manager.saveToPreferences { [weak self] _ in
-                    guard let self else { return }
-                    self.start(manager, completion: completion)
+                return
+            }
+            self.startLoaded(manager, created: created, completion: completion)
+        }
+    }
+
+    private func startLoaded(_ manager: NETunnelProviderManager, created: Bool,
+                             completion: @escaping (Bool, String?) -> Void) {
+        if created {
+            // 按需规则必须随首次保存一起持久化；放在保存后重载再设置的话，
+            // 后续 start 不会触发 save，规则只留在内存里，断开后不生效。
+            applyOnDemand(manager)
+            // 首次创建：保存后必须丢弃内存对象、从偏好重载才能拿到可启动的
+            // session，未重载的对象直接 startVPNTunnel 会报 configurationInvalid。
+            manager.saveToPreferences { [weak self] error in
+                guard let self else { return }
+                if let error {
+                    completion(false, loc("vpn.error.save \(error.localizedDescription)"))
+                    return
                 }
+                self.manager = nil
+                loadManager { m, _ in
+                    self.start(m, completion: completion)
+                }
+            }
+        } else {
+            applyOnDemand(manager)
+            manager.saveToPreferences { [weak self] _ in
+                guard let self else { return }
+                self.start(manager, completion: completion)
             }
         }
     }
