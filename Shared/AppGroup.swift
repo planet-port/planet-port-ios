@@ -34,6 +34,8 @@ enum AppGroup {
     static let prefDisableIPv6 = "network_disable_ipv6"
     /// 同时连接网络数软上限（超出弹耗电确认，可强制开启）。
     static let prefMultiConnectLimit = "network_multi_connect_limit"
+    /// "连接服务器"阶段超时阈值（秒，10~600；未写入时 45）。
+    static let prefConnectTimeout = "network_connect_timeout"
     static let prefConnectOnDemand = "general_connect_on_demand"
     /// 应用语言覆盖（AppLanguage 原始值；未写入时跟随系统）。
     static let prefLanguage = "general_language"
