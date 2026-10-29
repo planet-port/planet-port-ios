@@ -9,9 +9,14 @@ import UIKit
 final class AppState: ObservableObject {
     /// "连接服务器"阶段（核心连行星根服务器）的超时阈值：到点仍未 online
     /// 先复核，复核失败进入重试（见 connectRetryLimit），不直接判定故障。
-    static let connectTimeout: TimeInterval = 300
-    /// 超时确认后到重启核心的重试间隔：给间歇性网络故障留恢复窗口。
-    static let connectRetryDelay: TimeInterval = 120
+    /// 全局设置可调（10~600 秒），默认 45；窗口起算时取值。
+    static var connectTimeout: TimeInterval {
+        let stored = AppGroup.defaults.double(forKey: AppGroup.prefConnectTimeout)
+        guard stored > 0 else { return 45 }
+        return min(max(stored, 10), 600)
+    }
+    /// 超时确认后到重启核心的重试间隔。
+    static let connectRetryDelay: TimeInterval = 10
     /// 最大重试次数：超时后等 connectRetryDelay 重启核心重建 UDP 流（新源端口
     /// 可能赶上清洗放行窗口），累计满本次数仍失败才判定物理网络故障彻底断开。
     static let connectRetryLimit = 5

@@ -6387,6 +6387,29 @@
         }
       }
     },
+    "prefs.network.connectTimeout %lld" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connect timeout: %lld s"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连接超时：%lld 秒"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "連線逾時：%lld 秒"
+          }
+        }
+      }
+    },
     "prefs.network.disableIPv6" : {
       "extractionState" : "stale",
       "localizations" : {
