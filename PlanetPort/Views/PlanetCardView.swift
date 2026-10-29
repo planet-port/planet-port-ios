@@ -69,17 +69,24 @@ struct PlanetCardView: View {
         }
     }
 
-    /// 角标:仅隧道绑定行星显示;VPN 在跑 = 「使用中」(tint 实底白字),
-    /// 未跑 = 「上次使用」(灰底 secondary 字 + 发丝描边,与背景图隔离)。
+    /// 角标:仅隧道绑定行星显示。三态:VPN 在跑 = 「使用中」(tint 实底白字);
+    /// 隧道未跑但活跃行星已有启用网络(拉起中,卡片"建立隧道"阶段)= 「连接中」
+    /// (orange 实底白字);否则 = 「上次使用」(灰底 secondary 字 + 发丝描边,
+    /// 与背景图隔离)。判定锚定活跃行星而非选中页,滑页不扰动角标。
     private var statusBadge: some View {
-        let running = app.vpnRunning
-        return Text(running ? loc("planetcard.inUse") : loc("planetcard.lastUsed"))
+        let connecting = !app.vpnRunning
+            && (app.planetNetworks[app.activePlanetId]?.contains(where: \.lastActivated) ?? false)
+        return Text(app.vpnRunning ? loc("planetcard.inUse")
+                   : connecting ? loc("planetcard.connecting")
+                   : loc("planetcard.lastUsed"))
             .font(.system(size: 10, weight: .semibold))
-            .foregroundStyle(running ? Color.white : Color.secondary)
+            .foregroundStyle(app.vpnRunning || connecting ? Color.white : Color.secondary)
             .padding(.horizontal, 7)
             .padding(.vertical, 3)
-            .background(Capsule().fill(running ? AnyShapeStyle(.tint)
-                                               : AnyShapeStyle(Color(uiColor: .secondarySystemGroupedBackground))))
+            .background(Capsule().fill(
+                app.vpnRunning ? AnyShapeStyle(.tint)
+                : connecting ? AnyShapeStyle(Color.orange)
+                : AnyShapeStyle(Color(uiColor: .secondarySystemGroupedBackground))))
             .overlay(Capsule().strokeBorder(.quaternary, lineWidth: 0.5))
             // 骑缝:一半叠出图标右上角外。
             .offset(x: 10, y: -6)
