@@ -6955,6 +6955,28 @@
         }
       }
     },
+    "status.noNetwork" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Network"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无网络"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無網路"
+          }
+        }
+      }
+    },
     "status.pendingAdd" : {
       "extractionState" : "stale",
       "localizations" : {

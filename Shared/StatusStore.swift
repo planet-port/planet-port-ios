@@ -5,6 +5,7 @@ enum StatusStore {
 
     private static let kNodeId = "status_nodeId"
     private static let kOnline = "status_online"
+    private static let kPathSatisfied = "status_pathSatisfied"
     private static let kCoreVersion = "status_coreVersion"
     private static let kTunnelStatus = "status_tunnelStatus"
     private static let kNetworkStatuses = "status_networkStatuses"
@@ -20,6 +21,14 @@ enum StatusStore {
     static var online: Bool {
         get { AppGroup.defaults.bool(forKey: kOnline) }
         set { AppGroup.defaults.set(newValue, forKey: kOnline) }
+    }
+    /// 物理网络路径可用性（Extension 的 NWPathMonitor 写入）。隧道进程视角的
+    /// 默认路径不含自身 utun，飞行模式/断网时为 false；核心 online 要 30s 收不到
+    /// 根服务器数据才翻转，此字段让 App 即时感知断网显示"无网络"。
+    /// 隧道停止时复位为 true（运行时快照，卡片仅在 vpnRunning 时消费）。
+    static var pathSatisfied: Bool {
+        get { AppGroup.defaults.object(forKey: kPathSatisfied) as? Bool ?? true }
+        set { AppGroup.defaults.set(newValue, forKey: kPathSatisfied) }
     }
     static var coreVersion: String {
         get { AppGroup.defaults.string(forKey: kCoreVersion) ?? "" }

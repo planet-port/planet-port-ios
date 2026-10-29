@@ -116,6 +116,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         stopCore()
         StatusStore.tunnelStatus = loc("tunnel.status.stopped")
         StatusStore.online = false
+        StatusStore.pathSatisfied = true
         StatusStore.networkStatuses = [:]
         StatusStore.networkConflicts = [:]
         StatusStore.networkNames = [:]
@@ -609,6 +610,12 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         let info: (Bool, Network.NWInterface.InterfaceType?) =
             (path.status == .satisfied, path.availableInterfaces.first?.type)
         defer { lastPathInfo = info }
+        // 物理路径可用性逐次透出（含首次基线回调），App 即时显示"无网络"，
+        // 不等核心 30s 超时的 OFFLINE 事件
+        if StatusStore.pathSatisfied != info.0 {
+            StatusStore.pathSatisfied = info.0
+            StatusStore.postChange()
+        }
         guard let last = lastPathInfo else { return }  // 首次回调仅记录基线
 
         let regained = !last.satisfied && info.0
