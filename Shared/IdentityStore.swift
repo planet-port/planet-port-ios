@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 /// 节点身份模式的存取与身份文件操作（App 侧管理；Extension 侧经
 /// ZTBridge ztHookedPath 按同一模式偏好重定向读写，见 AppGroup.prefIdentityPerPlanet）。
@@ -6,6 +7,7 @@ import Foundation
 /// 每行星身份：planet-state/<id>/identity.*（核心首次在该行星以独立模式启动时
 /// 自行生成；目录随删除行星级联清理，见 AppConfigStore.deletePlanet）。
 enum IdentityStore {
+    private static let log = Logger(subsystem: "cn.imgozi.i.PlanetPort", category: "IdentityStore")
     static let identityPublicName = "identity.public"
     static let identitySecretName = "identity.secret"
 
@@ -59,7 +61,11 @@ enum IdentityStore {
             if fm.fileExists(atPath: dst.path) {
                 try? fm.removeItem(at: dst)
             }
-            try? fm.copyItem(at: src, to: dst)
+            do {
+                try fm.copyItem(at: src, to: dst)
+            } catch {
+                log.error("身份文件复制失败 \(src.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            }
             if name == identitySecretName {
                 try? fm.setAttributes([.posixPermissions: 0o600], ofItemAtPath: dst.path)
             }

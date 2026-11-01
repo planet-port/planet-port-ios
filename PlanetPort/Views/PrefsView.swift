@@ -421,7 +421,7 @@ private struct IdentityModeSheet: View {
                     Text("prefs.identity.footer")
                 }
             }
-            .navigationTitle("prefs.identity.sectionHeader")
+            .navigationTitle(loc("prefs.identity.sectionHeader"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
@@ -500,7 +500,7 @@ private struct IdentityPickView: View {
                 Text("prefs.identity.pick.footer")
             }
         }
-        .navigationTitle("prefs.identity.pick.title")
+        .navigationTitle(loc("prefs.identity.pick.title"))
         .navigationBarTitleDisplayMode(.inline)
     }
 }
