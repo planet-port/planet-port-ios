@@ -21,8 +21,8 @@ struct NetworkCardStatus {
             // （App 自动断开前的瞬时窗口）
             self.init(text: Self.conflictText(conflict), color: .red)
         } else if !entry.lastActivated {
-            // 断开态优先于 vpnRunning 判定：自动断开（超时/冲突）通常伴随停 VPN，
-            // 若先判 vpnRunning 会把原因吞掉显示成"未连接"。
+            // 断开态优先于 vpnRunning 判定：冲突自动断开通常伴随停 VPN（超时仅
+            // 旧版本遗留记录），若先判 vpnRunning 会把原因吞掉显示成"未连接"。
             if let last = entry.lastConflict {
                 // 连接超时是共享故障，直接显示"连接超时"，不套"冲突,断开"模板。
                 let text = last == ConflictCode.timeout
@@ -44,7 +44,8 @@ struct NetworkCardStatus {
                 self.init(text: loc("status.pendingAuth"), color: .orange)
             } else if status == .requestingConfiguration {
                 // 核心等待链按 online 拆段：未连根服务器="连接服务器"
-                // （超过 connectTimeout 判超时），已连但未拿到配置="请求网络配置"。
+                // （超过 connectTimeout 由 AppState 无感重启核心重试），
+                // 已连但未拿到配置="请求网络配置"。
                 let phase = Self.connectPhase(app: app)
                 self.init(text: phase.text, color: phase.color)
             } else {
@@ -66,18 +67,11 @@ struct NetworkCardStatus {
     }
 
     /// REQUESTING_CONFIGURATION 的分段展示：online 为核心是否已连通行星根服务器
-    /// （VPN 级共享状态）。计时起点缺失（如在线后再次掉线）不判超时，仅显示进行中文案。
-    /// 重试周期内（超时确认后等 120s 重启核心）带重试计数。
+    /// （VPN 级共享状态）。超时重试在 AppState 内无感循环（不限次数、无提示），
+    /// 此处不感知重试状态，全程显示进行中文案。
     private static func connectPhase(app: AppState) -> (text: String, color: Color) {
         if app.online {
             return (loc("network.status.requestingConfig"), .orange)
-        }
-        if let start = app.connectStartedAt,
-           Date().timeIntervalSince(start) >= AppState.connectTimeout {
-            return (loc("card.timeout.offline"), .red)
-        }
-        if app.connectRetryCount > 0 {
-            return (loc("network.status.connectingRetry \(app.connectRetryCount)"), .orange)
         }
         return (loc("network.status.connectingServer"), .orange)
     }

@@ -5317,28 +5317,6 @@
         }
       }
     },
-    "network.status.connectingRetry %lld" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Connecting to Server (Retry %lld/5)"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "连接服务器（重试 %lld/5）"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "連線伺服器（重試 %lld/5）"
-          }
-        }
-      }
-    },
     "network.status.connectingServer" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -6405,29 +6383,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "跟隨系統"
-          }
-        }
-      }
-    },
-    "prefs.network.connectTimeout %lld" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Connect timeout: %lld s"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "连接超时：%lld 秒"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "連線逾時：%lld 秒"
           }
         }
       }

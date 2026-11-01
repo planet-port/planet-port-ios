@@ -36,7 +36,7 @@ On Android, ZerotierFix lets you customize the Planet; iOS has long lacked a com
 - **Multi-network** — a single tunnel carries multiple networks; the soft limit defaults to 2 and is adjustable from 2–6, with explicit confirmation required beyond it
 - **Automatic conflict disconnect** — address or subnet conflicts are detected and disconnected automatically, with the reason shown right on the network card
 - **Toggle to connect** — the toggle on each network row applies the tunnel config directly; pending states are visible in real time
-- **Fine-grained status** — initializing → connecting → online, each stage clearly labeled; timed-out connections drop automatically (threshold configurable); airplane mode shows "no network" instantly
+- **Fine-grained status** — initializing → connecting → online, each stage clearly labeled; on connect timeout the core restarts silently and retries indefinitely (until online or manually turned off); airplane mode shows "no network" instantly
 - **Join networks** — enter a 16-digit network ID or scan a QR code; authorize the new node at [ZeroTier Central](https://my.zerotier.com) and you're connected
 - **One-tap copy** — managed IPs, node ID and network ID copy on tap; the network ID is also available as a QR code
 

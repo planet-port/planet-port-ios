@@ -8,18 +8,9 @@ import UIKit
 @MainActor
 final class AppState: ObservableObject {
     /// "连接服务器"阶段（核心连行星根服务器）的超时阈值：到点仍未 online
-    /// 先复核，复核失败进入重试（见 connectRetryLimit），不直接判定故障。
-    /// 全局设置可调（10~600 秒），默认 45；窗口起算时取值。
-    static var connectTimeout: TimeInterval {
-        let stored = AppGroup.defaults.double(forKey: AppGroup.prefConnectTimeout)
-        guard stored > 0 else { return 45 }
-        return min(max(stored, 10), 600)
-    }
-    /// 超时确认后到重启核心的重试间隔。
-    static let connectRetryDelay: TimeInterval = 10
-    /// 最大重试次数：超时后等 connectRetryDelay 重启核心重建 UDP 流（新源端口
-    /// 可能赶上清洗放行窗口），累计满本次数仍失败才判定物理网络故障彻底断开。
-    static let connectRetryLimit = 5
+    /// 先复核，复核失败即重启核心进入下一轮（固定间隔、不限次数、无提示，
+    /// 直到 online 或用户手动关闭），不判定故障、不自动断开。
+    static let connectTimeout: TimeInterval = 45
 
     @Published var planets: [PlanetProfile] = []
     @Published var selectedPlanetId: String = PlanetProfile.officialId
@@ -48,15 +39,11 @@ final class AppState: ObservableObject {
     @Published var networkConflicts: [String: String] = [:]
     @Published var networkConfigs: [String: NetworkConfigSnapshot] = [:]
     @Published var vpnRunning: Bool = false
-    /// VPN 起跑（观察到 vpnRunning 且未 online）的时刻，卡片"连接服务器"
-    /// 分段展示与超时判定的共同起点；online 达成或 VPN 停止时清空。
-    @Published private(set) var connectStartedAt: Date?
+    /// VPN 起跑（观察到 vpnRunning 且未 online）的时刻，连接超时判定的起点；
+    /// online 达成或 VPN 停止时清空。
+    private var connectStartedAt: Date?
     /// 连接超时任务（App 侧计时；后台挂起冻结，回前台经 evaluateConnectTimer 补触发）。
     private var connectTimeoutTask: Task<Void, Never>?
-    /// 超时确认后的重试等待任务（connectRetryDelay 后重启核心）。
-    private var connectRetryTask: Task<Void, Never>?
-    /// 当前连接周期已重试次数（online 达成或周期结束即清零）。
-    @Published private(set) var connectRetryCount = 0
     /// 首页自定义背景图（nil = 未设置，页面用纯底色）
     @Published var backgroundImage: UIImage? = BackgroundImageStore.load()
 
@@ -218,33 +205,28 @@ final class AppState: ObservableObject {
     /// online 达成或 VPN 停止即取消。App 后台挂起时计时任务冻结，回前台后的
     /// 状态刷新走"已超期"分支补触发，不依赖计时器本身到点。
     private func evaluateConnectTimer() {
-        // 重试等待期不起算新窗口：等 connectRetryDelay 重启核心后再由状态通知起算
-        guard connectRetryTask == nil else { return }
         if vpnRunning, !online,
            AppConfigStore.readActiveNetworks().contains(where: { $0.lastActivated }) {
             if let start = connectStartedAt {
                 // 补触发：后台冻结错过到点，按已耗时直接判超时
                 if Date().timeIntervalSince(start) >= Self.connectTimeout {
-                    disconnectOnConnectTimeout()
+                    retryOnConnectTimeout()
                 }
             } else {
                 connectStartedAt = Date()
-                // 新连接周期开始：上一轮的超时断开记录随之失效（超时是整轮共享
+                // 新连接周期开始：上一轮的遗留超时记录随之失效（超时是整轮共享
                 // 事件，不该在新周期里继续显示在未参与连接的网络上）
                 clearStaleTimeoutRecords()
                 connectTimeoutTask = Task { @MainActor in
                     try? await Task.sleep(nanoseconds: UInt64(Self.connectTimeout * 1_000_000_000))
                     guard !Task.isCancelled else { return }
-                    disconnectOnConnectTimeout()
+                    retryOnConnectTimeout()
                 }
             }
         } else {
-            // online 达成 / VPN 停止 / 全部断开：周期结束，重试状态一并清零
+            // online 达成 / VPN 停止 / 全部断开：周期结束，计时状态清空
             connectTimeoutTask?.cancel()
             connectTimeoutTask = nil
-            connectRetryTask?.cancel()
-            connectRetryTask = nil
-            connectRetryCount = 0
             connectStartedAt = nil
         }
     }
@@ -261,62 +243,33 @@ final class AppState: ObservableObject {
         reloadConfig()
     }
 
-    /// 连接超时自动断开：核心起跑超过 connectTimeout 仍未连通行星根服务器，
-    /// 判定物理网络故障，当前行星全部启用网络关闭并记录原因（服务器连不上是
-    /// 共享故障，单关一个无意义），Extension 随配置通知 leave；无剩余启用网络
-    /// 则停 VPN。与冲突自动断开（autoDisconnectConflictedNetworks）同构。
-    private func disconnectOnConnectTimeout() {
+    /// 连接超时自动重试：核心起跑超过 connectTimeout 仍未连通行星根服务器，
+    /// 直接无感重启核心（磁盘持久化身份与配置，Extension 侧恢复 join；新源
+    /// 端口重建 UDP 流，间歇性故障可赶上恢复窗口），不限次数直到 online 或
+    /// 用户手动关闭；重启的 online=false 通知到达后 evaluateConnectTimer
+    /// 重新起算下一轮窗口，UI 全程显示"连接服务器"，无超时/重试提示。
+    /// 注：查询复核期间 evaluateConnectTimer 重入可能双发 restartCore，
+    /// Extension 侧 restartQueue 串行兜底为连续两次重启，无害。"无限重试"
+    /// 仅前台成立——App 退后台挂起后循环停摆，靠 Extension 核心自身继续
+    /// 尝试，回前台由已超期分支接续。
+    private func retryOnConnectTimeout() {
         guard vpnRunning, !online else { return }
-        // 断开前先向隧道进程复核实时 online：online 事件经 Darwin 通知送达有
-        // 延迟，核心恰在超时边沿连上时不至于误杀（提示超时却连接成功）。
+        // 重启前先向隧道进程复核实时 online：online 事件经 Darwin 通知送达有
+        // 延迟，核心恰在超时边沿连上时不至于误重启。
         VPNManager.shared.query(ProviderRequest(type: "status", nwid: nil)) { [weak self] reply in
             Task { @MainActor in
-                guard let self else { return }
+                guard let self, self.vpnRunning, !self.online else { return }
                 if reply?.online == true {
                     self.online = true
                     self.evaluateConnectTimer()
                     return
                 }
-                if self.connectRetryCount < Self.connectRetryLimit {
-                    self.scheduleConnectRetry()
-                } else {
-                    self.performConnectTimeoutDisconnect()
-                }
+                self.connectTimeoutTask?.cancel()
+                self.connectTimeoutTask = nil
+                self.connectStartedAt = nil
+                VPNManager.shared.query(ProviderRequest(type: "restartCore", nwid: nil)) { _ in }
             }
         }
-    }
-
-    /// 超时确认后的核心重试：等 connectRetryDelay 重启核心（磁盘持久化身份与
-    /// 配置，Extension 侧恢复 join；新源端口重建 UDP 流，间歇性清洗可赶上放行
-    /// 窗口），重启的 online=false 通知到达后 evaluateConnectTimer 重新起算窗口。
-    private func scheduleConnectRetry() {
-        connectRetryCount += 1
-        connectTimeoutTask?.cancel()
-        connectTimeoutTask = nil
-        connectStartedAt = nil
-        connectRetryTask = Task { @MainActor in
-            try? await Task.sleep(nanoseconds: UInt64(Self.connectRetryDelay * 1_000_000_000))
-            guard !Task.isCancelled else { return }
-            connectRetryTask = nil
-            VPNManager.shared.query(ProviderRequest(type: "restartCore", nwid: nil)) { _ in }
-        }
-    }
-
-    private func performConnectTimeoutDisconnect() {
-        guard vpnRunning, !online else { return }
-        connectTimeoutTask?.cancel()
-        connectTimeoutTask = nil
-        connectStartedAt = nil
-        let planetId = activePlanetId
-        var updated = AppConfigStore.readNetworks(planetId: planetId)
-        guard updated.contains(where: \.lastActivated) else { return }
-        for index in updated.indices where updated[index].lastActivated {
-            updated[index].lastActivated = false
-            updated[index].lastConflict = ConflictCode.timeout
-        }
-        AppConfigStore.writeNetworks(updated, planetId: planetId)
-        reloadConfig()
-        stopVPNIfNoActiveNetworks()
     }
 
     /// 冲突自动断开：Extension 检出地址/网段冲突（原始码经 StatusStore 透出）后，
