@@ -209,7 +209,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         converter = nil
     }
 
-    /// 网络切换重启核心：身份/网络配置持久化在磁盘，1~2 秒内恢复
+    /// 重启核心（网络切换/连接超时重试共用）：身份/网络配置持久化在磁盘，1~2 秒内恢复
     private func restartCore() {
         guard running else { return }
         StatusStore.tunnelStatus = loc("tunnel.status.reconnecting")

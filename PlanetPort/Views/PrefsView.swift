@@ -6,7 +6,6 @@ struct PrefsView: View {
     @EnvironmentObject private var app: AppState
     @AppStorage(AppGroup.prefDisableIPv6, store: AppGroup.defaults) private var disableIPv6 = false
     @AppStorage(AppGroup.prefMultiConnectLimit, store: AppGroup.defaults) private var multiConnectLimit = 2
-    @AppStorage(AppGroup.prefConnectTimeout, store: AppGroup.defaults) private var connectTimeout = 45
     @AppStorage(AppGroup.prefConnectOnDemand, store: AppGroup.defaults) private var connectOnDemand = false
     @AppStorage(AppGroup.prefParallaxEnabled, store: AppGroup.defaults) private var parallaxEnabled = true
     @State private var showDonate = false
@@ -27,8 +26,6 @@ struct PrefsView: View {
                         disableIPv6 = on
                         VPNManager.shared.restartIfRunning()
                     }))
-                // 超时阈值 10~600：步进 5 秒，改动在下一个连接窗口生效
-                Stepper("prefs.network.connectTimeout \(connectTimeout)", value: $connectTimeout, in: 10...600, step: 5)
                 Stepper("prefs.network.multiConnectLimit \(multiConnectLimit)", value: $multiConnectLimit, in: 2...6)
             } header: {
                 Text("prefs.network.sectionHeader")

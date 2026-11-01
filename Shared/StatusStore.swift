@@ -85,7 +85,7 @@ enum StatusStore {
             }
     }
 
-    /// 网络冲突（作用域键 → 原因原始码 "address"/"subnet"/"timeout"）。存原始码
+    /// 网络冲突（作用域键 → 原因原始码 "address"/"subnet"）。存原始码
     /// 而非文案：跨进程契约不依赖展示语言，UI 层按码生成中文文案。
     /// 作用域规则与 networkStatuses 一致。
     static var networkConflicts: [String: String] {
