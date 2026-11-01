@@ -14,6 +14,7 @@ struct PrefsView: View {
     @ObservedObject private var language = LanguageManager.shared
     @State private var showBackgroundPicker = false
     @State private var showThemePicker = false
+    @State private var showIdentityMode = false
     /// 构建信息行当前显示 hash（false 显示时间）
     @State private var buildInfoShowsHash = false
 
@@ -42,6 +43,29 @@ struct PrefsView: View {
                     }))
             } footer: {
                 Text("prefs.ondemand.footer")
+            }
+
+            Section {
+                Button {
+                    showIdentityMode = true
+                } label: {
+                    HStack {
+                        Text("prefs.identity.mode")
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        Text(app.identityPerPlanet ? "prefs.identity.mode.perPlanet"
+                                                    : "prefs.identity.mode.shared")
+                            .foregroundStyle(.secondary)
+                        Image(systemName: "chevron.right")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+                .buttonStyle(.plain)
+            } header: {
+                Text("prefs.identity.sectionHeader")
+            } footer: {
+                Text("prefs.identity.footer")
             }
 
             Section {
@@ -149,6 +173,9 @@ struct PrefsView: View {
         }
         .sheet(isPresented: $showThemePicker) {
             ThemeColorPickerSheet()
+        }
+        .sheet(isPresented: $showIdentityMode) {
+            IdentityModeSheet()
         }
     }
 
@@ -358,5 +385,122 @@ private struct HSLColorPicker: View {
             .overlay(Circle().strokeBorder(.black.opacity(0.25), lineWidth: 1.5))
             .shadow(color: .black.opacity(0.25), radius: 1, y: 1)
             .position(point)
+    }
+}
+
+/// 身份模式选择页：共享 / 每行星独立 两行，点当前模式无动作；切独立先
+/// alert 确认（其余行星将生成新身份、网络需重新授权），切共享进入身份
+/// 选择页（无候选行星时直接切换，保持现共享身份）。
+private struct IdentityModeSheet: View {
+    @EnvironmentObject private var app: AppState
+    @Environment(\.dismiss) private var dismiss
+    @State private var confirmPerPlanet = false
+    @State private var showPick = false
+
+    /// 已生成独立身份的行星（切共享时的候选；地址取自 identity.public）。
+    private var candidates: [PlanetProfile] {
+        app.planets.filter { IdentityStore.hasPlanetIdentity($0.id) }
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    modeRow(titleKey: "prefs.identity.mode.shared", isCurrent: !app.identityPerPlanet) {
+                        if candidates.isEmpty {
+                            app.switchIdentityMode(to: false, adopting: nil)
+                            dismiss()
+                        } else {
+                            showPick = true
+                        }
+                    }
+                    modeRow(titleKey: "prefs.identity.mode.perPlanet", isCurrent: app.identityPerPlanet) {
+                        confirmPerPlanet = true
+                    }
+                } footer: {
+                    Text("prefs.identity.footer")
+                }
+            }
+            .navigationTitle("prefs.identity.sectionHeader")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("common.done") { dismiss() }
+                }
+            }
+            .alert("prefs.identity.perPlanet.confirmTitle", isPresented: $confirmPerPlanet) {
+                Button("prefs.identity.perPlanet.confirmAction") {
+                    app.switchIdentityMode(to: true, adopting: nil)
+                    dismiss()
+                }
+                Button("common.cancel", role: .cancel) {}
+            } message: {
+                Text("prefs.identity.perPlanet.confirmMessage")
+            }
+            .navigationDestination(isPresented: $showPick) {
+                IdentityPickView(candidates: candidates) { planetId in
+                    app.switchIdentityMode(to: false, adopting: planetId)
+                    dismiss()
+                }
+            }
+        }
+    }
+
+    /// 模式行：当前模式纯展示（checkmark），其它模式可点触发 action。
+    private func modeRow(titleKey: LocalizedStringKey, isCurrent: Bool,
+                         action: @escaping () -> Void) -> some View {
+        HStack {
+            Text(titleKey)
+            Spacer()
+            if isCurrent {
+                Image(systemName: "checkmark")
+                    .foregroundStyle(.tint)
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture { if !isCurrent { action() } }
+        .foregroundStyle(.primary)
+    }
+}
+
+/// 共享身份选择页：列出已生成独立身份的行星，点选其身份成为全局共享身份。
+private struct IdentityPickView: View {
+    let candidates: [PlanetProfile]
+    let onPick: (String) -> Void
+
+    var body: some View {
+        Form {
+            Section {
+                if candidates.isEmpty {
+                    Text("prefs.identity.pick.empty")
+                        .foregroundStyle(.secondary)
+                }
+                ForEach(candidates) { planet in
+                    Button {
+                        onPick(planet.id)
+                    } label: {
+                        HStack {
+                            Image(PlanetIcon.assetName(for: planet))
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 14, height: 14)
+                                .frame(width: 24, height: 24)
+                                .background(PlanetIcon.tint(for: planet),
+                                            in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                            Text(planet.displayName)
+                            Spacer()
+                            Text(IdentityStore.planetIdentityAddress(planet.id) ?? "—")
+                                .foregroundStyle(.secondary)
+                                .font(.system(.body, design: .monospaced))
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            } footer: {
+                Text("prefs.identity.pick.footer")
+            }
+        }
+        .navigationTitle("prefs.identity.pick.title")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }

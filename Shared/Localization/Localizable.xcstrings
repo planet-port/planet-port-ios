@@ -6340,6 +6340,248 @@
         }
       }
     },
+    "prefs.identity.footer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All planets share one node identity, or each planet uses its own. Separate identities cannot be correlated across planets, keeping networks isolated."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "所有行星共用一个节点身份，或每个行星使用独立身份。独立身份的行星之间互不可关联，适合隔离不同网络的隐私。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "所有行星共用一個節點身份，或每個行星使用獨立身份。獨立身份的行星之間互不可關聯，適合隔離不同網路的隱私。"
+          }
+        }
+      }
+    },
+    "prefs.identity.mode" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Identity Mode"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "身份模式"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "身份模式"
+          }
+        }
+      }
+    },
+    "prefs.identity.mode.perPlanet" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Per-Planet"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每行星独立"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每行星獨立"
+          }
+        }
+      }
+    },
+    "prefs.identity.mode.shared" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shared Identity"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共享身份"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共享身份"
+          }
+        }
+      }
+    },
+    "prefs.identity.perPlanet.confirmAction" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Switch"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "切换"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "切換"
+          }
+        }
+      }
+    },
+    "prefs.identity.perPlanet.confirmMessage" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The current planet keeps its identity; other planets get a new one on first connect, and their networks must be authorized again."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当前行星沿用现有身份；其余行星首次连接时生成新身份，其已加入的网络需要重新授权。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "當前行星沿用現有身份；其餘行星首次連接時生成新身份，其已加入的網路需要重新授權。"
+          }
+        }
+      }
+    },
+    "prefs.identity.perPlanet.confirmTitle" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Switch to per-planet identities?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "切换为每行星独立身份？"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "切換為每行星獨立身份？"
+          }
+        }
+      }
+    },
+    "prefs.identity.pick.empty" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No planet has its own identity yet"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "尚无行星生成独立身份"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "尚無行星生成獨立身份"
+          }
+        }
+      }
+    },
+    "prefs.identity.pick.footer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The chosen identity becomes the node identity for all planets. Each planet's own identity is kept and restored when you switch back."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选定的身份将成为所有行星共用的节点身份。各行星现有独立身份保留，切回独立模式时恢复。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "選定的身份將成為所有行星共用的節點身份。各行星現有獨立身份保留，切回獨立模式時恢復。"
+          }
+        }
+      }
+    },
+    "prefs.identity.pick.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose Shared Identity"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择共享身份"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "選擇共享身份"
+          }
+        }
+      }
+    },
+    "prefs.identity.sectionHeader" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Node Identity"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "节点身份"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "節點身份"
+          }
+        }
+      }
+    },
     "prefs.language.sectionHeader" : {
       "extractionState" : "stale",
       "localizations" : {
