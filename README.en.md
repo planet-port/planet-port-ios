@@ -30,6 +30,7 @@ On Android, ZerotierFix lets you customize the Planet; iOS has long lacked a com
 - **A Planet is a world** — each Planet gets its own cache, isolated in per-Planet directories; switching Planets never mixes data
 - **Cross-Planet switching** — confirm the disconnect first, then start the new tunnel, through a custom in-app dialog flow that stays under your control
 - **Duplicate protection** — deduplicated by World ID; the same Planet can't be added twice
+- **Node identity mode** — share one node identity across all planets, or give each planet its own (uncorrelated); switch anytime — each planet's identity is kept and restored when you switch back
 
 ### Network connectivity
 
