@@ -41,4 +41,7 @@ enum AppGroup {
     static let prefEdgeSwipePlanet = "interaction_edge_swipe_planet"
     /// 首页背景视差动画（默认开启；仅在设置了自定义背景图时生效）
     static let prefParallaxEnabled = "interaction_parallax_enabled"
+    /// 每行星独立节点身份（默认 false = 全行星共享 datastore/identity.*）。
+    /// Objective-C++ ztHookedPath 直读同名字符串 "identity_per_planet"。
+    static let prefIdentityPerPlanet = "identity_per_planet"
 }
