@@ -46,6 +46,8 @@ final class AppState: ObservableObject {
     private var connectTimeoutTask: Task<Void, Never>?
     /// 首页自定义背景图（nil = 未设置，页面用纯底色）
     @Published var backgroundImage: UIImage? = BackgroundImageStore.load()
+    /// 节点身份模式（true = 每行星独立身份）。设置页切换，切换会重启隧道核心。
+    @Published var identityPerPlanet: Bool = IdentityStore.perPlanet
 
     /// 保存并应用新背景图（相册/URL 下载得到的数据统一走这里）
     func applyBackgroundImage(_ data: Data) throws {
@@ -57,6 +59,40 @@ final class AppState: ObservableObject {
     func clearBackgroundImage() {
         BackgroundImageStore.clear()
         backgroundImage = nil
+    }
+
+    /// 切换节点身份模式（设置页身份模式页触发）。
+    /// 独立模式：当前激活行星播种现有共享身份（沿用，正在用的网络不中断），
+    /// 其余行星首次连接时由核心生成新身份；共享模式：adopting 行星的独立身份
+    /// 复制为全局共享身份，其余行星独立身份文件原地保留（切回独立模式时
+    /// 原样恢复）。身份常驻核心内存，切换必须重启核心生效：在跑则停隧道 →
+    /// 复制 → 重启。复制必须放在停隧道之后——旧核心退出时会经 hook 回写
+    /// 身份（模式偏好已先行切换，回写目标即新位置），回写后复制才不会被覆盖。
+    func switchIdentityMode(to perPlanet: Bool, adopting planetId: String?) {
+        VPNManager.shared.connectionStatus { status in
+            let running = status == .connected || status == .connecting || status == .reasserting
+            Task { @MainActor in
+                IdentityStore.perPlanet = perPlanet
+                self.identityPerPlanet = perPlanet
+                let apply = {
+                    if perPlanet {
+                        IdentityStore.seedSharedIdentity(to: self.activePlanetId)
+                    } else if let planetId {
+                        IdentityStore.adoptSharedIdentity(from: planetId)
+                    }
+                }
+                guard running else {
+                    apply()
+                    return
+                }
+                VPNManager.shared.stopAndWait { _ in
+                    Task { @MainActor in
+                        apply()
+                        VPNManager.shared.prepareAndStart { _, _ in }
+                    }
+                }
+            }
+        }
     }
 
     private var statusObserver: DarwinNotifyObserver?
