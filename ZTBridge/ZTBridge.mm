@@ -122,6 +122,24 @@ static NSString* ztHookedPath(NSString* rawPath, enum ZT_StateObjectType type) {
         }
     }
 
+    // 每行星独立身份模式：identity 跟随当前 Planet（planet-state/<id>/），
+    // 与 moon/peer/netconf 同目录隔离；文件缺失时核心自动生成新身份。
+    // 共享模式不重定向（datastore 根，全行星共用）。模式切换由 App 侧
+    // 重启核心生效（身份常驻核心内存）。
+    if ((type == ZT_STATE_OBJECT_IDENTITY_PUBLIC || type == ZT_STATE_OBJECT_IDENTITY_SECRET) &&
+        d && [d boolForKey:@"identity_per_planet"]) {
+        NSString* planetId = [d stringForKey:@"planet_active_id"] ?: @"official";
+        NSCharacterSet* invalid = [[NSCharacterSet characterSetWithCharactersInString:
+            @"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-"] invertedSet];
+        if (planetId.length == 0 || [planetId rangeOfCharacterFromSet:invalid].location != NSNotFound) {
+            planetId = @"official";
+        }
+        NSString* home = [rawPath stringByDeletingLastPathComponent];
+        return [[[home stringByAppendingPathComponent:@"planet-state"]
+            stringByAppendingPathComponent:planetId]
+            stringByAppendingPathComponent:[rawPath lastPathComponent]];
+    }
+
     // 网络配置、Moon 和 Peer 缓存属于当前 Planet，避免相同 ID 在不同世界间串数据。
     if (type == ZT_STATE_OBJECT_MOON || type == ZT_STATE_OBJECT_PEER ||
         type == ZT_STATE_OBJECT_NETWORK_CONFIG) {
