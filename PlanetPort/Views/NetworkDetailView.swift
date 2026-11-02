@@ -9,7 +9,9 @@ struct NetworkDetailView: View {
     @State private var showQR = false
     /// 已切到 via 网关视图的路由下标（点击行首标签外的值区域切换）
     @State private var viaExpandedRoutes: Set<Int> = []
-    @State private var showDelete = false
+    /// 删除行全局 frame，作为确认气泡的锚点
+    @State private var deleteAnchor: CGRect = .zero
+    @State private var showDeleteBubble = false
     @State private var dns = DNSConfig()
     @Environment(\.dismiss) private var dismiss
 
@@ -102,12 +104,34 @@ struct NetworkDetailView: View {
                 }
             }
             Section {
-                Button(role: .destructive) { showDelete = true } label: {
-                    Text("network.delete")
-                        // iOS 26 List 内 Section 按钮默认渲染为居中，此处按系统设置页惯例左对齐
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                // 与行星设置页删除行同一套写法：纯视图 + 手势自控布局居中
+                // （Form 内 Button 的行布局接管随系统版本漂移，iOS 27.2 上
+                // 无法居中），确认气泡（见 ConfirmBubble）锚定本行顶边。
+                Text("network.delete")
+                    .foregroundStyle(.red)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .background(GlobalAnchorReader { deleteAnchor = $0 })
+                    .contentShape(Rectangle())
+                    .onTapGesture { showDeleteBubble = true }
+                    .accessibilityAddTraits(.isButton)
+            }
+        }
+        .overlay {
+            ZStack {
+                if showDeleteBubble {
+                    ConfirmBubble(anchor: deleteAnchor,
+                                  titleKey: "network.delete.confirmTitle",
+                                  messageKey: "network.delete.confirmMessage",
+                                  confirmKey: "network.delete",
+                                  onConfirm: {
+                                      showDeleteBubble = false
+                                      deleteNetwork()
+                                  },
+                                  onDismiss: { showDeleteBubble = false })
+                        .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .bottom)))
                 }
             }
+            .animation(.easeOut(duration: 0.15), value: showDeleteBubble)
         }
         .navigationTitle("network.detailTitle")
         .navigationBarTitleDisplayMode(.inline)
@@ -117,12 +141,6 @@ struct NetworkDetailView: View {
         }
         .refreshable { refresh() }
         .sheet(isPresented: $showQR) { NetworkQRSheet(entry: currentEntry, snapshot: snapshot) }
-        .confirmationDialog("network.delete.confirmTitle", isPresented: $showDelete, titleVisibility: .visible) {
-            Button("network.delete", role: .destructive) { deleteNetwork() }
-            Button("common.cancel", role: .cancel) {}
-        } message: {
-            Text("network.delete.confirmMessage")
-        }
     }
 
     /// 详情页数据的查找锚定网络归属的行星（entry.planetId），不依赖全局选中页。

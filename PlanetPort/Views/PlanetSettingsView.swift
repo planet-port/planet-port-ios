@@ -15,8 +15,10 @@ struct PlanetSettingsView: View {
     @State private var showIconPicker = false
     @State private var qrShareSession: QRShareSession?
     @State private var showFileShare = false
-    @State private var showDelete = false
     @State private var alert: String?
+    /// 删除行全局 frame，作为确认气泡的锚点
+    @State private var deleteAnchor: CGRect = .zero
+    @State private var showDeleteBubble = false
 
     private var planet: PlanetProfile? {
         app.planets.first { $0.id == planetId }
@@ -33,26 +35,37 @@ struct PlanetSettingsView: View {
             diagnosticsSection
             if !isOfficial {
                 Section {
-                    Button(role: .destructive) { showDelete = true } label: {
-                        Text("planet.delete")
-                            .frame(maxWidth: .infinity)
-                    }
-                    // borderless：默认样式在 Form 内接管行布局，外部/内部对齐修饰全部失效；
-                    // borderless 尊重 label 的 frame，destructive 红色保持
-                    .buttonStyle(.borderless)
-                    // 弹窗挂按钮本身：挂 Form 层时锚点偏离按钮，弹出位置跑偏
-                    .confirmationDialog("planet.delete.confirmTitle",
-                                        isPresented: $showDelete,
-                                        titleVisibility: .visible) {
-                        Button("planet.delete.confirmAction", role: .destructive) { deletePlanet() }
-                        Button("common.cancel", role: .cancel) {}
-                    } message: {
-                        Text("common.irreversible")
-                    }
+                    // 删除行不走 Button：Form 对按钮 label 的布局接管规则随系统版本
+                    // 反复变化（默认样式/frame/borderless+Spacer 各版本表现不一，iOS
+                    // 27.2 上全部退回左对齐）。纯视图行 + 手势布局完全自控，全版本居中。
+                    Text("planet.delete")
+                        .foregroundStyle(.red)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .background(GlobalAnchorReader { deleteAnchor = $0 })
+                        .contentShape(Rectangle())
+                        .onTapGesture { showDeleteBubble = true }
+                        .accessibilityAddTraits(.isButton)
                 } footer: {
                     Text("planet.delete.footer")
                 }
             }
+        }
+        .overlay {
+            ZStack {
+                if showDeleteBubble {
+                    ConfirmBubble(anchor: deleteAnchor,
+                                  titleKey: "planet.delete.confirmTitle",
+                                  messageKey: "planet.delete.confirmMessage",
+                                  confirmKey: "planet.delete.confirmAction",
+                                  onConfirm: {
+                                      showDeleteBubble = false
+                                      deletePlanet()
+                                  },
+                                  onDismiss: { showDeleteBubble = false })
+                        .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .bottom)))
+                }
+            }
+            .animation(.easeOut(duration: 0.15), value: showDeleteBubble)
         }
         .navigationTitle(planet?.displayName ?? loc("planet.title"))
         .navigationBarTitleDisplayMode(.inline)
@@ -278,15 +291,33 @@ struct PlanetSettingsView: View {
         }
     }
 
-    /// 删除顺序：激活中先停 VPN，级联清理由 AppConfigStore.deletePlanet 完成。
+    /// 删除顺序（行星使用中）：先断开此行星全部网络（lastActivated=false
+    /// 写回触发隧道 diff 逐网 leave），再停用行星（stopAndWait 等系统确认
+    /// 断开，给隧道留出处理 leave 的时间窗），最后级联删除配置（由
+    /// AppConfigStore.deletePlanet 完成）。未使用中直接删除。
     private func deletePlanet() {
         guard let planet else { return }
-        if planet.id == app.activePlanetId {
-            VPNManager.shared.stop()
+        guard planet.id == app.activePlanetId else {
+            AppConfigStore.deletePlanet(planet)
+            app.reloadConfig()
+            dismiss()
+            return
         }
-        AppConfigStore.deletePlanet(planet)
-        app.reloadConfig()
-        dismiss()
+        // 1. 断开所有网络
+        var networks = AppConfigStore.readNetworks(planetId: planet.id)
+        if networks.contains(where: \.lastActivated) {
+            for index in networks.indices { networks[index].lastActivated = false }
+            AppConfigStore.writeNetworks(networks, planetId: planet.id)
+            app.reloadConfig()
+        }
+        // 2. 停用行星 → 3. 删除（回调可能不在主线程，回主线程落盘+关页）
+        VPNManager.shared.stopAndWait { _ in
+            Task { @MainActor in
+                AppConfigStore.deletePlanet(planet)
+                app.reloadConfig()
+                dismiss()
+            }
+        }
     }
 
     private func row(_ title: String, _ value: String) -> some View {

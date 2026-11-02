@@ -5639,19 +5639,41 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Delete This Planet"
+            "value" : "Delete Planet"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "删除此行星"
+            "value" : "删除行星"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "刪除此行星"
+            "value" : "刪除行星"
+          }
+        }
+      }
+    },
+    "planet.delete.confirmMessage" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deleting the planet also deletes its networks. This cannot be undone!"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除行星将同步删除此行星下的网络。操作不可恢复！"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刪除行星將同步刪除此行星下的網路。操作無法復原！"
           }
         }
       }
@@ -5662,19 +5684,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Delete Planet, Networks & Moons"
+            "value" : "Delete Planet"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "删除行星、网络和卫星"
+            "value" : "删除行星"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "刪除行星、網路和衛星"
+            "value" : "刪除行星"
           }
         }
       }
