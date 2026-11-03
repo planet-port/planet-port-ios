@@ -17,6 +17,7 @@
 - **Full network management** — join/leave networks with live status, one-tap managed-IP copy
 - **Default route & three DNS modes** — route-through-ZT toggle, DNS network-provided / custom / none, all hot-reconfigured inside the tunnel, no reconnect needed
 - **Theming** — custom UI color; the whole visual system (including planet decorations and status colors) derives from your main color
+- **Node identity mode** — share one node identity across all planets, or give each planet its own (uncorrelated); switch anytime — each planet's identity is kept and restored when you switch back
 
 ## Screenshots
 
