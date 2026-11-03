@@ -27,7 +27,10 @@ struct PeerListView: View {
         // 去掉系统分组底，页面底色与首页一致。
         .scrollContentBackground(.hidden)
         .background(Color(uiColor: .systemGroupedBackground))
+
         .navigationTitle("Peers")
+        // 反泄漏：首页根视图恒定 .toolbar(.hidden) 在 iOS 16 会禁用推入页栏背景，显式恢复。
+        .toolbar(.visible, for: .navigationBar)
         .navigationBarTitleDisplayMode(.inline)
         .onAppear(perform: refresh)
         .refreshable { refresh() }

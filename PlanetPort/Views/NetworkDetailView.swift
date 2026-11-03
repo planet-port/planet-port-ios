@@ -133,7 +133,10 @@ struct NetworkDetailView: View {
             }
             .animation(.easeOut(duration: 0.15), value: showDeleteBubble)
         }
+
         .navigationTitle("network.detailTitle")
+        // 反泄漏：首页根视图恒定 .toolbar(.hidden) 在 iOS 16 会禁用推入页栏背景，显式恢复。
+        .toolbar(.visible, for: .navigationBar)
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             refresh()

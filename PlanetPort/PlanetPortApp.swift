@@ -7,15 +7,6 @@ struct PlanetPortApp: App {
     @ObservedObject private var language = LanguageManager.shared
 
     init() {
-        // 标题栏全局全透明：无底色无毛玻璃（含滚动边缘态），仅保留标题与返回键。
-        let nav = UINavigationBarAppearance()
-        nav.configureWithTransparentBackground()
-        let bar = UINavigationBar.appearance()
-        bar.standardAppearance = nav
-        bar.scrollEdgeAppearance = nav
-        bar.compactAppearance = nav
-        bar.compactScrollEdgeAppearance = nav
-
         // QR 渲染管线预热：CIQRCodeGenerator/CIContext 进程内首次调用有
         // 数百毫秒一次性初始化（着色器编译等），启动时后台付掉这笔代价，
         // 避免冷启动后首次分享的编码/渲染被拖慢。

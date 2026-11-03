@@ -99,6 +99,10 @@ struct HomeView: View {
             // 背景：自定义背景图 + 薄纱 + 重力视差（无图时纯页面底色）。
             .background { HomeParallaxBackground(image: app.backgroundImage,
                                                  parallaxEnabled: parallaxEnabled) }
+            // 首页藏系统标题栏（自绘玻璃区替代）。必须保持恒定 .hidden：按导航
+            // 路径条件化会在返回完成的瞬间翻转栏可见性，内容跳动。iOS 16 上该
+            // 恒定偏好会泄漏到推入页（栏背景渲染被禁用、呈全透明），由各推入页
+            // 自行声明 .toolbar(.visible) 恢复（见 PlanetSettingsView 等）。
             .toolbar(.hidden, for: .navigationBar)
             .overlay {
                 // 新增 Planet 页不显示添加网络按钮。

@@ -133,6 +133,8 @@ struct PrefsView: View {
         // 标题用 String 而非 key：loc() 读取语言状态建立观察，切换即时刷新
         // （navigationTitle 的 key 查表不受 locale 环境驱动，会出现滞后）。
         .navigationTitle(loc("common.settings"))
+        // 反泄漏：首页根视图恒定 .toolbar(.hidden) 在 iOS 16 会禁用推入页栏背景，显式恢复。
+        .toolbar(.visible, for: .navigationBar)
         .navigationBarTitleDisplayMode(.inline)
         // 捐赠弹窗：内容暂空。
         .sheet(isPresented: $showDonate) {

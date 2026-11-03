@@ -11,7 +11,10 @@ struct ApplyTraceView: View {
             }
             .padding()
         }
+
         .navigationTitle("trace.title")
+        // 反泄漏：首页根视图恒定 .toolbar(.hidden) 在 iOS 16 会禁用推入页栏背景，显式恢复。
+        .toolbar(.visible, for: .navigationBar)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             Button {
