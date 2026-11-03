@@ -250,48 +250,25 @@
         }
       }
     },
-    "addplanet.scanPlanetQr" : {
-      "extractionState" : "stale",
+    "addplanet.scanImport" : {
+      "extractionState" : "manual",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Or scan animated QR code to import"
+            "value" : "Or scan a QR code to import"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "或扫描动态二维码导入"
+            "value" : "或扫二维码导入"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "或掃描動態二維碼導入"
-          }
-        }
-      }
-    },
-    "addplanet.scanUrl" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Or scan a URL QR code"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "或扫描URL二维码导入"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "或掃描URL二維碼匯入"
+            "value" : "或掃二維碼導入"
           }
         }
       }
