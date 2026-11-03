@@ -31,7 +31,17 @@ enum IdentityStore {
     /// 解析 identity.public 的节点地址：内容为 "address:publicKey"，
     /// 冒号前 10 位 hex 即 ZeroTier 节点地址。
     static func planetIdentityAddress(_ planetId: String) -> String? {
-        guard let text = try? String(contentsOf: planetIdentityURL(planetId), encoding: .utf8),
+        address(ofIdentityFileAt: planetIdentityURL(planetId))
+    }
+
+    /// 共享身份（datastore/identity.public）的节点地址。共享模式下全行星
+    /// 卡片显示此地址，切换模式后无需等核心重连即可刷新显示。
+    static var sharedIdentityAddress: String? {
+        address(ofIdentityFileAt: AppGroup.datastore.appendingPathComponent(identityPublicName))
+    }
+
+    private static func address(ofIdentityFileAt url: URL) -> String? {
+        guard let text = try? String(contentsOf: url, encoding: .utf8),
               let address = text.split(separator: ":").first, address.count == 10 else { return nil }
         return String(address)
     }
