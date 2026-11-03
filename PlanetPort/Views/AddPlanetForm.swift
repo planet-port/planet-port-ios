@@ -20,7 +20,6 @@ struct AddPlanetForm: View {
     @ObservedObject private var theme = ThemeManager.shared
     @State private var url = ""
     @State private var showFilePicker = false
-    @State private var showScanner = false
     @State private var showPlanetReceiver = false
     @State private var downloading = false
     /// 下载进度 0~1；服务器未给 Content-Length 时为 nil（不确定进度）
@@ -104,16 +103,11 @@ struct AddPlanetForm: View {
             .presentationDetents([.height(180)])
             .interactiveDismissDisabled()
         }
-        .sheet(isPresented: $showScanner) {
-            QRScannerView(extract: QRScannerView.extractHttpUrl) { scanned in
-                // 关扫码层 → 回填 URL → 直接下载导入。
-                showScanner = false
-                url = scanned
-                importFromURL()
-            }
-        }
         .sheet(isPresented: $showPlanetReceiver) {
-            QRReceiveView { data in
+            // 同一扫码页自动识别两种内容：扫到 http(s) 链接二维码走 URL 下载导入；
+            // 扫到动态分片（模块 QRTransfer）聚合回填 pendingData，
+            // 复用与文件/URL 相同的"命名 + 添加 + 查重"后续流程。
+            QRReceiveView(onComplete: { data in
                 showPlanetReceiver = false
                 // 解析 ZTP 容器；非法容器（magic/边界不成立、缺 planet 字段）
                 // 或旧版裸 planet 载荷都走统一"数据无效"提示。
@@ -131,7 +125,16 @@ struct AddPlanetForm: View {
                 } catch {
                     alert = error.localizedDescription
                 }
-            }
+            }, onPlainFrame: { text in
+                // 扫到 http(s) 链接二维码：关扫码层 → 回填 URL → 直接下载导入。
+                guard let scanned = QRScannerView.extractHttpUrl(from: text) else {
+                    return false
+                }
+                showPlanetReceiver = false
+                url = scanned
+                importFromURL()
+                return true
+            })
         }
         .onChange(of: isCurrentPage) { current in
             if current {
@@ -186,25 +189,12 @@ struct AddPlanetForm: View {
             }
             .buttonStyle(.plain)
 
-            // 动态二维码导入（模块 QRTransfer）：连续扫分片，收齐即回填 pendingData，
-            // 复用与文件/URL 相同的"命名 + 添加 + 查重"后续流程。
+            // 扫二维码导入：一个入口自动识别链接二维码（回填直接下载）与
+            // 动态分片二维码（收齐即回填），详见 sheet 处注释。
             Button {
                 showPlanetReceiver = true
             } label: {
-                Label("addplanet.scanPlanetQr", systemImage: "qrcode.viewfinder")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.leading, 12)
-                    .frame(height: 42)
-                    .background(.quaternary, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-            }
-            .buttonStyle(.plain)
-            .disabled(downloading)
-
-            // 扫码导入：与"导入"按钮同款视觉，扫到 http(s) 链接后回填并直接下载。
-            Button {
-                showScanner = true
-            } label: {
-                Label("addplanet.scanUrl", systemImage: "qrcode")
+                Label("addplanet.scanImport", systemImage: "qrcode.viewfinder")
                     // 字体与"选择行星文件"行一致：默认 .body 常规字重字号。
                     // 左对齐 + 12 水平内距：与"选择行星文件"行的文字起点一致。
                     .frame(maxWidth: .infinity, alignment: .leading)

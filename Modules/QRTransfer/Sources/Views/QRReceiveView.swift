@@ -4,8 +4,11 @@ import AVFoundation
 /// 接收端：连续扫码聚合分片。不区分单帧/多帧——解码任意帧 → 按 index 聚合
 /// → 齐全后整体校验（Base45 → 解压 → CRC）→ 通过即回调一次。
 /// total/checksum 与已收集合不一致（扫到新会话）时自动清空重来；CRC 失败同样清空。
+/// 非分片帧交给 onPlainFrame：返回 true 表示调用方已消费（如 http(s) 链接二维码），整页结束。
 struct QRReceiveView: View {
     let onComplete: (Data) -> Void
+    /// 非分片帧回调：返回 true 表示该帧即结果，扫码随即结束。
+    var onPlainFrame: ((String) -> Bool)? = nil
 
     @Environment(\.dismiss) private var dismiss
     @State private var authorized = false
@@ -144,7 +147,14 @@ struct QRReceiveView: View {
     }
 
     private func handle(_ text: String) {
-        guard !finished, let frame = QRTransfer.parse(text) else { return }
+        guard !finished else { return }
+        guard let frame = QRTransfer.parse(text) else {
+            // 非分片帧：交调用方识别，消费成功（如扫到链接二维码）即整页结束
+            if let onPlainFrame, onPlainFrame(text) {
+                finished = true
+            }
+            return
+        }
         // 换了传输会话（total 或 CRC 不同）：丢弃旧集合
         if let t = total, t != frame.total || checksum != frame.checksum {
             chunks = [:]
