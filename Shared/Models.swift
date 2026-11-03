@@ -78,8 +78,6 @@ struct PlanetProfile: Codable, Identifiable, Equatable {
     var icon: String? = nil
     /// 自定义图标底色(#RRGGBB hex);nil 时按 id 哈希回退 ThemeManager tint。
     var iconColor: String? = nil
-    /// 该行星下本机节点 ID 的缓存（隧道运行时回读并持久化，离线可显示）。
-    var lastNodeId: String? = nil
 
     /// UI 展示名：官方行星的存储名不翻译，展示时映射为本地化文案。
     var displayName: String {

@@ -83,11 +83,15 @@ final class AppState: ObservableObject {
                 }
                 guard running else {
                     apply()
+                    // 身份文件已就位，立即重载刷新卡片身份显示（不等重连回填）
+                    self.reloadConfig()
                     return
                 }
                 VPNManager.shared.stopAndWait { _ in
                     Task { @MainActor in
                         apply()
+                        // 身份文件已就位，立即重载刷新卡片身份显示（不等重连回填）
+                        self.reloadConfig()
                         // 核心随身份切换重启，连接超时窗口重新起算（对齐行星切换）
                         self.connectTimeoutTask?.cancel()
                         self.connectTimeoutTask = nil
@@ -143,8 +147,16 @@ final class AppState: ObservableObject {
         stopVPNIfNoActiveNetworks()
         networks = AppConfigStore.readNetworks()
         planetNetworks = AppConfigStore.readNetworksByPlanet()
+        // 身份 ID 直接从身份文件派生（ground truth）：共享模式全行星显示共享
+        // 身份地址；独立模式显示各行星自己的 identity.public（未生成为 nil，
+        // 显示 "-"——旧地址属于别的身份，不可作为显示来源）。身份模式切换
+        // 后文件已就位，重载即刷新，不等核心重连回填。
+        let sharedAddress = IdentityStore.sharedIdentityAddress
         planetNodeIds = Dictionary(uniqueKeysWithValues: planets.compactMap { profile in
-            profile.lastNodeId.map { (profile.id, $0) }
+            if IdentityStore.perPlanet {
+                return IdentityStore.planetIdentityAddress(profile.id).map { (profile.id, $0) }
+            }
+            return sharedAddress.map { (profile.id, $0) }
         })
         moons = AppConfigStore.readMoons()
         // 一次读取 moons.json 按 planetId 分组统计，避免逐 Planet 重复读盘。
@@ -356,14 +368,10 @@ final class AppState: ObservableObject {
         VPNManager.shared.stop()
     }
 
-    /// 行星节点 ID 缓存：隧道在跑时读到即持久化到对应行星，离线后仍可显示。
+    /// 行星节点 ID 运行时回填：核心首次启动生成身份文件之前 reloadConfig
+    /// 读不到地址，靠隧道轮询读到后补上（地址即身份文件内容，两者恒一致）。
     private func cacheNodeId(_ value: String) {
         guard !value.isEmpty else { return }
-        var profiles = AppConfigStore.readPlanets()
-        guard let index = profiles.firstIndex(where: { $0.id == activePlanetId }),
-              profiles[index].lastNodeId != value else { return }
-        profiles[index].lastNodeId = value
-        AppConfigStore.writePlanets(profiles)
         planetNodeIds[activePlanetId] = value
     }
 
