@@ -9,6 +9,9 @@ jobs:
     runs-on: macos-15
     permissions:
       contents: write
+    env:
+      # 代码依赖 SE-0502（Swift 6.2）的成员初始化器规则，镜像默认 Xcode 16.4 编译不过
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
     steps:
       - uses: actions/checkout@v4
 

@@ -23,25 +23,35 @@ git diff --quiet && git diff --cached --quiet || {
 }
 
 # 从上次 tag 之后的 Conventional Commits 推导下一版本
-NEXT=$(git-cliff --bumped-version | tr -d '[:space:]')
-case "$NEXT" in
-    v*.*) NEXT=${NEXT#v} ;;
+RAW=$(git-cliff --bumped-version | tr -d '[:space:]')
+case "$RAW" in
+    v*.*) ;;
     *) echo "错误：无法计算下一版本（自上次 tag 后可能没有新提交）" >&2; exit 1 ;;
 esac
-BASE="$NEXT"
-
-# beta 模式：在推导版本上追加递增的 -beta.N（N 取同名 beta tag 的最大序号 +1）
-if [ "$MODE" = beta ]; then
-    N=0
-    for t in $(git tag --list "v$NEXT-beta.*"); do
-        n=${t##*-beta.}
-        [ "$n" -gt "$N" ] 2>/dev/null && N=$n
-    done
-    NEXT="$NEXT-beta.$((N + 1))"
-fi
 
 # 无新提交时 git-cliff 会原样返回当前版本，防重复发版
 LATEST=$(git describe --tags --abbrev=0 | tr -d '[:space:]' | sed 's/^v//')
+if [ "$RAW" = "v$LATEST" ]; then
+    echo "错误：自 v$LATEST 后没有可触发版本变动的提交" >&2
+    exit 1
+fi
+
+# beta 号一律基于正式版本号推导：cliff 在上个 tag 为 beta 时会返回 beta 版本，
+# 直接在其上追加会产出 v1.4.0-beta.2-beta.1 这类畸形号
+BASE=${RAW%%-*}
+BASE=${BASE#v}
+NEXT="$BASE"
+
+# beta 模式：追加递增的 -beta.N（N 取同名 beta tag 的最大序号 +1）
+if [ "$MODE" = beta ]; then
+    N=0
+    for t in $(git tag --list "v$BASE-beta.*"); do
+        n=${t##*-beta.}
+        [ "$n" -gt "$N" ] 2>/dev/null && N=$n
+    done
+    NEXT="$BASE-beta.$((N + 1))"
+fi
+
 if [ "$NEXT" = "$LATEST" ]; then
     echo "错误：自 v$LATEST 后没有可触发版本变动的提交" >&2
     exit 1
@@ -51,18 +61,17 @@ echo "下一版本：v$NEXT"
 
 # 生成中文更新日志（chore 类提交不入日志）
 git-cliff --bump -o CHANGELOG.md
-if [ "$MODE" = beta ]; then
-    # cliff 只会按正式版本号生成段落标题，beta 发布要求段落标题与 tag 同名，
-    # release workflow 靠 `## <tag>` 前缀提取发布说明
-    awk -v old="## v${BASE}（" -v new="## v${NEXT}（" '
-        !done && index($0, old) == 1 { $0 = new substr($0, length(old) + 1); done = 1 }
-        { print }
-    ' CHANGELOG.md > CHANGELOG.md.tmp && mv CHANGELOG.md.tmp CHANGELOG.md
-    [ "$NEXT" != "$BASE" ] && grep -q "^## v${NEXT}（" CHANGELOG.md || {
-        echo "错误：CHANGELOG.md 未生成 v$NEXT 段落" >&2
-        exit 1
-    }
-fi
+# cliff 生成的段落标题可能带 beta 尾巴，统一改写为与本次 tag 同名
+# （release workflow 靠 `## <tag>` 前缀提取发布说明）
+DATE=$(date "+%Y-%m-%d")
+awk -v new="## v${NEXT}（${DATE}）" '
+    !done && $0 ~ /^## v/ { $0 = new; done = 1 }
+    { print }
+' CHANGELOG.md > CHANGELOG.md.tmp && mv CHANGELOG.md.tmp CHANGELOG.md
+grep -q "^## v${NEXT}（" CHANGELOG.md || {
+    echo "错误：CHANGELOG.md 未生成 v$NEXT 段落" >&2
+    exit 1
+}
 
 # 同步两个 Info.plist：版本号 + 递增 build 号
 PLISTS=(PlanetPort/Info.plist PlanetPortTunnel/Info.plist)

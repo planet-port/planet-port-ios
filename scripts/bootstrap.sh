@@ -83,6 +83,15 @@ else
 fi
 
 # ---- 生成 Xcode 工程 ----
+# BuildInfo.swift 不入库，但 xcodegen 扫描源文件时它必须已存在（否则不进编译列表，
+# 构建报 BuildInfo 越界错误）。这里落一个占位文件，实际值由 project.yml 的
+# preBuildScripts「生成构建信息」在每次构建时刷新。
+GEN_DIR=PlanetPort/Generated
+mkdir -p "$GEN_DIR"
+if [ ! -f "$GEN_DIR/BuildInfo.swift" ]; then
+    printf '// 占位文件，实际值由 project.yml preBuildScripts「生成构建信息」构建时刷新。\nenum BuildInfo {\n    static let time = "bootstrap"\n    static let hash = "unknown"\n    static let dirty = false\n}\n' > "$GEN_DIR/BuildInfo.swift"
+    echo "已生成占位 $GEN_DIR/BuildInfo.swift"
+fi
 command -v xcodegen >/dev/null 2>&1 || err "缺少 xcodegen，请先执行 brew install xcodegen"
 xcodegen generate
 
