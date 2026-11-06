@@ -47,7 +47,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # beta tag 以 prerelease 形式发布，不占用 /releases/latest
+          FLAGS=()
+          case "$GITHUB_REF_NAME" in *-beta.*) FLAGS=(--prerelease) ;; esac
           gh release create "$GITHUB_REF_NAME" \
             "PlanetPort-${GITHUB_REF_NAME}.ipa" \
             --title "$GITHUB_REF_NAME" \
+            "${FLAGS[@]}" \
             --notes-file release-notes.md
