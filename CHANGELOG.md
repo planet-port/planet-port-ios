@@ -2,7 +2,7 @@
 
 所有显著变更均记录于此。版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
-## v1.4.0-beta.1（2026-11-07）
+## v1.4.0（2026-11-07）
 ### CI
 
 - beta tag 发布为 prerelease
@@ -14,6 +14,7 @@
 - **ci：**补装 xcodegen
 - **ci：**修复发版构建在 CI 上的两处编译失败
 - **ui：**兼容 Swift 6.1 与 CGFloat 结构体 SDK 的编译
+- **release：**修正正式版推导与 CHANGELOG 段落精确匹配
 ### 文档
 
 - **readme：**修正状态色派生描述
