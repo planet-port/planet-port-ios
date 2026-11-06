@@ -348,8 +348,8 @@ private struct HSLColorPicker: View {
             .contentShape(Rectangle())
             .gesture(DragGesture(minimumDistance: 0).onChanged { g in
                 apply(hsl.h,
-                      min(max(g.location.x / w, 0), 1),
-                      1 - min(max(g.location.y / h, 0), 1))
+                      Double(min(max(g.location.x / w, 0), 1)),
+                      1 - Double(min(max(g.location.y / h, 0), 1)))
             })
         }
         .frame(height: 180)
@@ -369,7 +369,7 @@ private struct HSLColorPicker: View {
             }
             .contentShape(Rectangle())
             .gesture(DragGesture(minimumDistance: 0).onChanged { g in
-                apply(min(max(g.location.x / w, 0), 1) * 360, hsl.s, hsl.l)
+                apply(Double(min(max(g.location.x / w, 0), 1)) * 360, hsl.s, hsl.l)
             })
         }
         .frame(height: 28)

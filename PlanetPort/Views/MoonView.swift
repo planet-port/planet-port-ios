@@ -203,6 +203,14 @@ private struct AddMoonSheet: View {
     @State private var worldIdText = ""
     @State private var seedText = ""
 
+    // 手写 init：带无默认值 private 属性时，部分 Swift 版本会把 memberwise
+    // init 的访问级别降为 private，导致本文件调用点编译失败
+    init(onFileImport: @escaping () -> Void, onManualOrbit: @escaping (UInt64, UInt64) -> Void) {
+        self.onFileImport = onFileImport
+        self.onManualOrbit = onManualOrbit
+        _dismiss = Environment(\.dismiss)
+    }
+
     private var hex16Valid: (String) -> Bool = { $0.count == 16 && $0.allSatisfy { $0.isHexDigit } }
 
     var body: some View {
