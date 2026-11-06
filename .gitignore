@@ -12,3 +12,5 @@ xcuserdata/
 
 # superpowers 工作产物（计划/规格）不入库，仅保留本地
 docs/superpowers/
+# 本地临时产物（发版下载物等）不入库
+/tmp/
