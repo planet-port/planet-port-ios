@@ -12,6 +12,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: 安装 xcodegen
+        run: brew install xcodegen
+
       - name: 拉取 ZeroTier 核心并生成 Xcode 工程
         run: ./scripts/bootstrap.sh
 
