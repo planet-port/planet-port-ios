@@ -55,7 +55,7 @@ On Android, ZerotierFix lets you customize the Planet; iOS has long lacked a com
 ### Experience
 
 - **Stay connected** — connections auto-restore on network changes (Wi-Fi/cellular switches)
-- **Theming** — pick a main color on an HSL wheel; planet decorations and status colors derive from it globally
+- **Theming** — pick a main color on an HSL wheel; planet decorations derive from it globally, and status colors optionally so (off by default, keeping semantic colors)
 - **Background parallax** — custom background image with a CoreMotion gravity-driven parallax animation; can be turned off
 - **Localization** — Simplified Chinese, Traditional Chinese and English
 - **Data-plane diagnostics** — in/out traffic, ARP question/answer counts, no-route drops and an event log for troubleshooting
