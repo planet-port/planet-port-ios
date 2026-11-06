@@ -2,6 +2,32 @@
 
 所有显著变更均记录于此。版本号遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## v1.4.0-beta.1（2026-11-06）
+### CI
+
+- beta tag 发布为 prerelease
+### 修复
+
+- **ui：**删除行星改用自绘锚定气泡并重构使用中的删除顺序
+- **identity：**身份模式切换后首页卡片 ID 立即刷新
+- **status：**隧道被其它 VPN 挤掉后回落掉线状态
+- **ci：**补装 xcodegen
+### 文档
+
+- **readme：**修正状态色派生描述
+### 新增
+
+- **addplanet：**扫码导入合并为单入口自动识别链接与分片
+- **scripts：**release.sh 支持 beta 标签发布
+### 构建
+
+- 接入 tag 触发的 release workflow
+### 测试
+
+- 增加真机取证用 UI 测试 target
+### 重构
+
+- **addplanet：**移除扫码预填身份的滑页重掷豁免
 ## v1.3.0（2026-11-02）
 ### 修复
 
