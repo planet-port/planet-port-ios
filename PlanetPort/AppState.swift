@@ -87,6 +87,9 @@ final class AppState: ObservableObject {
                     self.reloadConfig()
                     return
                 }
+                // 先停后起序列：stopAndWait 等待拆除期间隧道已不在跑，
+                // 先打启动意图，避免轮询误判意外停止而清掉网络激活
+                VPNManager.shared.markStartIntent()
                 VPNManager.shared.stopAndWait { _ in
                     Task { @MainActor in
                         apply()
@@ -200,6 +203,9 @@ final class AppState: ObservableObject {
     /// 用户主动打开网络时才应用 Planet（取网络归属的行星，而非当前浏览页，
     /// 避免滑页过程中的选中态错位导致激活错行星）；跨 Planet 时需要重启 Core。
     func applyPlanetAndStartVPN(_ planetId: String, completion: @escaping (Bool, String?) -> Void) {
+        // 入口即打启动意图：connectionStatus 异步判定到隧道真正进入 .connecting
+        // 之间存在未运行窗口，轮询需识别这是拉起中而非意外停止
+        VPNManager.shared.markStartIntent()
         let previousPlanetId = activePlanetId
         let planetChanged = AppConfigStore.activatePlanet(planetId)
         activePlanetId = AppConfigStore.activePlanetId
@@ -383,6 +389,7 @@ final class AppState: ObservableObject {
                 self.vpnRunning = (status == .connected || status == .connecting || status == .reasserting)
                 self.evaluateConnectTimer()
                 if self.vpnRunning {
+                    VPNManager.shared.clearStartIntent()
                     VPNManager.shared.query(ProviderRequest(type: "status", nwid: nil)) { reply in
                         Task { @MainActor in
                             guard let reply else { return }
@@ -406,6 +413,15 @@ final class AppState: ObservableObject {
                     // 隧道不在跑，状态快照整体失效（含旧会话残留），不参与展示
                     self.networkStatuses = [:]
                     self.networkConflicts = [:]
+                    if !VPNManager.shared.startIntentActive,
+                       AppConfigStore.readActiveNetworks().contains(where: \.lastActivated) {
+                        // 隧道未运行且无启动意图：被其它 VPN 挤掉/用户在系统设置
+                        // 停止等意外断开，网络实际已离线，回落掉线状态（与启动时
+                        // resetStaleNetworksIfNeeded 同一收敛，运行中持续生效）。
+                        // resetAllNetworkActivation 自带无激活早退，重复轮询零写盘。
+                        AppConfigStore.resetAllNetworkActivation()
+                        self.reloadConfig()
+                    }
                 }
             }
         }
