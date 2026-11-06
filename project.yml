@@ -122,6 +122,18 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
     dependencies:
       - target: PlanetPort
+  # TEMP-DIAG: 真机取证用 UI 测试 target，验证后删除
+  PlanetPortUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: UITests
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        DEVELOPMENT_TEAM: 7U7D63XYNK
+    dependencies:
+      - target: PlanetPort
 schemes:
   PlanetPort:
     build:
@@ -130,3 +142,4 @@ schemes:
     test:
       targets:
         - PlanetPortTests
+        - PlanetPortUITests
