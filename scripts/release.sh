@@ -22,17 +22,32 @@ git diff --quiet && git diff --cached --quiet || {
     exit 1
 }
 
+# 无新提交时 git-cliff 会原样返回当前版本，防重复发版
+LATEST=$(git describe --tags --abbrev=0 | tr -d '[:space:]' | sed 's/^v//')
+
+# 发正式版且上个 tag 是 beta 时，忽略该版本的 beta tag 推导版本与生成日志：
+# 否则 cliff 以 beta.N 为基线——beta 后仅有 chore 提交时直接中止，
+# 有 feat/fix 时推出的段落只含 beta.N 之后的提交，正式版发布说明会丢失 beta 内容
+IGNORE_FLAGS=()
+case "$MODE/$LATEST" in
+    /*-beta.*) IGNORE_FLAGS=(--ignore-tags "v${LATEST%%-*}-beta.*") ;;
+esac
+
 # 从上次 tag 之后的 Conventional Commits 推导下一版本
-RAW=$(git-cliff --bumped-version | tr -d '[:space:]')
+# （空数组展开需用 + 形式，兼容 macOS 自带 bash 3.2 在 set -u 下的行为）
+RAW=$(git-cliff ${IGNORE_FLAGS[@]+"${IGNORE_FLAGS[@]}"} --bumped-version | tr -d '[:space:]')
 case "$RAW" in
     v*.*) ;;
     *) echo "错误：无法计算下一版本（自上次 tag 后可能没有新提交）" >&2; exit 1 ;;
 esac
 
-# 无新提交时 git-cliff 会原样返回当前版本，防重复发版
-LATEST=$(git describe --tags --abbrev=0 | tr -d '[:space:]' | sed 's/^v//')
+# 推导结果与当前版本相同时给出指引而非裸中止
 if [ "$RAW" = "v$LATEST" ]; then
-    echo "错误：自 v$LATEST 后没有可触发版本变动的提交" >&2
+    if [ "$MODE" = beta ]; then
+        echo "错误：自 v${LATEST} 后没有新提交，无法递增 beta 序号" >&2
+    else
+        echo "错误：当前已是最新版本 v${LATEST}，自该版本后没有 feat/fix 等可触发版本变动的提交，无需发正式版；如需发布验证版请执行 $0 beta" >&2
+    fi
     exit 1
 fi
 
@@ -53,16 +68,16 @@ if [ "$MODE" = beta ]; then
 fi
 
 if [ "$NEXT" = "$LATEST" ]; then
-    echo "错误：自 v$LATEST 后没有可触发版本变动的提交" >&2
+    echo "错误：当前已是最新版本 v${LATEST}，没有可触发版本变动的提交，无需重复发版；如需发布验证版请执行 $0 beta" >&2
     exit 1
 fi
 
 echo "下一版本：v$NEXT"
 
-# 生成中文更新日志（chore 类提交不入日志）
-git-cliff --bump -o CHANGELOG.md
+# 生成中文更新日志（chore 类提交不入日志；ignore-tags 与版本推导保持同一基线）
+git-cliff ${IGNORE_FLAGS[@]+"${IGNORE_FLAGS[@]}"} --bump -o CHANGELOG.md
 # cliff 生成的段落标题可能带 beta 尾巴，统一改写为与本次 tag 同名
-# （release workflow 靠 `## <tag>` 前缀提取发布说明）
+# （release workflow 靠 `## <tag>（` 精确匹配版本 token 提取发布说明）
 DATE=$(date "+%Y-%m-%d")
 awk -v new="## v${NEXT}（${DATE}）" '
     !done && $0 ~ /^## v/ { $0 = new; done = 1 }
