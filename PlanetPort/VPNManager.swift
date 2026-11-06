@@ -16,8 +16,35 @@ final class VPNManager {
     private var startInFlight = false
     private var startWaiters: [(Bool, String?) -> Void] = []
 
+    /// 最近一次隧道启动意图时间。AppState 轮询据此区分「隧道拉起中」（显示
+    /// 建立隧道）与「意外停止」（被其它 VPN 挤掉/系统停止，网络须回落掉线
+    /// 状态）：所有会拉起隧道的路径（含先停后起的切换序列）入口先打点，
+    /// 观察到隧道在跑即清除。30s 窗口既覆盖 stopAndWait/restart 的拆建
+    /// 间隙，也兜底 startVPNTunnel 被系统静默吞掉时不至于永久卡"建立隧道"。
+    private var startIntentAt: Date?
+    private static let startIntentWindow: TimeInterval = 30
+
+    /// 启动意图打点（同步写，保证打点后立即读到）
+    func markStartIntent() {
+        startQueue.sync { startIntentAt = Date() }
+    }
+
+    /// 是否处于启动意图窗口内
+    var startIntentActive: Bool {
+        startQueue.sync {
+            guard let at = startIntentAt else { return false }
+            return Date().timeIntervalSince(at) < Self.startIntentWindow
+        }
+    }
+
+    /// 清除启动意图（隧道已观察到在跑/启动明确失败时调用；异步避免回调线程死锁）
+    func clearStartIntent() {
+        startQueue.async { [weak self] in self?.startIntentAt = nil }
+    }
+
     /// 加载（或首次创建）VPN 配置并启动隧道（在途时合并，结果统一回调）
     func prepareAndStart(completion: @escaping (Bool, String?) -> Void) {
+        markStartIntent()
         startQueue.async { [weak self] in
             guard let self else { return }
             if self.startInFlight {
@@ -27,6 +54,9 @@ final class VPNManager {
             self.startInFlight = true
             self.performStart { [weak self] ok, err in
                 guard let self else { return }
+                // 启动明确失败：意图即失效，轮询立即按意外停止回落掉线状态，
+                // 不等 30s 窗口过期
+                if !ok { self.clearStartIntent() }
                 self.startQueue.async {
                     self.startInFlight = false
                     let waiters = self.startWaiters
@@ -156,6 +186,9 @@ final class VPNManager {
 
     /// planet 开关等需要重启隧道生效
     func restart(completion: ((Bool, String?) -> Void)? = nil) {
+        // 入口即打点：stop 到 1s 后 prepareAndStart 之间存在隧道未运行窗口，
+        // 轮询需识别这是重启序列而非意外停止
+        markStartIntent()
         loadManager { [weak self] manager, _ in
             guard let self else { return }
             manager.connection.stopVPNTunnel()
