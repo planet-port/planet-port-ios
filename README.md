@@ -67,6 +67,16 @@ Android 端有 ZerotierFix 可以自定义 Planet，iOS 却一直缺一个顺手
 2. **切换行星**：导入私有 Planet（文件 / URL / 二维码）→ 首页左右翻页 → 打开该行星下的网络开关，隧道随即切换到新行星。
 3. **保持在线**：设置页开启「保持在线」，网络变化自动恢复连接。
 
+## 安装（侧载）
+
+IPA 未签名发布，需自备 Apple ID 用侧载工具重签安装：
+
+- **Sideloadly**（Win/Mac 桌面端）：下载 Release 中的 `PlanetPort-v*.ipa`，拖入 Sideloadly，登录 Apple ID 重签后安装
+- **AltStore**：同上，经 AltServer 安装
+- 免费账号签名 7 天过期，续签重装即可；TrollStore 用户可直接安装
+
+构建方法与签名说明见 [docs](docs/)（无 Apple 开发者账号，不上架 App Store）。
+
 ## 截图
 
 <p align="center">

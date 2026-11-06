@@ -1,0 +1,50 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  release:
+    runs-on: macos-15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 拉取 ZeroTier 核心并生成 Xcode 工程
+        run: ./scripts/bootstrap.sh
+
+      - name: 构建(无签名)
+        run: |
+          xcodebuild -scheme PlanetPort -configuration Release \
+            -project PlanetPort.xcodeproj \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' \
+            build
+
+      - name: 打包未签名 IPA
+        run: |
+          mkdir Payload
+          cp -R build/Build/Products/Release-iphoneos/PlanetPort.app Payload/
+          zip -rq "PlanetPort-${GITHUB_REF_NAME}.ipa" Payload
+          ls -lh "PlanetPort-${GITHUB_REF_NAME}.ipa"
+
+      - name: 提取 CHANGELOG 对应版本段落作为发布说明
+        run: |
+          awk -v tag="$GITHUB_REF_NAME" '
+            index($2, tag) == 1 && $1 == "##" { insec = 1; next }
+            insec && $1 == "##" { exit }
+            insec { print }
+          ' CHANGELOG.md > release-notes.md
+          [ -s release-notes.md ] || { echo "错误：CHANGELOG.md 中未找到 $GITHUB_REF_NAME 段落" >&2; exit 1; }
+
+      - name: 创建 Release 并上传 IPA
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            "PlanetPort-${GITHUB_REF_NAME}.ipa" \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file release-notes.md
