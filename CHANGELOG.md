@@ -13,6 +13,7 @@
 - **status：**隧道被其它 VPN 挤掉后回落掉线状态
 - **ci：**补装 xcodegen
 - **ci：**修复发版构建在 CI 上的两处编译失败
+- **ui：**兼容 Swift 6.1 与 CGFloat 结构体 SDK 的编译
 ### 文档
 
 - **readme：**修正状态色派生描述
