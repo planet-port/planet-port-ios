@@ -1,0 +1,65 @@
+name: Release Dispatch
+
+# 网页发版入口：Actions 页 Run workflow 即完成「版本推导（含 beta）→ CHANGELOG →
+# Info.plist 版本/build 号 → 提交 → 打 tag → 构建 → 发布 Release」全流程，
+# 等价于本地 ./scripts/release.sh [beta] + git push --follow-tags。
+# 版本推导复用 scripts/release.sh 本体（macOS runner 原生满足 PlistBuddy/BSD sed），
+# 构建复用 release-build.yml。
+on:
+  workflow_dispatch:
+    inputs:
+      beta:
+        description: 发布 beta 验证版（vX.Y.Z-beta.N，prerelease 形式）
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  bump:
+    name: 版本推导与打 tag
+    runs-on: macos-15
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # git-cliff 推导需要全历史与 tag
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: 安装 git-cliff
+        run: brew install git-cliff
+
+      - name: 配置 git 身份
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: 执行发版脚本
+        run: |
+          if [ "${{ inputs.beta }}" = "true" ]; then
+            ./scripts/release.sh beta
+          else
+            ./scripts/release.sh
+          fi
+
+      - name: 输出本次 tag
+        id: tag
+        run: echo "tag=$(git describe --tags --abbrev=0)" >> "$GITHUB_OUTPUT"
+
+      # GITHUB_TOKEN 推送的事件不会触发其它工作流（GitHub 限制），tag 推送后
+      # 的构建在本工作流内直接调用，不走 release.yml 的 tag 触发
+      - name: 推送发版提交与 tag
+        run: git push origin "HEAD:${GITHUB_REF_NAME}" --follow-tags
+
+  release:
+    name: 构建并发布
+    needs: bump
+    uses: ./.github/workflows/release-build.yml
+    permissions:
+      contents: write
+    with:
+      tag: ${{ needs.bump.outputs.tag }}
+    secrets: inherit
