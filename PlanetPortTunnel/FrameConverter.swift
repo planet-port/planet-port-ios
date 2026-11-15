@@ -108,7 +108,7 @@ final class FrameConverter {
             let oldestPending = c.pendingSince.values
                 .map { Int(now.timeIntervalSince($0)) }.max()
             let replyAt = c.lastArpReplyAt.map { fmt.string(from: $0) } ?? "-"
-            lines.append("ctx \(String(format: "%016llx", nwid)) mac=\(String(format: "%012llx", c.mac)) v4=[\(v4)] routes=\(c.routesV4.count)/\(c.routesV6.count) 出站=\(c.statFwdV4) 入站=\(c.statInV4) ARP问=\(c.statArpReq) ARP答=\(c.statArpReply)@\(replyAt) 收问=\(c.statArpInReq)/\(c.statArpInReqHit) 闲答=\(c.statArpReplyNoPending) 核心拒=\(c.statCoreReject)(code=\(c.lastCoreRejectCode)) 保活=\(c.statKeepalive) ARP表=\(c.arp.count) 源不符=\(c.statSrcMismatch)(\(c.statSrcMismatch > 0 ? Self.dotted(c.lastSrcMismatch) : "-")) NAT出=\(c.statNatOut) NAT入=\(c.statNatIn) 待决=[\(pendingDetail)]\(oldestPending.map { " 最老=\($0)s" } ?? "")")
+            lines.append("ctx \(String(format: "%016llx", nwid)) mac=\(String(format: "%012llx", c.mac)) v4=[\(v4)] routes=\(c.routesV4.count)/\(c.routesV6.count) 出站=\(c.statFwdV4) 入站=\(c.statInV4) ARP问=\(c.statArpReq) ARP答=\(c.statArpReply)@\(replyAt) 收问=\(c.statArpInReq)/\(c.statArpInReqHit) 闲答=\(c.statArpReplyNoPending) 核心拒=\(c.statCoreReject)(code=\(c.lastCoreRejectCode)) 保活=\(c.statKeepalive) ARP表=\(c.arp.count) NDP表=\(c.ndp.count) 源不符=\(c.statSrcMismatch)(\(c.statSrcMismatch > 0 ? Self.dotted(c.lastSrcMismatch) : "-")) NAT出=\(c.statNatOut) NAT入=\(c.statNatIn) 待决=[\(pendingDetail)]\(oldestPending.map { " 最老=\($0)s" } ?? "")")
         }
         return lines.joined(separator: "\n")
     }
@@ -281,15 +281,25 @@ final class FrameConverter {
     // MARK: - NDP 处理（仅更新本网络缓存）
 
     private func handleNDP(_ ctx: NetworkContext, packet: Data, senderMac: UInt64) {
-        let icmp6 = packet.dropFirst(40)   // 跳过 IPv6 头
+        let icmp6 = packet.subdata(in: 40..<packet.count)   // 跳过 IPv6 头（subdata 返回 0 基新 Data，parse 按绝对下标访问）
         let srcIPv6 = packet.subdata(in: 8..<24)
         guard let p = NDPTable.parse(icmp6) else { return }
         switch p.type {
         case 135: // NS：问 target 的 MAC；若是本网络持有的地址则回 NA
             if ctx.ipv6Addresses.contains(p.target) {
-                let na = NDPTable.neighborAdvertisement(target: p.target, senderMAC: ctx.mac, senderIPv6: nil)
-                coreSend(ctx, dstMac: senderMac, etherType: Ethernet.typeIPv6,
-                         frame: Self.ipv6Packet(payload: na, dst: srcIPv6))
+                // DAD 探测（NS 源为未指定地址 ::）：请求方在自查该地址是否已被占用，
+                // 按 RFC 4861 §7.2.4 回全节点组播 NA——目的 ff02::1、Solicited 清零仅
+                // Override（0x20）；回单播 NA 到 :: 不可投递，DAD 方永远收不到宣告。
+                // 普通 NS 回单播 Solicited+Override（0x60）。两种形态 NA 的源地址均 =
+                // 被解析的本机地址，伪头校验和用真实 src/dst（恒 0 会被内核丢弃）
+                let dad = NDPTable.isUnspecified(srcIPv6)
+                var na = NDPTable.neighborAdvertisement(target: p.target, senderMAC: ctx.mac,
+                                                        solicited: !dad)
+                let dst = dad ? NDPTable.allNodesMulticast : srcIPv6
+                NDPTable.icmpv6Checksum(src: p.target, dst: dst, payload: &na)
+                coreSend(ctx, dstMac: dad ? NDPTable.multicastMAC(for: dst) : senderMac,
+                         etherType: Ethernet.typeIPv6,
+                         frame: Self.ipv6Packet(payload: na, src: p.target, dst: dst))
             }
         case 136: // NA：更新本网络表 + 冲刷本网络待决包
             if let mac = p.senderMAC {
@@ -325,20 +335,24 @@ final class FrameConverter {
     }
 
     private func sendNeighborSolicitation(_ ctx: NetworkContext, target: Data) {
-        let ns = NDPTable.neighborSolicitation(target: target, senderMAC: ctx.mac, senderIPv6: nil)
-        coreSend(ctx, dstMac: NDPTable.multicastMAC(for: NDPTable.solicitedNodeMulticast(target: target)),
-                 etherType: Ethernet.typeIPv6,
-                 frame: Self.ipv6Packet(payload: ns, dst: target))
+        // RFC 4861：NS 的 L3 目的 = 请求节点组播地址（组播不能只体现在 L2 的组播 MAC），
+        // 源 = 本网络的本机接口地址（:: 仅 DAD 合法）；伪头校验和用真实 src/dst
+        guard let src = ctx.ipv6Addresses.first else { return }
+        let dst = NDPTable.solicitedNodeMulticast(target: target)
+        var ns = NDPTable.neighborSolicitation(target: target, senderMAC: ctx.mac)
+        NDPTable.icmpv6Checksum(src: src, dst: dst, payload: &ns)
+        coreSend(ctx, dstMac: NDPTable.multicastMAC(for: dst), etherType: Ethernet.typeIPv6,
+                 frame: Self.ipv6Packet(payload: ns, src: src, dst: dst))
     }
 
-    /// 把 ICMPv6 载荷包成最小 IPv6 包（next header 58，hop limit 255）
-    private static func ipv6Packet(payload: Data, dst: Data) -> Data {
+    /// 把 ICMPv6 载荷包成最小 IPv6 包（next header 58，hop limit 255），src 为真实本机地址
+    private static func ipv6Packet(payload: Data, src: Data, dst: Data) -> Data {
         var p = Data(capacity: 40 + payload.count)
         p.append(0x60); p.append(0); p.append(0); p.append(0)   // ver/traffic/flow
         p.append(UInt8((payload.count >> 8) & 0xff)); p.append(UInt8(payload.count & 0xff))
         p.append(58); p.append(255)                              // next header=ICMPv6, hop=255
-        p.append(contentsOf: [UInt8](repeating: 0, count: 16))   // src ::
-        p.append(dst)
+        p.append(contentsOf: [UInt8](src))
+        p.append(contentsOf: [UInt8](dst))
         p.append(payload)
         return p
     }
