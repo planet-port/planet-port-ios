@@ -537,12 +537,21 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         let mtus = valid.map { $0.cfg.mtu }.filter { $0 > 0 }
         let mtu = mtus.min() ?? 2800
 
-        // 组播订阅（broadcast + ADI=各网络首个 IPv4，ARP 可靠性的关键，SDK 文档要求）。
+        // 组播订阅（ARP broadcast + 各 v6 地址的请求节点组播，地址解析可达性的关键，
+        // SDK 文档要求；组语义等价核心 MulticastGroup::deriveMulticastGroupForAddressResolution）。
         // 每次都发：核心按组去重幂等无代价，且 leave 会连带丢弃该网络的全部订阅
         // 记录，rejoin 后须重订——不能挂在闸门内或应用成功回调内
         for item in valid {
             if let ipv4 = item.v4.first.flatMap({ FrameConverter.parseIPv4(RoutePlanner.ipOnly($0)) }) {
                 bridge?.multicastSubscribe(item.nwid, group: 0xffffffffffff, adi: UInt64(ipv4))
+            }
+            // v6：请求节点组播（33:33:ff:xx:xx:xx + ADI 0）——不订阅则对端内核的 NS
+            // 到不了本端，NDP 应答与 DAD 应答路径无触发源；陈旧地址的订阅由应答侧
+            // ctx.ipv6Addresses.contains 把关，无害
+            for cidr in item.v6 {
+                guard let addr = FrameConverter.parseIPv6Data(RoutePlanner.ipOnly(cidr)) else { continue }
+                let group = NDPTable.multicastMAC(for: NDPTable.solicitedNodeMulticast(target: addr))
+                bridge?.multicastSubscribe(item.nwid, group: group, adi: 0)
             }
         }
 
