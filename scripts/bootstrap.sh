@@ -95,7 +95,7 @@ fi
 command -v xcodegen >/dev/null 2>&1 || err "缺少 xcodegen，请先执行 brew install xcodegen"
 xcodegen generate
 
-# xcodegen 会按 project.yml 的占位版本(1.0.0/1)重写 Info.plist，
+# xcodegen 会按 project.yml 的版本（可能与 HEAD 不一致）重写 Info.plist，
 # 冲掉 release.sh 写入的发版号——生成后从 git HEAD 恢复，避免重跑 bootstrap 降级版本
 for plist in PlanetPort/Info.plist PlanetPortTunnel/Info.plist; do
     [[ -f "$plist" ]] || continue

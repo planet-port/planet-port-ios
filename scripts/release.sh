@@ -88,7 +88,9 @@ grep -q "^## v${NEXT}（" CHANGELOG.md || {
     exit 1
 }
 
-# 同步两个 Info.plist：版本号 + 递增 build 号
+# 同步两个 Info.plist 与 project.yml：版本号 + 递增 build 号。
+# project.yml 是 xcodegen 的生成源，不同步会让每次 generate 重写
+# plist 版本回到旧值（工作区恒脏），故与 plist 同步 bump
 PLISTS=(PlanetPort/Info.plist PlanetPortTunnel/Info.plist)
 BUILD=1
 for plist in "${PLISTS[@]}"; do
@@ -99,8 +101,22 @@ for plist in "${PLISTS[@]}"; do
     /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $NEXT" "$plist"
     /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD" "$plist"
 done
+sed -e "s/CFBundleShortVersionString: \"[^\"]*\"/CFBundleShortVersionString: \"$NEXT\"/g" \
+    -e "s/CFBundleVersion: \"[^\"]*\"/CFBundleVersion: \"$BUILD\"/g" \
+    project.yml > project.yml.tmp
+grep -q "CFBundleShortVersionString: \"$NEXT\"" project.yml.tmp || {
+    rm -f project.yml.tmp
+    echo "错误：project.yml 版本同步失败（sed 未命中）" >&2
+    exit 1
+}
+grep -q "CFBundleVersion: \"$BUILD\"" project.yml.tmp || {
+    rm -f project.yml.tmp
+    echo "错误：project.yml 版本同步失败（sed 未命中）" >&2
+    exit 1
+}
+mv project.yml.tmp project.yml
 
-git add CHANGELOG.md "${PLISTS[@]}"
+git add CHANGELOG.md "${PLISTS[@]}" project.yml
 git commit -m "chore(release): v$NEXT" -m "由 scripts/release.sh 生成，版本与更新日志依据 Conventional Commits 自动推导。"
 # 带注释 tag：git push --follow-tags 只推送 annotated tag，轻量 tag 会被静默漏推
 git tag -a "v$NEXT" -m "Release v$NEXT"
