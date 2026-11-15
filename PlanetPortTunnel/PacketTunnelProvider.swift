@@ -96,7 +96,9 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
 
             completionHandler(nil)
         } catch {
-            stopCore()
+            restartQueue.sync {
+                self.stopCore()
+            }
             let detail = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
             StatusStore.tunnelStatus = loc("tunnel.status.startFailed \(detail)")
             StatusStore.postChange()
@@ -106,11 +108,6 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
 
     override func stopTunnel(with reason: NEProviderStopReason, completionHandler: @escaping () -> Void) {
         running = false
-        restartQueue.async { [weak self] in
-            guard let self else { return }
-            self.restartWork?.cancel()
-            self.restartWork = nil
-        }
         pathMonitor?.cancel()
         pathMonitor = nil
         bgTimer?.cancel(); bgTimer = nil
@@ -122,7 +119,14 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
             self?.appliedSignature = nil
             self?.hasAppliedSettings = false
         }
-        stopCore()
+        // 与 restartQueue 上在飞的 restartCore 串行化（sync 屏障）：等其 stop/start
+        // 走完再统一停核——消除两线程并发 stopCore 的 udpSocket 双关竞态与
+        // "停机后僵尸隧道"窗口（restartCore 中途的 running 复查会放弃重启）
+        restartQueue.sync {
+            self.restartWork?.cancel()
+            self.restartWork = nil
+            self.stopCore()
+        }
         StatusStore.tunnelStatus = loc("tunnel.status.stopped")
         StatusStore.online = false
         StatusStore.pathSatisfied = true
@@ -225,6 +229,12 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         StatusStore.online = false
         StatusStore.postChange()
         stopCore()
+        // 停机竞态护栏：stopTunnel 可能恰在本协程 stopCore 之后置 running=false，
+        // 继续启动会拉起已清理完毕的"僵尸隧道"
+        guard running else {
+            NSLog("[ZT] restartCore aborted (tunnel stopping)")
+            return
+        }
         do {
             try startCore()
             NSLog("[ZT] core restarted on network change")

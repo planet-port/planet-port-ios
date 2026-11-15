@@ -315,6 +315,7 @@ static void ztEvent(ZT_Node* node, void* uptr, void* tptr, enum ZT_Event event, 
 // MARK: - ZTBridge 实现
 
 @implementation ZTBridge {
+    NSRecursiveLock* _nodeLock;   // 节点生命周期互斥：shutdown 删除节点前，所有在飞 ZT_Node_* 调用先落地
 }
 
 + (NSString*)coreVersion {
@@ -326,6 +327,7 @@ static void ztEvent(ZT_Node* node, void* uptr, void* tptr, enum ZT_Event event, 
     self = [super init];
     if (self) {
         _callbackQueue = dispatch_queue_create("zt.callback", DISPATCH_QUEUE_SERIAL);
+        _nodeLock = [[NSRecursiveLock alloc] init];
     }
     return self;
 }
@@ -360,114 +362,161 @@ static void ztEvent(ZT_Node* node, void* uptr, void* tptr, enum ZT_Event event, 
 }
 
 - (void)shutdown {
+    [_nodeLock lock];
     if (_node) {
         ZT_Node_delete(_node);
         _node = NULL;
     }
+    [_nodeLock unlock];
 }
 
 - (BOOL)isRunning {
-    return _node != NULL;
+    [_nodeLock lock];
+    BOOL r = _node != NULL;
+    [_nodeLock unlock];
+    return r;
 }
 
 - (int32_t)join:(uint64_t)nwid {
-    if (!_node) return ZT_RESULT_FATAL_ERROR_INTERNAL;
-    return ZT_Node_join(_node, nwid, NULL, NULL);
+    [_nodeLock lock];
+    int32_t r = _node ? ZT_Node_join(_node, nwid, NULL, NULL) : ZT_RESULT_FATAL_ERROR_INTERNAL;
+    [_nodeLock unlock];
+    return r;
 }
 
 - (int32_t)leave:(uint64_t)nwid {
-    if (!_node) return ZT_RESULT_FATAL_ERROR_INTERNAL;
-    void* uptr = NULL;
-    return ZT_Node_leave(_node, nwid, &uptr, NULL);
+    [_nodeLock lock];
+    int32_t r = ZT_RESULT_FATAL_ERROR_INTERNAL;
+    if (_node) {
+        void* uptr = NULL;
+        r = ZT_Node_leave(_node, nwid, &uptr, NULL);
+    }
+    [_nodeLock unlock];
+    return r;
 }
 
 - (int32_t)orbit:(uint64_t)worldId seed:(uint64_t)seed {
-    if (!_node) return ZT_RESULT_FATAL_ERROR_INTERNAL;
-    return ZT_Node_orbit(_node, NULL, worldId, seed);
+    [_nodeLock lock];
+    int32_t r = _node ? ZT_Node_orbit(_node, NULL, worldId, seed) : ZT_RESULT_FATAL_ERROR_INTERNAL;
+    [_nodeLock unlock];
+    return r;
 }
 
 - (int32_t)deorbit:(uint64_t)worldId {
-    if (!_node) return ZT_RESULT_FATAL_ERROR_INTERNAL;
-    return ZT_Node_deorbit(_node, NULL, worldId);
+    [_nodeLock lock];
+    int32_t r = _node ? ZT_Node_deorbit(_node, NULL, worldId) : ZT_RESULT_FATAL_ERROR_INTERNAL;
+    [_nodeLock unlock];
+    return r;
 }
 
 - (uint64_t)nodeAddress {
-    if (!_node) return 0;
-    return ZT_Node_address(_node);
+    [_nodeLock lock];
+    uint64_t a = _node ? ZT_Node_address(_node) : 0;
+    [_nodeLock unlock];
+    return a;
 }
 
 - (nullable ZTNodeStatusData*)nodeStatus {
-    if (!_node) return nil;
-    ZT_NodeStatus st;
-    ZT_Node_status(_node, &st);
-    ZTNodeStatusData* d = [[ZTNodeStatusData alloc] init];
-    d.address = st.address;
-    d.publicIdentity = [NSString stringWithUTF8String:st.publicIdentity ? st.publicIdentity : ""];
-    d.online = st.online != 0;
+    [_nodeLock lock];
+    ZTNodeStatusData* d = nil;
+    if (_node) {
+        ZT_NodeStatus st;
+        ZT_Node_status(_node, &st);
+        d = [[ZTNodeStatusData alloc] init];
+        d.address = st.address;
+        d.publicIdentity = [NSString stringWithUTF8String:st.publicIdentity ? st.publicIdentity : ""];
+        d.online = st.online != 0;
+    }
+    [_nodeLock unlock];
     return d;
 }
 
 - (NSArray<ZTPeerData*>*)peers {
-    if (!_node) return @[];
-    ZT_PeerList* list = ZT_Node_peers(_node);
-    if (!list) return @[];
-    NSMutableArray* out = [NSMutableArray arrayWithCapacity:list->peerCount];
-    for (unsigned long i = 0; i < list->peerCount; ++i) {
-        const ZT_Peer* p = &list->peers[i];
-        ZTPeerData* d = [[ZTPeerData alloc] init];
-        d.address = p->address;
-        d.role = (int32_t)p->role;
-        d.latency = p->latency;
-        d.version = [NSString stringWithFormat:@"%d.%d.%d", p->versionMajor, p->versionMinor, p->versionRev];
-        // 优选物理路径：取第一条有效 path（显示优选路径）
-        d.path = @"";
-        for (unsigned int j = 0; j < p->pathCount; ++j) {
-            NSString* s = ztSockAddrToString(&p->paths[j].address);
-            if (s.length) { d.path = s; break; }
+    [_nodeLock lock];
+    NSArray* out = @[];
+    if (_node) {
+        ZT_PeerList* list = ZT_Node_peers(_node);
+        if (list) {
+            NSMutableArray* arr = [NSMutableArray arrayWithCapacity:list->peerCount];
+            for (unsigned long i = 0; i < list->peerCount; ++i) {
+                const ZT_Peer* p = &list->peers[i];
+                ZTPeerData* d = [[ZTPeerData alloc] init];
+                d.address = p->address;
+                d.role = (int32_t)p->role;
+                d.latency = p->latency;
+                d.version = [NSString stringWithFormat:@"%d.%d.%d", p->versionMajor, p->versionMinor, p->versionRev];
+                // 优选物理路径：取第一条有效 path（显示优选路径）
+                d.path = @"";
+                for (unsigned int j = 0; j < p->pathCount; ++j) {
+                    NSString* s = ztSockAddrToString(&p->paths[j].address);
+                    if (s.length) { d.path = s; break; }
+                }
+                [arr addObject:d];
+            }
+            ZT_Node_freeQueryResult(_node, list);
+            out = arr;
         }
-        [out addObject:d];
     }
-    ZT_Node_freeQueryResult(_node, list);
+    [_nodeLock unlock];
     return out;
 }
 
 - (nullable ZTNetworkConfigData*)networkConfig:(uint64_t)nwid {
-    if (!_node) return nil;
-    ZT_VirtualNetworkConfig* cfg = ZT_Node_networkConfig(_node, nwid);
-    if (!cfg) return nil;
-    ZTNetworkConfigData* d = ztConvertNetworkConfig(cfg);
-    ZT_Node_freeQueryResult(_node, cfg);
+    [_nodeLock lock];
+    ZTNetworkConfigData* d = nil;
+    if (_node) {
+        ZT_VirtualNetworkConfig* cfg = ZT_Node_networkConfig(_node, nwid);
+        if (cfg) {
+            d = ztConvertNetworkConfig(cfg);
+            ZT_Node_freeQueryResult(_node, cfg);
+        }
+    }
+    [_nodeLock unlock];
     return d;
 }
 
 - (int32_t)processWirePacket:(NSData*)data remoteAddr:(NSData*)remoteAddr {
-    if (!_node || data.length == 0 || remoteAddr.length < sizeof(struct sockaddr_storage)) {
-        return ZT_RESULT_FATAL_ERROR_INTERNAL;
+    [_nodeLock lock];
+    int32_t r = ZT_RESULT_FATAL_ERROR_INTERNAL;
+    if (_node && data.length > 0 && remoteAddr.length >= sizeof(struct sockaddr_storage)) {
+        int64_t deadline = 0;
+        r = ZT_Node_processWirePacket(_node, NULL, ztNowMillis(), -1,
+            (const struct sockaddr_storage*)remoteAddr.bytes, data.bytes,
+            (unsigned int)data.length, &deadline);
     }
-    int64_t deadline = 0;
-    return ZT_Node_processWirePacket(_node, NULL, ztNowMillis(), -1,
-        (const struct sockaddr_storage*)remoteAddr.bytes, data.bytes,
-        (unsigned int)data.length, &deadline);
+    [_nodeLock unlock];
+    return r;
 }
 
 - (int32_t)processVirtualNetworkFrame:(uint64_t)nwid srcMac:(uint64_t)srcMac dstMac:(uint64_t)dstMac
                              etherType:(uint32_t)etherType vlanId:(uint32_t)vlanId frame:(NSData*)frame {
-    if (!_node || frame.length == 0) return ZT_RESULT_FATAL_ERROR_INTERNAL;
-    int64_t deadline = 0;
-    return ZT_Node_processVirtualNetworkFrame(_node, NULL, ztNowMillis(), nwid,
-        srcMac, dstMac, etherType, vlanId, frame.bytes, (unsigned int)frame.length, &deadline);
+    [_nodeLock lock];
+    int32_t r = ZT_RESULT_FATAL_ERROR_INTERNAL;
+    if (_node && frame.length > 0) {
+        int64_t deadline = 0;
+        r = ZT_Node_processVirtualNetworkFrame(_node, NULL, ztNowMillis(), nwid,
+            srcMac, dstMac, etherType, vlanId, frame.bytes, (unsigned int)frame.length, &deadline);
+    }
+    [_nodeLock unlock];
+    return r;
 }
 
 - (int32_t)multicastSubscribe:(uint64_t)nwid group:(uint64_t)group adi:(uint64_t)adi {
-    if (!_node) return ZT_RESULT_FATAL_ERROR_INTERNAL;
-    return ZT_Node_multicastSubscribe(_node, NULL, nwid, group, (unsigned long)adi);
+    [_nodeLock lock];
+    int32_t r = _node ? ZT_Node_multicastSubscribe(_node, NULL, nwid, group, (unsigned long)adi)
+                      : ZT_RESULT_FATAL_ERROR_INTERNAL;
+    [_nodeLock unlock];
+    return r;
 }
 
 - (int64_t)processBackgroundTasks {
-    if (!_node) return 0;
+    [_nodeLock lock];
     int64_t deadline = 0;
-    enum ZT_ResultCode rc = ZT_Node_processBackgroundTasks(_node, NULL, ztNowMillis(), &deadline);
-    if (rc != ZT_RESULT_OK) return 0;
+    if (_node) {
+        enum ZT_ResultCode rc = ZT_Node_processBackgroundTasks(_node, NULL, ztNowMillis(), &deadline);
+        if (rc != ZT_RESULT_OK) deadline = 0;
+    }
+    [_nodeLock unlock];
     return deadline;
 }
 
