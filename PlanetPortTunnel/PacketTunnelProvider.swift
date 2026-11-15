@@ -46,6 +46,10 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
     /// setTunnelNetworkSettings 单飞：应用中收到新配置置 dirty，完成后重跑
     private var applyingSettings = false
     private var settingsDirty = false
+    /// 已生效配置签名（地址/路由/MTU/DNS 内容拼接）：内容一致则跳过重套
+    /// settings（核心每约 60s 重推完整 netconf，无谓重配会扰动隧道接口）。
+    /// 仅在应用成功后记录；拆数据面/停机时清除。
+    private var appliedSignature: String? = nil
     private var configObserver: DarwinNotifyObserver?
     /// 网络路径监听：接口切换（Wi-Fi↔蜂窝）或断网恢复时重启核心
     private var pathMonitor: Network.NWPathMonitor?
@@ -112,6 +116,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
             self?.settingsWork?.cancel()
             self?.settingsWork = nil
             self?.networkConfigs = [:]
+            self?.appliedSignature = nil
         }
         stopCore()
         StatusStore.tunnelStatus = loc("tunnel.status.stopped")
@@ -465,10 +470,44 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         StatusStore.applyTrace = trace.joined(separator: "\n")
         NSLog("[PlanetPort] applyTrace\n%@", StatusStore.applyTrace)
 
-        let settings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: "127.0.0.1")
-        // Packet Tunnel 只有一个 MTU：取各网络最小非零值（拆两行：链式闭包推断会退化成 Optional）
+        // 单网络维持三模式 DNS；多网络不设（默认路由已禁用，ZT DNS 无意义）
+        let dnsServers: [String]
+        if valid.count == 1 {
+            switch valid[0].entry.dnsMode {
+            case .network: dnsServers = (valid[0].cfg.dns as [String])
+            case .custom: dnsServers = valid[0].entry.customDns
+            case .none: dnsServers = []
+            }
+        } else {
+            dnsServers = []
+        }
         let mtus = valid.map { $0.cfg.mtu }.filter { $0 > 0 }
         let mtu = mtus.min() ?? 2800
+
+        // 组播订阅（broadcast + ADI=各网络首个 IPv4，ARP 可靠性的关键，SDK 文档要求）。
+        // 每次都发：核心按组去重幂等无代价，且 leave 会连带丢弃该网络的全部订阅
+        // 记录，rejoin 后须重订——不能挂在闸门内或应用成功回调内
+        for item in valid {
+            if let ipv4 = item.v4.first.flatMap({ FrameConverter.parseIPv4(RoutePlanner.ipOnly($0)) }) {
+                bridge?.multicastSubscribe(item.nwid, group: 0xffffffffffff, adi: UInt64(ipv4))
+            }
+        }
+
+        // 幂等闸门：与当前生效配置内容一致则跳过重套（CONFIG_UPDATE 周期性重推）
+        // （拆子表达式：长链式字符串拼接的编译器类型检查会超时）
+        let sigV4 = allV4.joined(separator: ",")
+        let sigV6 = allV6.joined(separator: ",")
+        let sigV4Routes = v4Routes.map { "\($0.destinationAddress)/\($0.destinationSubnetMask)" }.joined(separator: ",")
+        let sigV6Routes = v6Routes.map { "\($0.destinationAddress)/\($0.destinationNetworkPrefixLength)" }.joined(separator: ",")
+        var signature = sigV4 + "|" + sigV6 + "|" + sigV4Routes + "|" + sigV6Routes
+        signature += "|mtu=\(mtu)|dns=\(dnsServers.joined(separator: ","))"
+        if signature == appliedSignature {
+            diagLog("apply 幂等跳过（配置无变化）")
+            return
+        }
+        let pendingSignature = signature
+
+        let settings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: "127.0.0.1")
         settings.mtu = NSNumber(value: mtu)
 
         let v4Settings = NEIPv4Settings(addresses: allV4.map { RoutePlanner.ipOnly($0) },
@@ -481,40 +520,21 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
             v6Settings.includedRoutes = v6Routes
             settings.ipv6Settings = v6Settings
         }
-
-        // DNS：多网络时不设置（默认路由已禁用，系统流量不走隧道，ZT DNS 无意义）；
-        // 单网络维持三模式
-        if valid.count == 1 {
-            let item = valid[0]
-            switch item.entry.dnsMode {
-            case .network:
-                let servers = (item.cfg.dns as [String])
-                if !servers.isEmpty {
-                    settings.dnsSettings = NEDNSSettings(servers: servers)
-                }
-            case .custom:
-                if !item.entry.customDns.isEmpty {
-                    settings.dnsSettings = NEDNSSettings(servers: item.entry.customDns)
-                }
-            case .none:
-                break
-            }
+        if !dnsServers.isEmpty {
+            settings.dnsSettings = NEDNSSettings(servers: dnsServers)
         }
 
         applySettingsSerial(settings) { [weak self] error in
+            guard let self else { return }
             if let error {
-                self?.diagLog("设置应用失败: \(error.localizedDescription)")
+                self.diagLog("设置应用失败: \(error.localizedDescription)")
                 StatusStore.tunnelStatus = loc("tunnel.status.applyFailed \(error.localizedDescription)")
                 StatusStore.postChange()
                 return
             }
-            self?.diagLog("设置应用成功")
-            // 组播订阅（纯软件路径：broadcast + ADI=各网络首个 IPv4）
-            for item in valid {
-                if let ipv4 = item.v4.first.flatMap({ FrameConverter.parseIPv4(RoutePlanner.ipOnly($0)) }) {
-                    self?.bridge?.multicastSubscribe(item.nwid, group: 0xffffffffffff, adi: UInt64(ipv4))
-                }
-            }
+            self.diagLog("设置应用成功")
+            // 仅应用成功后记录签名——失败不记，下次 apply 保留完整重试
+            self.appliedSignature = pendingSignature
         }
     }
 
