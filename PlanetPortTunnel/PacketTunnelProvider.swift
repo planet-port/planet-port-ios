@@ -50,6 +50,9 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
     /// settings（核心每约 60s 重推完整 netconf，无谓重配会扰动隧道接口）。
     /// 仅在应用成功后记录；拆数据面/停机时清除。
     private var appliedSignature: String? = nil
+    /// 隧道当前是否持有真实路由设置。全部网络失效时撤路由（换良性占位设置）；
+    /// false 时跳过重复撤除。恢复由正常 apply 路径重套。
+    private var hasAppliedSettings = false
     private var configObserver: DarwinNotifyObserver?
     /// 网络路径监听：接口切换（Wi-Fi↔蜂窝）或断网恢复时重启核心
     private var pathMonitor: Network.NWPathMonitor?
@@ -117,6 +120,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
             self?.settingsWork = nil
             self?.networkConfigs = [:]
             self?.appliedSignature = nil
+            self?.hasAppliedSettings = false
         }
         stopCore()
         StatusStore.tunnelStatus = loc("tunnel.status.stopped")
@@ -323,8 +327,21 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         // 鸡生蛋规避（早期 UP 无地址时套设置会掐断物理路由）由地址判空天然覆盖。
         // 只接受 UP(1)/CONFIG_UPDATE(2)；DOWN(3)/DESTROY(4) 的回调可能仍带旧地址，
         // 误存会把已离开网络的残留配置塞回快照（日志实测 leave 时 op=4 status=1 addrs=1）。
-        guard op == 1 || op == 2, !(cfg.assignedAddrs as [String]).isEmpty else {
-            diagLog("cfg \(nwidStr) 跳过（op=\(op) 无地址或 DOWN/DESTROY）")
+        guard op == 1 || op == 2 else {
+            diagLog("cfg \(nwidStr) 跳过（op=\(op) DOWN/DESTROY）")
+            return
+        }
+        if (cfg.assignedAddrs as [String]).isEmpty {
+            // 无地址的完整配置 = 被控制器剔除（吊销授权/移出网络）：清既有快照并
+            // 重聚合，数据面撤除路径（valid.isEmpty 换良性占位设置）自然触发；否则
+            // 旧快照滞留会让路由继续指向 TUN 成黑洞。首启 REQUESTING 中间态删不到
+            // 快照，no-op 无害
+            configQueue.async { [weak self] in
+                guard let self else { return }
+                if self.networkConfigs.removeValue(forKey: nwid) != nil {
+                    self.scheduleSettingsApply()
+                }
+            }
             return
         }
 
@@ -397,13 +414,39 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         let valid = items.filter { conflicts[$0.nwid] == nil }
         diagLog("apply items=\(items.map { String(format: "%016llx", $0.nwid) }) conflicts=\(conflicts.count) valid=\(valid.count)")
         if valid.isEmpty {
+            // 全部网络失效（控制器吊销/无地址）：撤下数据面——留存旧设置会让系统
+            // 路由继续指向隧道成黑洞（routeVia 场景下全设备断网）。NE 无 fd 可关，
+            // 等价动作是换上良性占位设置：地址取保留网段 198.18.0.1/32，路由仅其
+            // 自身 /32，撤除 DNS（includedRoutes 传空会被系统按全量默认路由处理，
+            // 黑洞更糟）。隧道保持存活，网络恢复后由正常 apply 路径重套。
+            if hasAppliedSettings {
+                let degraded = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: "127.0.0.1")
+                degraded.mtu = NSNumber(value: 1280)
+                let v4 = NEIPv4Settings(addresses: ["198.18.0.1"], subnetMasks: ["255.255.255.255"])
+                v4.includedRoutes = [NEIPv4Route(destinationAddress: "198.18.0.1",
+                                                 subnetMask: "255.255.255.255")]
+                degraded.ipv4Settings = v4
+                applySettingsSerial(degraded) { [weak self] error in
+                    guard let self else { return }
+                    if let error {
+                        self.diagLog("撤路由失败: \(error.localizedDescription)")
+                        StatusStore.tunnelStatus = loc("tunnel.status.applyFailed \(error.localizedDescription)")
+                        StatusStore.postChange()
+                    } else {
+                        self.hasAppliedSettings = false
+                        self.diagLog("数据面已撤（隧道路由下线）")
+                    }
+                }
+                // 立即清签名：同配置网络恢复时幂等闸门不得挡住重建
+                appliedSignature = nil
+            }
             StatusStore.applyTrace = """
-            items=\(items.count) valid=0（无可用网络，未套设置）
+            items=\(items.count) valid=0（无可用网络，数据面已撤/路由下线）
             快照 networkConfigs=\(networkConfigs.keys.map { String(format: "%016llx", $0) }.sorted())
             \(converter?.debugSummary() ?? "")
             """
+            return
         }
-        guard !valid.isEmpty else { return }
 
         // 多网络下默认路由一律不生效（控制面已联动关闭 routeVia，数据面兜底再拦一次）
         let routeVia = valid.count == 1 && valid[0].entry.routeViaZeroTier
@@ -535,6 +578,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
             self.diagLog("设置应用成功")
             // 仅应用成功后记录签名——失败不记，下次 apply 保留完整重试
             self.appliedSignature = pendingSignature
+            self.hasAppliedSettings = true
         }
     }
 
