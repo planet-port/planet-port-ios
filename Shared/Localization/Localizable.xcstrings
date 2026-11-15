@@ -3617,6 +3617,28 @@
         }
       }
     },
+    "error.planet.tooLarge" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Planet file too large (limit 8 MB)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "planet 文件过大（上限 8 MB）"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "planet 檔案過大（上限 8 MB）"
+          }
+        }
+      }
+    },
     "error.planet.reservedName" : {
       "extractionState" : "stale",
       "localizations" : {

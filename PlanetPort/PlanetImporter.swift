@@ -6,12 +6,14 @@ enum PlanetImporter {
         case badHeader
         case downloadFailed
         case emptyName
+        case tooLarge
 
         var errorDescription: String? {
             switch self {
             case .badHeader: return loc("error.planet.badHeader")
             case .downloadFailed: return loc("error.downloadFailed")
             case .emptyName: return loc("error.planet.emptyName")
+            case .tooLarge: return loc("error.planet.tooLarge")
             }
         }
     }
@@ -81,6 +83,8 @@ enum PlanetImporter {
             var expected: Int64 = -1
             /// 非 200 时先回调失败再取消任务，didComplete 会再触发一次，哨兵防重复
             var finished = false
+            /// 下载上限（误指大文件/恶意超大响应防护；合法 planet 文件远小于此）
+            let maxBytes = 8 * 1024 * 1024
 
             init(onProgress: @escaping (Double?) -> Void,
                  completion: @escaping (Result<Data, Error>) -> Void) {
@@ -97,12 +101,25 @@ enum PlanetImporter {
                     completionHandler(.cancel)
                     return
                 }
+                if response.expectedContentLength > Int64(maxBytes) {
+                    finished = true
+                    completion(.failure(ImportError.tooLarge))
+                    completionHandler(.cancel)
+                    return
+                }
                 expected = response.expectedContentLength
                 completionHandler(.allow)
             }
 
             func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
                 self.data.append(data)
+                if self.data.count > self.maxBytes {
+                    guard !finished else { return }
+                    finished = true
+                    completion(.failure(ImportError.tooLarge))
+                    session.invalidateAndCancel()
+                    return
+                }
                 let total = Int64(self.data.count)
                 onProgress(expected > 0 ? min(1, Double(total) / Double(expected)) : nil)
             }
