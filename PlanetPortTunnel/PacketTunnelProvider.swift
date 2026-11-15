@@ -50,6 +50,11 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
     /// settings（核心每约 60s 重推完整 netconf，无谓重配会扰动隧道接口）。
     /// 仅在应用成功后记录；拆数据面/停机时清除。
     private var appliedSignature: String? = nil
+    /// 最近一次"设置应用失败"写入的文案。应用失败后若控制器侧恢复、设置重新
+    /// 应用成功，且期间文案未被更高优先级状态（如致命身份冲突）覆盖，则比对
+    /// 复位回运行中——不盲写，避免抹掉仍在生效的更高优先级状态。
+    /// 读写在 configQueue（与 appliedSignature 同队列）
+    private var applyFailureStatusText: String? = nil
     /// 隧道当前是否持有真实路由设置。全部网络失效时撤路由（换良性占位设置）；
     /// false 时跳过重复撤除。恢复由正常 apply 路径重套。
     private var hasAppliedSettings = false
@@ -118,6 +123,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
             self?.networkConfigs = [:]
             self?.appliedSignature = nil
             self?.hasAppliedSettings = false
+            self?.applyFailureStatusText = nil
         }
         // 与 restartQueue 上在飞的 restartCore 串行化（sync 屏障）：等其 stop/start
         // 走完再统一停核——消除两线程并发 stopCore 的 udpSocket 双关竞态与
@@ -437,11 +443,13 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
                                                  subnetMask: "255.255.255.255")]
                 degraded.ipv4Settings = v4
                 applySettingsSerial(degraded) { [weak self] error in
-                    guard let self else { return }
+                    guard let self, self.running else { return }
                     if let error {
                         self.diagLog("撤路由失败: \(error.localizedDescription)")
-                        StatusStore.tunnelStatus = loc("tunnel.status.applyFailed \(error.localizedDescription)")
+                        let text = loc("tunnel.status.applyFailed \(error.localizedDescription)")
+                        StatusStore.tunnelStatus = text
                         StatusStore.postChange()
+                        self.applyFailureStatusText = text
                     } else {
                         self.hasAppliedSettings = false
                         self.diagLog("数据面已撤（隧道路由下线）")
@@ -587,17 +595,26 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         }
 
         applySettingsSerial(settings) { [weak self] error in
-            guard let self else { return }
+            guard let self, self.running else { return }
             if let error {
                 self.diagLog("设置应用失败: \(error.localizedDescription)")
-                StatusStore.tunnelStatus = loc("tunnel.status.applyFailed \(error.localizedDescription)")
+                let text = loc("tunnel.status.applyFailed \(error.localizedDescription)")
+                StatusStore.tunnelStatus = text
                 StatusStore.postChange()
+                self.applyFailureStatusText = text
                 return
             }
             self.diagLog("设置应用成功")
             // 仅应用成功后记录签名——失败不记，下次 apply 保留完整重试
             self.appliedSignature = pendingSignature
             self.hasAppliedSettings = true
+            if let failed = self.applyFailureStatusText {
+                self.applyFailureStatusText = nil
+                if StatusStore.tunnelStatus == failed {
+                    StatusStore.tunnelStatus = loc("tunnel.status.running")
+                    StatusStore.postChange()
+                }
+            }
         }
     }
 
