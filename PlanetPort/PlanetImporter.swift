@@ -159,15 +159,13 @@ enum PlanetImporter {
         return id
     }
 
-    /// 已存在的 World ID 集合（含官方 Planet 的内置 ID），用于添加时查重。
-    static func existingWorldIds() -> Set<UInt64> {
-        var ids: Set<UInt64> = [149604618] // ZT_WORLD_ID_EARTH
+    /// 查找占用该 World ID 的行星档案（官方内置 Earth 恒为官方档案），未占用返回 nil。
+    static func worldIdOwner(_ worldId: UInt64) -> PlanetProfile? {
+        if worldId == 149604618 { return .official } // ZT_WORLD_ID_EARTH
         for profile in AppConfigStore.readPlanets() {
-            if let info = inspectPlanetFile(profile) {
-                ids.insert(info.worldId)
-            }
+            if inspectPlanetFile(profile)?.worldId == worldId { return profile }
         }
-        return ids
+        return nil
     }
 
     /// 更新自定义图标(动物 key)与底色 hex;icon 传 nil 表示未设置(按名称哈希回退)。

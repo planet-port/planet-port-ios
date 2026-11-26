@@ -279,10 +279,10 @@ struct AddPlanetForm: View {
 
     private func add() {
         guard let data = pendingData else { return }
-        // 相同 World ID 视为同一个 Planet，禁止重复创建。
+        // 相同 World ID 视为同一个 Planet，禁止重复创建（提示报出冲突行星名）。
         if let worldId = PlanetImporter.worldId(of: data),
-           PlanetImporter.existingWorldIds().contains(worldId) {
-            alert = loc("addplanet.duplicate \(String(format: "%016llx", worldId))")
+           let owner = PlanetImporter.worldIdOwner(worldId) {
+            alert = loc("addplanet.duplicate \(owner.displayName)")
             return
         }
         do {

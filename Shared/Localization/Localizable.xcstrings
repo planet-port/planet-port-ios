@@ -90,19 +90,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "A planet with the same World ID (%@) already exists and cannot be added again."
+            "value" : "The imported server has the same ID as %@. No need to import it again."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已存在相同的 Planet（World ID %@），不能重复添加。"
+            "value" : "导入的服务器与%@的 ID 相同，不需要重复导入。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已存在相同的 Planet（World ID %@），不能重複新增。"
+            "value" : "匯入的伺服器與%@的 ID 相同，不需要重複匯入。"
           }
         }
       }
